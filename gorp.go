@@ -94,7 +94,6 @@ func (m *DbMap) Put(i interface{}) error {
             fmt.Fprint(buffer, ", ")
         }
         fmt.Fprint(buffer, col.Name)
-		fmt.Printf("  Put()  col.Name=%s col.gotype=%v\n", col.Name, col.gotype)
         args[x] = v.FieldByName(col.Name).Interface()
     }
     fmt.Fprint(buffer, ") values (")
@@ -105,7 +104,6 @@ func (m *DbMap) Put(i interface{}) error {
         fmt.Fprint(buffer, "?")
     }
     fmt.Fprint(buffer, ");")
-	fmt.Printf(" sql: %s %v\n", buffer.String(), args)
     _, err := m.Db.Exec(buffer.String(), args...)
     return err
 }
@@ -115,36 +113,26 @@ func (m *DbMap) Get(key interface{}, i interface{}) (interface{}, error) {
     table := m.TableFor(t)
 
 	v := reflect.New(t)
+	dest := make([]interface{}, len(table.Columns))
 
 	sql := bytes.Buffer{}
 	sql.WriteString("select ")
-	dest := make([]interface{}, len(table.Columns))
+
 	for x := range table.Columns {
 		col := table.Columns[x]
 		if x > 0 {
 			sql.WriteString(",")
 		}
 		sql.WriteString(col.Name)
-		//f := reflect.Indirect(v).FieldByName(col.Name)
-		//fmt.Printf("getting Addr of: %v\n", f)
-		//dest[x] = f.Addr()
-
-		var tmp string
 
 		dest[x] = v.Elem().FieldByName(col.Name).Addr().Interface()
-		fmt.Printf("type of dest[x]: %v to %v - %v\n", reflect.ValueOf(dest[x]).Kind(),
-			reflect.Indirect(v.Elem().FieldByName(col.Name).Addr()).Kind(),
-			reflect.ValueOf(&tmp).Kind())
 	}
 	sql.WriteString(fmt.Sprintf(" from %s where Id=?", table.Name))
-	fmt.Printf("running: %s %v\n" , sql.String(), dest)
+
 	row := m.Db.QueryRow(sql.String(), key)
-	//var v1, v2, v3 int
 	err := row.Scan(dest...); if err != nil {
 		return nil, err
 	}
-	fmt.Printf("post: %s %v\n" , sql.String(), reflect.ValueOf(dest[0]).Elem().Interface())
-
 	return v.Elem().Interface(), nil
 }
 
