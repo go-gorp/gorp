@@ -67,7 +67,7 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
         tmap.columns[i] = &ColumnMap{
             gotype : f.Type, 
             Name : f.Name, 
-            sqlType : ValueToSqlType(f.Type),
+            sqlType : GoToSqlType(f.Type),
         }
     }
 
@@ -229,7 +229,7 @@ func execSqlStr(m *DbMap, query string) error {
 
 ///////////////
 
-func ValueToSqlType(val reflect.Type) string {
+func GoToSqlType(val reflect.Type) string {
     switch (val.Kind()) {
     case reflect.Int, reflect.Int16, reflect.Int32:
         return "int"

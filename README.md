@@ -58,13 +58,13 @@ Then create a mapper, typically you'd do this one time at app startup:
     
     // register the structs you wish to use with gorp
     t1 : = dbmap.AddTable(Product{})
-    t1.SetAutoIncrPK("Id")
+    t1.SetKeys(true, "Id")
     
     // or use the builder syntax
-    dbmap.AddTable(Order{}).SetAutoIncrPK("Id")
+    dbmap.AddTable(Order{}).SetKeys("Id")
     
     // optionally override the table name
-    dbmap.AddTableWithName(LineItem{}, "line_item").SetAutoIncrPK("Id")
+    dbmap.AddTableWithName(LineItem{}, "line_item").SetKeys("Id")
 
 Then save some data:
 
