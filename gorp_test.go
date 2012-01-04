@@ -2,6 +2,8 @@ package gorp_test
 
 import (
     "testing"
+	"log"
+	"os"
 	"reflect"
     "exp/sql"
 	. "github.com/coopernurse/gorp"
@@ -25,15 +27,35 @@ type LineItem struct {
     UnitPrice   int
 }
 
-func TestCrud(t *testing.T) {
-    dbmap := &DbMap{}    
-    dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
-
-    dbmap.Db = connect()
-    dbmap.CreateTables()
+func TestMultiple(t *testing.T) {
+    dbmap := initDbMap()
 	defer dbmap.DropTables()
 
-    inv := Invoice{99, 100, 200, "first order"}
+	inv1 := &Invoice{0, 100, 200, "a"}
+	inv2 := &Invoice{0, 100, 200, "b"}
+	err := dbmap.Insert(inv1, inv2); if err != nil {
+		panic(err)
+	}
+
+	inv1.Memo = "c"
+	inv2.Memo = "d"
+	err = dbmap.Update(inv1, inv2); if err != nil {
+		panic(err)
+	}
+
+	count, err := dbmap.Delete(inv1, inv2); if err != nil {
+		panic(err)
+	}
+	if count != 2 {
+		t.Errorf("%d != 2", count)
+	}
+}
+
+func TestCrud(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+    inv := &Invoice{0, 100, 200, "first order"}
 
 	// INSERT row
     err := dbmap.Insert(inv); if err != nil {
@@ -45,7 +67,7 @@ func TestCrud(t *testing.T) {
 		panic(err)
 	}
     inv2 := obj.(Invoice)
-    if !reflect.DeepEqual(inv, inv2) {
+    if !reflect.DeepEqual(*inv, inv2) {
         t.Errorf("%v != %v", inv, inv2)
     }
 
@@ -53,7 +75,7 @@ func TestCrud(t *testing.T) {
 	deleted, err := dbmap.Delete(inv); if err != nil {
 		panic(err)
 	}
-	if !deleted {
+	if deleted != 1 {
 		t.Errorf("Did not delete row with Id: %d", inv.Id)
 		return
 	}
@@ -65,6 +87,16 @@ func TestCrud(t *testing.T) {
 	if obj != nil {
 		t.Errorf("Found invoice with id: %d after Delete()", inv.Id)
 	}
+}
+
+func initDbMap() *DbMap {
+	dbmap := &DbMap{}   
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds)) 
+    dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
+    dbmap.Db = connect()
+    dbmap.CreateTables()
+
+	return dbmap
 }
 
 func connect() *sql.DB {
