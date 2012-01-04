@@ -11,6 +11,7 @@ import (
 
 type DbMap struct {
     Db           *sql.DB
+	Dialect      Dialect
     tables       []*TableMap
 	logger       *log.Logger
     logPrefix    string
@@ -84,7 +85,7 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
         tmap.columns[i] = &ColumnMap{
             gotype : f.Type, 
             Name : f.Name, 
-            sqlType : GoToSqlType(f.Type),
+            sqlType : m.Dialect.ToSqlType(f.Type),
         }
     }
 
@@ -116,6 +117,13 @@ func (m *DbMap) CreateTables() error {
 				s.WriteString(",\n")
             }
             s.WriteString(fmt.Sprintf("    %s %s", col.Name, col.sqlType))
+
+			if col.isPK {
+				s.WriteString(" primary key")
+			}
+			if col.isAutoIncr {
+				s.WriteString(fmt.Sprintf(" %s", m.Dialect.AutoIncrStr()))
+			}
         }
         s.WriteString(");")
         _, err = m.execSql(s.String())
@@ -141,27 +149,40 @@ func (m *DbMap) Insert(list ...interface{}) error {
 			return err
 		}
 
-		args := make([]interface{}, len(table.columns))
+		args := make([]interface{}, 0)
 		s := bytes.Buffer{}
+		s2 := bytes.Buffer{}
 		s.WriteString(fmt.Sprintf("insert into %s (", table.Name))
-		for x := range table.columns {
-			col := table.columns[x]
-			if x > 0 {
-				s.WriteString(", ")
+		autoIncrIdx := -1
+		x := 0
+		for y := range table.columns {
+			col := table.columns[y]
+			if col.isAutoIncr {
+				autoIncrIdx = y
+			} else {
+				if x > 0 {
+					s.WriteString(",")
+					s2.WriteString(",")
+				}
+				s.WriteString(col.Name)
+				s2.WriteString("?")
+
+				args = append(args, elem.FieldByName(col.Name).Interface())
+				x++
 			}
-			s.WriteString(col.Name)
-			args[x] = elem.FieldByName(col.Name).Interface()
 		}
 		s.WriteString(") values (")
-		for x := range table.columns {
-			if x > 0 {
-				s.WriteString(", ")
-			}
-			s.WriteString("?")
-		}
+		s.WriteString(s2.String())
 		s.WriteString(");")
-		_, err = m.execSql(s.String(), args...); if err != nil {
+		res, err := m.execSql(s.String(), args...); if err != nil {
 			return err
+		}
+
+		if autoIncrIdx > -1 {
+			id, err := res.LastInsertId(); if err != nil {
+				return err
+			}
+			elem.Field(autoIncrIdx).SetInt(id)
 		}
 	}
 	return nil
@@ -277,7 +298,7 @@ func (m *DbMap) Get(key interface{}, i interface{}) (interface{}, error) {
 		}
 		return nil, err
 	}
-	return v.Elem().Interface(), nil
+	return v.Interface(), nil
 }
 
 func (m *DbMap) TableFor(t reflect.Type) *TableMap {
@@ -320,7 +341,14 @@ func (m *DbMap) trace(query string, args ...interface{}) {
 
 ///////////////
 
-func GoToSqlType(val reflect.Type) string {
+type Dialect interface {
+	ToSqlType(val reflect.Type) string
+	AutoIncrStr() string
+}
+
+type MySQLDialect struct { }
+
+func (m MySQLDialect) ToSqlType(val reflect.Type) string {
     switch (val.Kind()) {
     case reflect.Int, reflect.Int16, reflect.Int32:
         return "int"
@@ -329,4 +357,8 @@ func GoToSqlType(val reflect.Type) string {
     }
 
     return "varchar(255)"
+}
+
+func (m MySQLDialect) AutoIncrStr() string {
+	return "auto_increment"
 }

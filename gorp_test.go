@@ -61,13 +61,32 @@ func TestCrud(t *testing.T) {
     err := dbmap.Insert(inv); if err != nil {
 		panic(err)
 	}
+	if inv.Id == 0 {
+		t.Errorf("inv.Id was not set on INSERT")
+		return
+	}
 
 	// SELECT row
     obj, err := dbmap.Get(inv.Id, Invoice{}); if err != nil {
 		panic(err)
 	}
-    inv2 := obj.(Invoice)
-    if !reflect.DeepEqual(*inv, inv2) {
+    inv2 := obj.(*Invoice)
+    if !reflect.DeepEqual(inv, inv2) {
+        t.Errorf("%v != %v", inv, inv2)
+    }
+
+	// UPDATE row and SELECT
+	inv.Memo = "second order"
+	inv.Created = 999
+	inv.Updated = 11111
+	err = dbmap.Update(inv); if err != nil {
+		panic(err)
+	}
+    obj, err = dbmap.Get(inv.Id, Invoice{}); if err != nil {
+		panic(err)
+	}
+    inv2 = obj.(*Invoice)
+    if !reflect.DeepEqual(inv, inv2) {
         t.Errorf("%v != %v", inv, inv2)
     }
 
@@ -90,10 +109,9 @@ func TestCrud(t *testing.T) {
 }
 
 func initDbMap() *DbMap {
-	dbmap := &DbMap{}   
+	dbmap := &DbMap{Db: connect(), Dialect: MySQLDialect{}}   
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds)) 
     dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
-    dbmap.Db = connect()
     dbmap.CreateTables()
 
 	return dbmap

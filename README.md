@@ -54,7 +54,7 @@ Then create a mapper, typically you'd do this one time at app startup:
     db, err := sql.Open("mysql", "myuser:mypassword@localhost:3306/dbname")
     
     // construct a gorp DbMap
-    dbmap := &gorp.DbMap{Db: db}
+    dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{}}
     
     // register the structs you wish to use with gorp
     t1 : = dbmap.AddTable(Product{})
