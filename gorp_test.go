@@ -1,9 +1,10 @@
-package gorp
+package gorp_test
 
 import (
     "testing"
 	"reflect"
     "exp/sql"
+	. "github.com/coopernurse/gorp"
     _ "github.com/ziutek/mymysql/godrv"
 )
 
@@ -11,6 +12,7 @@ type Invoice struct {
     Id          int64
     Created     int64
     Updated     int64
+	Memo        string
 }
 
 type LineItem struct {
@@ -24,21 +26,21 @@ type LineItem struct {
 }
 
 func TestCrud(t *testing.T) {
-    inv := Invoice{Id: 99, Created: 100, Updated: 200}
-    //line1 := &LineItem{ProductId: 10, Quantity: 1, UnitPrice: 30}
-    //line2 := &LineItem{ProductId: 20, Quantity: 2, UnitPrice: 50}
-
-    dbmap := &DbMap{}
-    
-    t1 := dbmap.AddTable(Invoice{})
-    t1.Name = "invoice_test"
+    dbmap := &DbMap{}    
+    dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 
     dbmap.Db = connect()
     dbmap.CreateTables()
+	defer dbmap.DropTables()
 
-    err := dbmap.Put(inv); if err != nil {
+    inv := Invoice{99, 100, 200, "first order"}
+
+	// INSERT row
+    err := dbmap.Insert(inv); if err != nil {
 		panic(err)
 	}
+
+	// SELECT row
     obj, err := dbmap.Get(inv.Id, Invoice{}); if err != nil {
 		panic(err)
 	}
@@ -46,7 +48,23 @@ func TestCrud(t *testing.T) {
     if !reflect.DeepEqual(inv, inv2) {
         t.Errorf("%v != %v", inv, inv2)
     }
-    dbmap.DropTables()
+
+	// DELETE row
+	deleted, err := dbmap.Delete(inv); if err != nil {
+		panic(err)
+	}
+	if !deleted {
+		t.Errorf("Did not delete row with Id: %d", inv.Id)
+		return
+	}
+
+	// VERIFY deleted
+	obj, err = dbmap.Get(inv.Id, Invoice{}); if err != nil {
+		panic(err)
+	}
+	if obj != nil {
+		t.Errorf("Found invoice with id: %d after Delete()", inv.Id)
+	}
 }
 
 func connect() *sql.DB {

@@ -5,6 +5,7 @@ import (
     "exp/sql"
     "fmt"
     "bytes"
+	"errors"
 )
 
 type DbMap struct {
@@ -15,27 +16,58 @@ type DbMap struct {
 type TableMap struct {
     gotype      reflect.Type
     Name        string
-    Columns     []*ColumnMap
+    columns     []*ColumnMap
+	keys        []*keyColumn
 }
 
 type ColumnMap struct {
     gotype      reflect.Type
     Name        string
-    SqlType     string
+    sqlType     string
+}
+
+type keyColumn struct {
+	column        *ColumnMap
+	autoIncrement bool
+}
+
+func (t *TableMap) SetKeys(autoincr bool, colnames ...string) error {
+	for _, colname := range(colnames) {
+		found := false
+		for i := 0; i < len(t.columns) && !found; i++ {
+			if t.columns[i].Name == colname {
+				t.keys = append(t.keys, &keyColumn{t.columns[i], autoincr})
+				found = true
+			}
+		}
+		if !found {
+			return errors.New(fmt.Sprintf("gorp: No column with name: %s", 
+				colname))		
+		}
+	}
+
+	return nil
 }
 
 func (m *DbMap) AddTable(i interface{}) *TableMap {
+	return m.AddTableWithName(i, "")
+}
+
+func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
     t := reflect.TypeOf(i)
-    tmap := &TableMap{gotype: t, Name: t.Name() }
+	if name == "" {
+		name = t.Name()
+	}
+    tmap := &TableMap{gotype: t, Name: name }
 
     n := t.NumField()
-    tmap.Columns = make([]*ColumnMap, n, n)
+    tmap.columns = make([]*ColumnMap, n, n)
     for i := 0; i < n; i++ {
         f := t.Field(i)
-        tmap.Columns[i] = &ColumnMap{
+        tmap.columns[i] = &ColumnMap{
             gotype : f.Type, 
             Name : f.Name, 
-            SqlType : ValueToSqlType(f.Type),
+            sqlType : ValueToSqlType(f.Type),
         }
     }
 
@@ -60,12 +92,12 @@ func (m *DbMap) CreateTables() error {
         buffer := bytes.NewBufferString("");
         table := m.tables[i]
         fmt.Fprintf(buffer, "create table %s (\n", table.Name)
-        for x := range table.Columns {
-            col := table.Columns[x]
+        for x := range table.columns {
+            col := table.columns[x]
             if x > 0 {
                 fmt.Fprint(buffer, ", ")
             }
-            fmt.Fprintf(buffer, "    %s %s\n", col.Name, col.SqlType)
+            fmt.Fprintf(buffer, "    %s %s\n", col.Name, col.sqlType)
         }
         fmt.Fprintf(buffer, ");")
         err = execSql(m, buffer)
@@ -82,14 +114,14 @@ func (m *DbMap) DropTables() error {
     return err
 }
 
-func (m *DbMap) Put(i interface{}) error {
+func (m *DbMap) Insert(i interface{}) error {
     table := m.TableFor(reflect.TypeOf(i))
-    args := make([]interface{}, len(table.Columns))
+    args := make([]interface{}, len(table.columns))
     buffer := bytes.NewBufferString("")
     fmt.Fprintf(buffer, "insert into %s (", table.Name)
 	v := reflect.ValueOf(i)
-    for x := range table.Columns {
-        col := table.Columns[x]
+    for x := range table.columns {
+        col := table.columns[x]
         if x > 0 {
             fmt.Fprint(buffer, ", ")
         }
@@ -97,7 +129,7 @@ func (m *DbMap) Put(i interface{}) error {
         args[x] = v.FieldByName(col.Name).Interface()
     }
     fmt.Fprint(buffer, ") values (")
-    for x := range table.Columns {
+    for x := range table.columns {
         if x > 0 {
             fmt.Fprint(buffer, ", ")
         }
@@ -113,27 +145,66 @@ func (m *DbMap) Get(key interface{}, i interface{}) (interface{}, error) {
     table := m.TableFor(t)
 
 	v := reflect.New(t)
-	dest := make([]interface{}, len(table.Columns))
+	dest := make([]interface{}, len(table.columns))
 
-	sql := bytes.Buffer{}
-	sql.WriteString("select ")
+	s := bytes.Buffer{}
+	s.WriteString("select ")
 
-	for x := range table.Columns {
-		col := table.Columns[x]
+	for x := range table.columns {
+		col := table.columns[x]
 		if x > 0 {
-			sql.WriteString(",")
+			s.WriteString(",")
 		}
-		sql.WriteString(col.Name)
+		s.WriteString(col.Name)
 
 		dest[x] = v.Elem().FieldByName(col.Name).Addr().Interface()
 	}
-	sql.WriteString(fmt.Sprintf(" from %s where Id=?", table.Name))
+	s.WriteString(fmt.Sprintf(" from %s where Id=?;", table.Name))
 
-	row := m.Db.QueryRow(sql.String(), key)
+	row := m.Db.QueryRow(s.String(), key)
 	err := row.Scan(dest...); if err != nil {
+		if err == sql.ErrNoRows {
+			err = nil
+		}
 		return nil, err
 	}
 	return v.Elem().Interface(), nil
+}
+
+func (m *DbMap) Delete(i interface{}) (bool, error) {
+	t := reflect.TypeOf(i)
+    table := m.TableFor(t)
+
+	if len(table.keys) < 1 {
+		e := fmt.Sprintf("gorp: No keys defined for table: %s", table.Name)
+		return false, errors.New(e)
+	}
+
+	v := reflect.ValueOf(i)
+	args := make([]interface{}, 0)
+
+	sql := bytes.Buffer{}
+	sql.WriteString("delete from ")
+	sql.WriteString(table.Name)
+	sql.WriteString(" where ")
+	for x := range table.keys {
+		k := table.keys[x]
+		if x > 0 {
+			sql.WriteString(" and ")
+		}
+		sql.WriteString(k.column.Name)
+		sql.WriteString("=?")
+
+		args = append(args, v.FieldByName(k.column.Name).Interface())
+	}
+	sql.WriteString(";")
+	res, err := m.Db.Exec(sql.String(), args...); if err != nil {
+		return false, err
+	}
+	rows, err := res.RowsAffected(); if err != nil {
+		return false, err
+	}
+    return rows == 1, nil
 }
 
 func (m *DbMap) TableFor(t reflect.Type) *TableMap {
