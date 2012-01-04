@@ -66,6 +66,15 @@ Then create a mapper, typically you'd do this one time at app startup:
     // optionally override the table name
     dbmap.AddTableWithName(LineItem{}, "line_item").SetKeys("Id")
 
+Optionally you can pass in a log.Logger to trace all SQL statements:
+
+    // Will log all SQL statements + args as they are run
+    // The first arg is a string prefix to prepend to all log messages
+    dbmap.TraceOn("[gorp]", log.New(os.Stdout, "myapp:", log.Lmicroseconds)) 
+    
+    // Turn off tracing
+    dbmap.TraceOff()
+
 Then save some data:
 
     p1 := &Product{Description: "Wool socks", UnitPrice: 499, IsTaxable: true}
