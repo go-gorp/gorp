@@ -27,6 +27,35 @@ type LineItem struct {
     UnitPrice   int
 }
 
+func TestTransaction(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	inv1 := &Invoice{0, 100, 200, "t1"}
+	inv2 := &Invoice{0, 100, 200, "t2"}
+
+	trans, err := dbmap.Begin(); if err != nil {
+		panic(err)
+	}
+    trans.Insert(inv1, inv2)
+    err = trans.Commit(); if err != nil {
+		panic(err)
+	}
+
+	obj, err := dbmap.Get(inv1.Id, Invoice{}); if err != nil {
+		panic(err)
+	}
+	if !reflect.DeepEqual(inv1, obj) {
+		t.Errorf("%v != %v", inv1, obj)
+	}
+	obj, err = dbmap.Get(inv2.Id, Invoice{}); if err != nil {
+		panic(err)
+	}
+	if !reflect.DeepEqual(inv2, obj) {
+		t.Errorf("%v != %v", inv2, obj)
+	}
+}
+
 func TestMultiple(t *testing.T) {
     dbmap := initDbMap()
 	defer dbmap.DropTables()
@@ -109,7 +138,8 @@ func TestCrud(t *testing.T) {
 }
 
 func initDbMap() *DbMap {
-	dbmap := &DbMap{Db: connect(), Dialect: MySQLDialect{}}   
+	dialect := MySQLDialect{"InnoDB", "UTF8"}
+	dbmap := &DbMap{Db: connect(), Dialect: dialect}
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds)) 
     dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
     dbmap.CreateTables()
