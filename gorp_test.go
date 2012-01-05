@@ -14,11 +14,11 @@ import (
 )
 
 type Invoice struct {
-	Id      int64
-	Created int64
-	Updated int64
-	Memo    string
-    PersonId int64
+	Id       int64
+	Created  int64
+	Updated  int64
+	Memo     string
+	PersonId int64
 }
 
 type Person struct {
@@ -30,10 +30,10 @@ type Person struct {
 }
 
 type InvoicePersonView struct {
-	InvoiceId   int64
-	PersonId    int64
-	Memo        string
-	FName       string
+	InvoiceId int64
+	PersonId  int64
+	Memo      string
+	FName     string
 }
 
 func (p *Person) PreInsert(s SqlExecutor) error {
@@ -76,7 +76,7 @@ func (p *Person) PostGet(s SqlExecutor) error {
 }
 
 //func TestColumnProps(t *testing.T) {
-	
+
 //}
 
 func TestRawSelect(t *testing.T) {
@@ -136,7 +136,8 @@ func TestHooks(t *testing.T) {
 
 	// Test error case
 	p2 := &Person{0, 0, 0, "badname", ""}
-	err := dbmap.Insert(p2); if err == nil {
+	err := dbmap.Insert(p2)
+	if err == nil {
 		t.Errorf("p2.PreInsert() didn't return an error")
 	}
 }
@@ -257,19 +258,22 @@ func connect() *sql.DB {
 }
 
 func insert(dbmap *DbMap, list ...interface{}) {
-	err := dbmap.Insert(list...); if err != nil {
+	err := dbmap.Insert(list...)
+	if err != nil {
 		panic(err)
 	}
 }
 
 func update(dbmap *DbMap, list ...interface{}) {
-	err := dbmap.Update(list...); if err != nil {
+	err := dbmap.Update(list...)
+	if err != nil {
 		panic(err)
 	}
 }
 
 func delete(dbmap *DbMap, list ...interface{}) int64 {
-	count, err := dbmap.Delete(list...); if err != nil {
+	count, err := dbmap.Delete(list...)
+	if err != nil {
 		panic(err)
 	}
 
@@ -277,7 +281,8 @@ func delete(dbmap *DbMap, list ...interface{}) int64 {
 }
 
 func get(dbmap *DbMap, i interface{}, keys ...interface{}) interface{} {
-	obj, err := dbmap.Get(i, keys...); if err != nil {
+	obj, err := dbmap.Get(i, keys...)
+	if err != nil {
 		panic(err)
 	}
 
@@ -285,7 +290,8 @@ func get(dbmap *DbMap, i interface{}, keys ...interface{}) interface{} {
 }
 
 func rawselect(dbmap *DbMap, i interface{}, query string, args ...interface{}) []interface{} {
-	list, err := dbmap.Select(i, query, args...); if err != nil {
+	list, err := dbmap.Select(i, query, args...)
+	if err != nil {
 		panic(err)
 	}
 	return list

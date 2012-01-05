@@ -40,8 +40,8 @@ type Transaction struct {
 }
 
 type SqlExecutor interface {
-    Get(i interface{}, keys ...interface{}) (interface{}, error)
-    Insert(list ...interface{}) error
+	Get(i interface{}, keys ...interface{}) (interface{}, error)
+	Insert(list ...interface{}) error
 	Update(list ...interface{}) error
 	Delete(list ...interface{}) (int64, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
@@ -196,7 +196,7 @@ func (m *DbMap) tableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 		table := m.tables[i]
 		if table.gotype == t {
 			if checkPK && len(table.keys) < 1 {
-				e := fmt.Sprintf("gorp: No keys defined for table: %s", 
+				e := fmt.Sprintf("gorp: No keys defined for table: %s",
 					table.Name)
 				return nil, errors.New(e)
 			}
@@ -209,13 +209,14 @@ func (m *DbMap) tableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 func (m *DbMap) tableForPointer(ptr interface{}, checkPK bool) (*TableMap, reflect.Value, error) {
 	ptrv := reflect.ValueOf(ptr)
 	if ptrv.Kind() != reflect.Ptr {
-		e := fmt.Sprintf("gorp: passed non-pointer: %v (kind=%v)", ptr, 
+		e := fmt.Sprintf("gorp: passed non-pointer: %v (kind=%v)", ptr,
 			ptrv.Kind())
 		return nil, reflect.Value{}, errors.New(e)
 	}
 	elem := ptrv.Elem()
 	etype := reflect.TypeOf(elem.Interface())
-	t, err := m.tableFor(etype, checkPK); if err != nil {
+	t, err := m.tableFor(etype, checkPK)
+	if err != nil {
 		return nil, reflect.Value{}, err
 	}
 
@@ -290,17 +291,19 @@ func (t *Transaction) query(query string, args ...interface{}) (*sql.Rows, error
 
 ///////////////
 
-func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string, 
+func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	args ...interface{}) ([]interface{}, error) {
 
 	// Run the query
-	rows, err := exec.query(query, args...); if err != nil {
+	rows, err := exec.query(query, args...)
+	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	// Fetch the column names as returned from db
-	cols, err := rows.Columns(); if err != nil {
+	cols, err := rows.Columns()
+	if err != nil {
 		return nil, err
 	}
 
@@ -315,11 +318,11 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		// Loop over column names and find field in i to bind to
 		// based on column name. all returned columns must match
 		// a property in the i struct
-		for x := range(cols) {
+		for x := range cols {
 			col := cols[x]
 			f := v.Elem().FieldByName(col)
 			if f == zeroVal {
-				e := fmt.Sprintf("gorp: No prop %s in type %s (query: %s)", 
+				e := fmt.Sprintf("gorp: No prop %s in type %s (query: %s)",
 					col, t.Name(), query)
 				return nil, errors.New(e)
 			} else {
@@ -327,25 +330,28 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 			}
 		}
 
-		err = rows.Scan(dest...); if err != nil {
+		err = rows.Scan(dest...)
+		if err != nil {
 			return nil, err
 		}
 
-		err = runHook("PostGet", v, hookArg(exec)); if err != nil {
+		err = runHook("PostGet", v, hookArg(exec))
+		if err != nil {
 			return nil, err
 		}
-		
+
 		list = append(list, v.Interface())
 	}
 
 	return list, nil
 }
 
-func get(m *DbMap, exec SqlExecutor, i interface{}, 
+func get(m *DbMap, exec SqlExecutor, i interface{},
 	keys ...interface{}) (interface{}, error) {
 
 	t := reflect.TypeOf(i)
-	table, err := m.tableFor(t, true); if err != nil {
+	table, err := m.tableFor(t, true)
+	if err != nil {
 		return nil, err
 	}
 
@@ -388,7 +394,8 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 		return nil, err
 	}
 
-	err = runHook("PostGet", v, hookArg(exec)); if err != nil {
+	err = runHook("PostGet", v, hookArg(exec))
+	if err != nil {
 		return nil, err
 	}
 
@@ -405,7 +412,8 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 		}
 
 		eptr := elem.Addr()
-		err = runHook("PreDelete", eptr, hookarg); if err != nil {
+		err = runHook("PreDelete", eptr, hookarg)
+		if err != nil {
 			return -1, err
 		}
 
@@ -435,7 +443,8 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 		}
 		count += rows
 
-		err = runHook("PostDelete", eptr, hookarg); if err != nil {
+		err = runHook("PostDelete", eptr, hookarg)
+		if err != nil {
 			return -1, err
 		}
 	}
@@ -452,7 +461,8 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 		}
 
 		eptr := elem.Addr()
-		err = runHook("PreUpdate", eptr, hookarg); if err != nil {
+		err = runHook("PreUpdate", eptr, hookarg)
+		if err != nil {
 			return err
 		}
 
@@ -493,7 +503,8 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			return err
 		}
 
-		err = runHook("PostUpdate", eptr, hookarg); if err != nil {
+		err = runHook("PostUpdate", eptr, hookarg)
+		if err != nil {
 			return err
 		}
 	}
@@ -509,7 +520,8 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 		}
 
 		eptr := elem.Addr()
-		err = runHook("PreInsert", eptr, hookarg); if err != nil {
+		err = runHook("PreInsert", eptr, hookarg)
+		if err != nil {
 			return err
 		}
 
@@ -551,7 +563,8 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			elem.Field(autoIncrIdx).SetInt(id)
 		}
 
-		err = runHook("PostInsert", eptr, hookarg); if err != nil {
+		err = runHook("PostInsert", eptr, hookarg)
+		if err != nil {
 			return err
 		}
 	}
@@ -564,7 +577,8 @@ func hookArg(exec SqlExecutor) []reflect.Value {
 }
 
 func runHook(name string, eptr reflect.Value, arg []reflect.Value) error {
-	hook := eptr.MethodByName(name); if hook != zeroVal {
+	hook := eptr.MethodByName(name)
+	if hook != zeroVal {
 		ret := hook.Call(arg)
 		if len(ret) > 0 && !ret[0].IsNil() {
 			return ret[0].Interface().(error)
