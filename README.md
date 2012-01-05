@@ -1,15 +1,17 @@
 # Go Relational Persistence #
 
-## Goals ##
+## Features ##
 
 * Support transactions
-* Forward engineer db schema from structs (especially good for unit tests)
-* Optional optimistic locking using a version column
+* Forward engineer db schema from structs (great for unit tests)
 * Pre/post insert/update/delete hooks
-* Automatically generate insert/update statements for a struct
-* Delete by primary key
-* Select by primary key
+* Automatically generate insert/update/delete statements for a struct
+* Automatic binding of auto increment PKs back to struct after insert
+* Delete by primary key(s)
+* Select by primary key(s)
 * Optional trace sql logging
+* Bind arbitrary SQL queries to a struct
+* Coming soon: Optional optimistic locking using a version column
 
 ## Non-Goals ##
 
@@ -20,33 +22,20 @@
 
 First define some types:
 
-    type DbStruct {
-        Id        int64,
-        Created   int64,
-        Updated   int64,
-        Version   int32,
+    type Invoice struct {
+        Id       int64
+        Created  int64
+        Updated  int64
+        Memo     string
+        PersonId int64
     }
-    
-    type Product struct {
-        DbStruct
-        Description  string,
-        UnitPrice    int32,   // in pennies
-        IsTaxable    bool
-    }
-    
-    type Order struct {
-        DbStruct
-        PaymentType  string,
-        IsPaid       bool,
-        SalesTax     int32
-    }
-    
-    type LineItem struct {
-        DbStruct
-        OrderId      int64,
-        ProductId    int64,
-        Quantity     int32,
-        UnitPrice    int32
+
+    type Person struct {
+        Id      int64
+        Created int64
+        Updated int64
+        FName   string
+        LName   string
     }
 
 Then create a mapper, typically you'd do this one time at app startup:
@@ -56,17 +45,21 @@ Then create a mapper, typically you'd do this one time at app startup:
     db, err := sql.Open("mysql", "myuser:mypassword@localhost:3306/dbname")
     
     // construct a gorp DbMap
-    dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{}}
+    dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
     
     // register the structs you wish to use with gorp
-    t1 : = dbmap.AddTable(Product{})
-    t1.SetKeys(true, "Id")
+    // you can also use the shorter dbmap.AddTable() if you 
+    // don't want to override the table name
+    t1 := dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
+	t2 := dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
+
+Automatically create / drop registered tables.  Great for unit tests:
+
+    // create all registered tables
+    dbmap.CreateTables()
     
-    // or use the builder syntax
-    dbmap.AddTable(Order{}).SetKeys("Id")
-    
-    // optionally override the table name
-    dbmap.AddTableWithName(LineItem{}, "line_item").SetKeys("Id")
+    // drop
+    dbmap.DropTables()
 
 Optionally you can pass in a log.Logger to trace all SQL statements:
 
@@ -79,47 +72,82 @@ Optionally you can pass in a log.Logger to trace all SQL statements:
 
 Then save some data:
 
-    p1 := &Product{Description: "Wool socks", UnitPrice: 499, IsTaxable: true}
-    p2 := &Product{Description: "Tofu", UnitPrice: 249, IsTaxable: false}
-    
-    // Pass as a pointer so that optional callback hooks
+    // Must declare as pointers so optional callback hooks
     // can operate on your data, not copies
-    dbmap.Insert(&p1, &p2)
+    inv1 := &Invoice{0, 100, 200, "first order", 0}
+    inv2 := &Invoice{0, 100, 200, "second order", 0}
     
-    // Because we called SetAutoIncrPK() on Product, the Id field
+    // Insert your rows
+    err := dbmap.Insert(inv1, inv2)
+    
+    // Because we called SetAutoIncrPK() on Invoice, the Id field
     // will be populated after the Insert() automatically
-    fmt.Printf("p1.Id=%d\n", p1.Id)
+    fmt.Printf("inv1.Id=%d  inv2.Id=%d\n", inv1.Id, inv2.Id)
 
 You can execute raw SQL if you wish.  Particularly good for batch operations.
 
-    res, err := dbmap.Exec("delete from Order where PaymentType=?", "VISA")
+    res, err := dbmap.Exec("delete from invoice_test where PersonId=?", 10)
+
+Want to do joins?  Just write the SQL and the struct. gorp will bind them:
+
+    // Define a type for your join
+    // It *must* contain all the columns in your SELECT statement
+    //
+    // The names here should match the aliased column names you specify
+    // in your SQL - no additional binding work required.  simple.
+    //
+    type InvoicePersonView struct {
+        InvoiceId   int64
+        PersonId    int64
+        Memo        string
+        FName       string
+    }
+    
+    // Create some rows
+    p1 := &Person{0, 0, 0, "bob", "smith"}
+	dbmap.Insert(p1)
+    
+    // notice how we can wire up p1.Id to the invoice easily
+	inv1 := &Invoice{0, 0, 0, "xmas order", p1.Id}
+	dbmap.Insert(inv1)
+    
+    // Run your query
+    query := "select i.Id InvoiceId, p.Id PersonId, i.Memo, p.FName " +
+		"from invoice_test i, person_test p " +
+		"where i.PersonId = p.Id"
+	list, err := dbmap.Select(InvoicePersonView{}, query)
+    
+    // this should test true
+    expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName}
+    if reflect.DeepEqual(list[0], expected) {
+        fmt.Println("Woot! My join worked!")
+    }
 
 You can also batch operations into a transaction:
 
-    func InsertOrder(dbmap *DbMap, order *Order, items []LineItem) error {
+    func InsertInv(dbmap *DbMap, inv *Invoice, per *Person) error {
         // Start a new transaction
         trans := dbmap.Begin()
 
-        trans.Insert(order)
-        for _, v := range(items) {
-            trans.Insert(v)
-        }
+        trans.Insert(per)
+        inv.PersonId = per.Id
+        trans.Insert(inv)
 
         // if the commit is successful, a nil error is returned
         return trans.Commit()
     }
     
-How would I set the date updated/created automatically?
+Use hooks to update data before/after saving to the db. Good for timestamps:
 
     // implement the PreInsert and PreUpdate hooks
-    func (d *DbStruct) PreInsert(s SqlExecutor) error {
-        d.Created = time.Now().UnixNano()
-        d.Updated = d.Created
+    func (i *Invoice) PreInsert(s SqlExecutor) error {
+        i.Created = time.Now().UnixNano()
+        i.Updated = i.Created
         return nil
     }
     
-    func (d *DbStruct) PreUpdate(s SqlExecutor) error {
-        d.Updated = time.Now().UnixNano()
+    func (i *Invoice) PreUpdate(s SqlExecutor) error {
+        i.Updated = time.Now().UnixNano()
         return nil
     }
     
@@ -128,9 +156,9 @@ How would I set the date updated/created automatically?
     //
     // Here's an example of a cascading delete
     //
-    func (o *Order) PreDelete(s SqlExecutor) error {
-        query := "delete from LineItem where OrderId=?"
-        err := s.Exec(query, o.Id); if err != nil {
+    func (p *Person) PreDelete(s SqlExecutor) error {
+        query := "delete from invoice_test where PersonId=?"
+        err := s.Exec(query, p.Id); if err != nil {
             return err
         }
         return nil
@@ -146,23 +174,31 @@ Full list of hooks that you can implement:
     PreDelete
     PostDelete
     
-What is Version used for?
+Coming soon: optimistic locking (similar to JPA)
 
     // Version is an auto-incremented number, managed by gorp
     // If this property is present on your struct, update
     // operations will be constrained
     //
-    // For example:
+    // For example, say we defined Person as:
     
-    p1 := &Product{Description: "Wool socks", UnitPrice: 499, IsTaxable: true}
-    dbmap.Save(p1)  // Version is now 1
+    type Person struct {
+        Id       int64
+        FName    string
+        LName    string
+        Version  int64
+    }
     
-    p2 := dbmap.Get(Product, p1.Id)
-    p2.UnitPrice = 599
-    dbmap.Save(p2)  // Version is now 2
+    p1 := &Person{0, "Bob", "Smith", 0}
+    dbmap.Insert(p1)  // Version is now 1
     
-    p1.UnitPrice = 399
-    err := dbmap.Save(p1)  // Raises error - p1.Version == 1, which is stale
+    obj, err := dbmap.Get(Person{}, p1.Id)
+    p2 := obj.(*Person)
+    p2.LName = "Edwards"
+    dbmap.Update(p2)  // Version is now 2
+    
+    p1.LName = "Howard"
+    err := dbmap.Update(p1)  // Raises error. p1.Version == 1, which is stale
     if err != nil {
         // should reach this statement
         fmt.Printf("Got err: %v\n", err)
