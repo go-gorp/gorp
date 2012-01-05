@@ -1,8 +1,8 @@
 package gorp
 
 import (
-	"reflect"
 	"fmt"
+	"reflect"
 )
 
 type Dialect interface {
@@ -11,20 +11,20 @@ type Dialect interface {
 	CreateTableSuffix() string
 }
 
-type MySQLDialect struct { 
-	Engine     string
-    Encoding   string
+type MySQLDialect struct {
+	Engine   string
+	Encoding string
 }
 
 func (m MySQLDialect) ToSqlType(val reflect.Type) string {
-    switch (val.Kind()) {
-    case reflect.Int, reflect.Int16, reflect.Int32:
-        return "int"
-    case reflect.Int64:
-        return "bigint"
-    }
+	switch val.Kind() {
+	case reflect.Int, reflect.Int16, reflect.Int32:
+		return "int"
+	case reflect.Int64:
+		return "bigint"
+	}
 
-    return "varchar(255)"
+	return "varchar(255)"
 }
 
 func (m MySQLDialect) AutoIncrStr() string {

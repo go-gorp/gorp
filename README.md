@@ -90,6 +90,10 @@ Then save some data:
     // will be populated after the Insert() automatically
     fmt.Printf("p1.Id=%d\n", p1.Id)
 
+You can execute raw SQL if you wish.  Particularly good for batch operations.
+
+    res, err := dbmap.Exec("delete from Order where PaymentType=?", "VISA")
+
 You can also batch operations into a transaction:
 
     func InsertOrder(dbmap *DbMap, order *Order, items []LineItem) error {
@@ -105,19 +109,42 @@ You can also batch operations into a transaction:
         return trans.Commit()
     }
     
-How would I set the date updated/created?
+How would I set the date updated/created automatically?
 
     // implement the PreInsert and PreUpdate hooks
-    func (d *DbStruct) PreInsert(mapper *gorp.Mapper) error {
-        d.Created = time.Nanoseconds()
+    func (d *DbStruct) PreInsert(s SqlExecutor) error {
+        d.Created = time.Now().UnixNano()
         d.Updated = d.Created
         return nil
     }
     
-    func (d *DbStruct) PreUpdate(mapper *gorp.Mapper) error {
-        d.Updated = time.Nanoseconds()
+    func (d *DbStruct) PreUpdate(s SqlExecutor) error {
+        d.Updated = time.Now().UnixNano()
         return nil
     }
+    
+    // You can use the SqlExecutor to cascade additional SQL
+    // Take care to avoid cycles. gorp won't prevent them.
+    //
+    // Here's an example of a cascading delete
+    //
+    func (o *Order) PreDelete(s SqlExecutor) error {
+        query := "delete from LineItem where OrderId=?"
+        err := s.Exec(query, o.Id); if err != nil {
+            return err
+        }
+        return nil
+    }
+    
+Full list of hooks that you can implement:
+
+    PostGet
+    PreInsert
+    PostInsert
+    PreUpdate
+    PostUpdate
+    PreDelete
+    PostDelete
     
 What is Version used for?
 
