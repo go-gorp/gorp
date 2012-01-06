@@ -5,14 +5,32 @@ import (
 	"reflect"
 )
 
+// The Dialect interface encapsulates behaviors that differ across
+// SQL databases.  At present the Dialect is only used by CreateTables()
+// but this could change in the future
 type Dialect interface {
+
+	// ToSqlType returns the SQL column type to use when creating a 
+	// table of the given Go Type.  maxsize can be used to switch based on
+	// size.  For example, in MySQL []byte could map to BLOB, MEDIUMBLOB,
+	// or LONGBLOB depending on the maxsize
 	ToSqlType(val reflect.Type, maxsize int) string
+
+	// string to append to primary key column definitions
 	AutoIncrStr() string
+
+	// string to append to "create table" statement for vendor specific
+	// table attributes
 	CreateTableSuffix() string
 }
 
+// Implementation of Dialect for MySQL databases.
 type MySQLDialect struct {
+
+	// Engine is the storage engine to use "InnoDB" vs "MyISAM" for example
 	Engine   string
+
+	// Encoding is the character encoding to use for created tables
 	Encoding string
 }
 
@@ -30,10 +48,12 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int) string {
 	return fmt.Sprintf("varchar(%d)", maxsize)
 }
 
+// Returns auto_increment
 func (m MySQLDialect) AutoIncrStr() string {
 	return "auto_increment"
 }
 
+// Returns engine=%s charset=%s  based on values stored on struct
 func (m MySQLDialect) CreateTableSuffix() string {
 	return fmt.Sprintf(" engine=%s charset=%s", m.Engine, m.Encoding)
 }
