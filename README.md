@@ -1,8 +1,21 @@
 # Go Relational Persistence #
 
+I hesitate to call gorp an ORM.  Go doesn't really have objects, at least 
+not in the classic Smalltalk/Java sense.  There goes the "O".  gorp doesn't 
+know anything about the relationships between your structs (at least not 
+yet).  So the "R" is questionable too (but I use it in the name because, 
+well, it seemed more clever).
+
+The "M" is alive and well.  Given some Go structs and a database, gorp
+should remove a fair amount of boilerplate busy-work from your code.
+
+I hope that gorp saves you time, minimizes the drudgery of getting data 
+in and out of your database, and helps your code focus on algorithms, 
+not infrastructure.
+
 ## Features ##
 
-* Support transactions
+* Support for transactions
 * Forward engineer db schema from structs (great for unit tests)
 * Pre/post insert/update/delete hooks
 * Automatically generate insert/update/delete statements for a struct
@@ -12,11 +25,6 @@
 * Optional trace sql logging
 * Bind arbitrary SQL queries to a struct
 * Coming soon: Optional optimistic locking using a version column
-
-## Non-Goals ##
-
-* Eliminate need to know SQL
-* Graph loads or saves
 
 ## Examples ##
 
@@ -50,6 +58,10 @@ Then create a mapper, typically you'd do this one time at app startup:
     // register the structs you wish to use with gorp
     // you can also use the shorter dbmap.AddTable() if you 
     // don't want to override the table name
+    //
+    // SetKeys(true) means we have a auto increment primary key, which
+    // will get automatically bound to your struct post-insert
+    //
     t1 := dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	t2 := dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 
@@ -80,7 +92,7 @@ Then save some data:
     // Insert your rows
     err := dbmap.Insert(inv1, inv2)
     
-    // Because we called SetAutoIncrPK() on Invoice, the Id field
+    // Because we called SetKeys(true) on Invoice, the Id field
     // will be populated after the Insert() automatically
     fmt.Printf("inv1.Id=%d  inv2.Id=%d\n", inv1.Id, inv2.Id)
 
