@@ -6,7 +6,7 @@ import (
 )
 
 type Dialect interface {
-	ToSqlType(val reflect.Type) string
+	ToSqlType(val reflect.Type, maxsize int) string
 	AutoIncrStr() string
 	CreateTableSuffix() string
 }
@@ -16,7 +16,7 @@ type MySQLDialect struct {
 	Encoding string
 }
 
-func (m MySQLDialect) ToSqlType(val reflect.Type) string {
+func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int) string {
 	switch val.Kind() {
 	case reflect.Int, reflect.Int16, reflect.Int32:
 		return "int"
@@ -24,7 +24,10 @@ func (m MySQLDialect) ToSqlType(val reflect.Type) string {
 		return "bigint"
 	}
 
-	return "varchar(255)"
+	if maxsize < 1 {
+		maxsize = 255
+	}
+	return fmt.Sprintf("varchar(%d)", maxsize)
 }
 
 func (m MySQLDialect) AutoIncrStr() string {

@@ -21,17 +21,70 @@ type DbMap struct {
 
 type TableMap struct {
 	gotype  reflect.Type
-	Name    string
+	TableName string
 	columns []*ColumnMap
 	keys    []*ColumnMap
 }
 
+func (t *TableMap) SetKeys(isAutoIncr bool, propnames ...string) *TableMap {
+	t.keys = make([]*ColumnMap, 0)
+	for _, name := range propnames {
+		colmap := t.ColMap(name)
+		colmap.isPK = true
+		colmap.isAutoIncr = isAutoIncr
+		t.keys = append(t.keys, colmap)
+	}
+
+	return t
+}
+
+func (t *TableMap) ColMap(prop string) *ColumnMap {
+	for _, col := range t.columns {
+		if col.propName == prop {
+			return col
+		} 
+	}
+
+	e := fmt.Sprintf("No ColumnMap in table %s type %s with property %s",
+		t.TableName, t.gotype.Name(), prop)
+	panic(e)
+}
+
 type ColumnMap struct {
+	ColumnName       string
+	Transient bool
+	Nullable bool
+	Unique bool
+	MaxSize int
+	propName string
 	gotype     reflect.Type
-	Name       string
-	sqlType    string
 	isPK       bool
 	isAutoIncr bool
+}
+
+func (c *ColumnMap) Rename(colname string) *ColumnMap { 
+	c.ColumnName = colname
+	return c
+}
+
+func (c *ColumnMap) SetTransient(b bool) *ColumnMap { 
+	c.Transient = b
+	return c
+}
+
+func (c *ColumnMap) SetNullable(b bool) *ColumnMap { 
+	c.Nullable = b
+	return c
+}
+
+func (c *ColumnMap) SetUnique(b bool) *ColumnMap { 
+	c.Unique = b
+	return c
+}
+
+func (c *ColumnMap) SetMaxSize(size int) *ColumnMap { 
+	c.MaxSize = size
+	return c
 }
 
 type Transaction struct {
@@ -45,30 +98,10 @@ type SqlExecutor interface {
 	Update(list ...interface{}) error
 	Delete(list ...interface{}) (int64, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
-	Select(i interface{}, query string, args ...interface{}) ([]interface{}, error)
+	Select(i interface{}, query string, 
+		args ...interface{}) ([]interface{}, error)
 	query(query string, args ...interface{}) (*sql.Rows, error)
 	queryRow(query string, args ...interface{}) *sql.Row
-}
-
-func (t *TableMap) SetKeys(isAutoIncr bool, colnames ...string) error {
-	t.keys = make([]*ColumnMap, 0)
-	for _, colname := range colnames {
-		found := false
-		for i := 0; i < len(t.columns) && !found; i++ {
-			if t.columns[i].Name == colname {
-				t.columns[i].isPK = true
-				t.columns[i].isAutoIncr = isAutoIncr
-				t.keys = append(t.keys, t.columns[i])
-				found = true
-			}
-		}
-		if !found {
-			return errors.New(fmt.Sprintf("gorp: No column with name: %s",
-				colname))
-		}
-	}
-
-	return nil
 }
 
 func (m *DbMap) TraceOn(prefix string, logger *log.Logger) {
@@ -94,16 +127,17 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	if name == "" {
 		name = t.Name()
 	}
-	tmap := &TableMap{gotype: t, Name: name}
+	tmap := &TableMap{gotype: t, TableName: name}
 
 	n := t.NumField()
 	tmap.columns = make([]*ColumnMap, n, n)
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		tmap.columns[i] = &ColumnMap{
+			ColumnName:    f.Name,
+		Nullable: true,
+		propName : f.Name,
 			gotype:  f.Type,
-			Name:    f.Name,
-			sqlType: m.Dialect.ToSqlType(f.Type),
 		}
 	}
 
@@ -128,19 +162,30 @@ func (m *DbMap) CreateTables() error {
 		table := m.tables[i]
 
 		s := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("create table %s (", table.Name))
-		for x := range table.columns {
-			col := table.columns[x]
-			if x > 0 {
-				s.WriteString(", ")
-			}
-			s.WriteString(fmt.Sprintf("%s %s", col.Name, col.sqlType))
+		s.WriteString(fmt.Sprintf("create table %s (", table.TableName))
+		x := 0
+		for _, col := range table.columns {
+			if !col.Transient {
+				if x > 0 {
+					s.WriteString(", ")
+				}
+				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize)
+				s.WriteString(fmt.Sprintf("%s %s", col.ColumnName, stype))
 
-			if col.isPK {
-				s.WriteString(" primary key")
-			}
-			if col.isAutoIncr {
-				s.WriteString(fmt.Sprintf(" %s", m.Dialect.AutoIncrStr()))
+				if !col.Nullable {
+					s.WriteString(" not null")
+				}
+				if col.Unique {
+					s.WriteString(" unique")
+				}
+				if col.isPK {
+					s.WriteString(" primary key")
+				}
+				if col.isAutoIncr {
+					s.WriteString(fmt.Sprintf(" %s", m.Dialect.AutoIncrStr()))
+				}
+
+				x++
 			}
 		}
 		s.WriteString(") ")
@@ -155,7 +200,7 @@ func (m *DbMap) DropTables() error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
-		_, e := m.Exec(fmt.Sprintf("drop table %s;", table.Name))
+		_, e := m.Exec(fmt.Sprintf("drop table %s;", table.TableName))
 		if e != nil {
 			err = e
 		}
@@ -197,7 +242,7 @@ func (m *DbMap) tableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 		if table.gotype == t {
 			if checkPK && len(table.keys) < 1 {
 				e := fmt.Sprintf("gorp: No keys defined for table: %s",
-					table.Name)
+					table.TableName)
 				return nil, errors.New(e)
 			}
 			return table, nil
@@ -225,7 +270,10 @@ func (m *DbMap) tableForPointer(ptr interface{}, checkPK bool) (*TableMap, refle
 
 func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	m.trace(query, args)
-	return m.Db.Exec(query, args...)
+	stmt, err := m.Db.Prepare(query); if err != nil {
+		return nil, err
+	}
+	return stmt.Exec(args...)
 }
 
 func (m *DbMap) queryRow(query string, args ...interface{}) *sql.Row {
@@ -276,7 +324,10 @@ func (t *Transaction) Rollback() error {
 
 func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error) {
 	t.dbmap.trace(query, args)
-	return t.tx.Exec(query, args...)
+	stmt, err := t.tx.Prepare(query); if err != nil {
+		return nil, err
+	}
+	return stmt.Exec(args...)
 }
 
 func (t *Transaction) queryRow(query string, args ...interface{}) *sql.Row {
@@ -319,11 +370,11 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		// based on column name. all returned columns must match
 		// a property in the i struct
 		for x := range cols {
-			col := cols[x]
-			f := v.Elem().FieldByName(col)
+			propName := cols[x]
+			f := v.Elem().FieldByName(propName)
 			if f == zeroVal {
 				e := fmt.Sprintf("gorp: No prop %s in type %s (query: %s)",
-					col, t.Name(), query)
+					propName, t.Name(), query)
 				return nil, errors.New(e)
 			} else {
 				dest[x] = f.Addr().Interface()
@@ -356,29 +407,33 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 	}
 
 	v := reflect.New(t)
-	dest := make([]interface{}, len(table.columns))
+	dest := make([]interface{}, 0)
 
 	s := bytes.Buffer{}
 	s.WriteString("select ")
 
-	for x := range table.columns {
-		col := table.columns[x]
-		if x > 0 {
-			s.WriteString(",")
+	x := 0
+	for _, col := range table.columns {
+		if !col.Transient {
+			if x > 0 {
+				s.WriteString(",")
+			}
+			s.WriteString(col.ColumnName)
+			
+			f := v.Elem().FieldByName(col.propName)
+			dest = append(dest, f.Addr().Interface())
+			x++
 		}
-		s.WriteString(col.Name)
-
-		dest[x] = v.Elem().FieldByName(col.Name).Addr().Interface()
 	}
 	s.WriteString(" from ")
-	s.WriteString(table.Name)
+	s.WriteString(table.TableName)
 	s.WriteString(" where ")
 	for x := range table.keys {
 		col := table.keys[x]
 		if x > 0 {
 			s.WriteString(" and ")
 		}
-		s.WriteString(col.Name)
+		s.WriteString(col.ColumnName)
 		s.WriteString("=?")
 	}
 	s.WriteString(";")
@@ -420,17 +475,17 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 		args := make([]interface{}, 0)
 		s := bytes.Buffer{}
 		s.WriteString("delete from ")
-		s.WriteString(table.Name)
+		s.WriteString(table.TableName)
 		s.WriteString(" where ")
 		for x := range table.keys {
 			k := table.keys[x]
 			if x > 0 {
 				s.WriteString(" and ")
 			}
-			s.WriteString(k.Name)
+			s.WriteString(k.ColumnName)
 			s.WriteString("=?")
 
-			args = append(args, elem.FieldByName(k.Name).Interface())
+			args = append(args, elem.FieldByName(k.propName).Interface())
 		}
 		s.WriteString(";")
 		res, err := exec.Exec(s.String(), args...)
@@ -466,22 +521,22 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			return err
 		}
 
-		args := make([]interface{}, len(table.columns))
+		args := make([]interface{}, 0)
 		s := bytes.Buffer{}
 		s.WriteString("update ")
-		s.WriteString(table.Name)
+		s.WriteString(table.TableName)
 		s.WriteString(" set ")
 		x := 0
 		for y := range table.columns {
 			col := table.columns[y]
-			if !col.isPK {
+			if !col.isPK && !col.Transient {
 				if x > 0 {
 					s.WriteString(", ")
 				}
-				s.WriteString(col.Name)
+				s.WriteString(col.ColumnName)
 				s.WriteString("=?")
 
-				args[x] = elem.FieldByName(col.Name).Interface()
+				args = append(args, elem.FieldByName(col.propName).Interface())
 				x++
 			}
 		}
@@ -491,9 +546,9 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			if y > 0 {
 				s.WriteString(" and ")
 			}
-			s.WriteString(col.Name)
+			s.WriteString(col.ColumnName)
 			s.WriteString("=?")
-			args[x] = elem.FieldByName(col.Name).Interface()
+			args = append(args, elem.FieldByName(col.propName).Interface())
 			x++
 		}
 		s.WriteString(";")
@@ -528,22 +583,22 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 		args := make([]interface{}, 0)
 		s := bytes.Buffer{}
 		s2 := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("insert into %s (", table.Name))
+		s.WriteString(fmt.Sprintf("insert into %s (", table.TableName))
 		autoIncrIdx := -1
 		x := 0
 		for y := range table.columns {
 			col := table.columns[y]
 			if col.isAutoIncr {
 				autoIncrIdx = y
-			} else {
+			} else if !col.Transient {
 				if x > 0 {
 					s.WriteString(",")
 					s2.WriteString(",")
 				}
-				s.WriteString(col.Name)
+				s.WriteString(col.ColumnName)
 				s2.WriteString("?")
 
-				args = append(args, elem.FieldByName(col.Name).Interface())
+				args = append(args, elem.FieldByName(col.propName).Interface())
 				x++
 			}
 		}

@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+var dialect = MySQLDialect{"InnoDB", "UTF8"}
+
 type Invoice struct {
 	Id       int64
 	Created  int64
@@ -34,6 +36,11 @@ type InvoicePersonView struct {
 	PersonId  int64
 	Memo      string
 	FName     string
+}
+
+type TableWithNull struct {
+	Id       int64
+	Memo     sql.NullableString
 }
 
 func (p *Person) PreInsert(s SqlExecutor) error {
@@ -75,9 +82,72 @@ func (p *Person) PostGet(s SqlExecutor) error {
 	return nil
 }
 
-//func TestColumnProps(t *testing.T) {
+// what happens if a legacy table has a null value?
+func TestNullValues(t *testing.T) {
+	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
+	dbmap.CreateTables()
+	defer dbmap.DropTables()
 
-//}
+	// insert a row directly
+	rawexec(dbmap, "insert into TableWithNull values (10, null)")
+
+	// try to load it
+	expected := &TableWithNull{10, sql.NullableString{"", false}}
+	obj := get(dbmap, TableWithNull{}, 10)
+	t1 := obj.(*TableWithNull)
+	if !reflect.DeepEqual(expected, t1) {
+		t.Errorf("%v != %v", expected, t1)
+	}
+
+	// update it
+	t1.Memo = sql.NullableString{"hi", true}
+	expected.Memo = t1.Memo
+	update(dbmap, t1)
+    obj = get(dbmap, TableWithNull{}, 10)
+	t1 = obj.(*TableWithNull)
+	if !reflect.DeepEqual(expected, t1) {
+		t.Errorf("%v != %v", expected, t1)
+	}
+}
+
+func TestColumnProps(t *testing.T) {
+	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
+	t1.ColMap("Created").Rename("date_created").SetNullable(false)
+	t1.ColMap("Updated").SetTransient(true)
+	t1.ColMap("Memo").SetMaxSize(10)
+	t1.ColMap("PersonId").SetUnique(true)
+	
+	dbmap.CreateTables()
+	defer dbmap.DropTables()
+
+	// test transient
+	inv := &Invoice{0, 0, 1, "my invoice", 0}
+	insert(dbmap, inv)
+	obj := get(dbmap, Invoice{}, inv.Id)
+	inv = obj.(*Invoice)
+	fmt.Printf("inv: %v\n", inv)
+	if inv.Updated != 0 {
+		t.Errorf("Saved transient column 'Updated'")
+	}
+
+	// test max size
+	inv.Memo = "this memo is too long"
+	err := dbmap.Insert(inv)
+	if err == nil {
+		t.Errorf("max size exceeded, but Insert did not fail.")
+	}
+
+	// test unique - same person id
+	inv = &Invoice{0, 0, 1, "my invoice2", 0}
+	err = dbmap.Insert(inv)
+	if err == nil {
+		t.Errorf("same PersonId inserted, but Insert did not fail.")
+	}
+}
 
 func TestRawSelect(t *testing.T) {
 	dbmap := initDbMap()
@@ -239,7 +309,6 @@ func TestCrud(t *testing.T) {
 }
 
 func initDbMap() *DbMap {
-	dialect := MySQLDialect{"InnoDB", "UTF8"}
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
@@ -287,6 +356,13 @@ func get(dbmap *DbMap, i interface{}, keys ...interface{}) interface{} {
 	}
 
 	return obj
+}
+
+func rawexec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
+	res, err := dbmap.Exec(query, args...); if err != nil {
+		panic(err)
+	}
+	return res
 }
 
 func rawselect(dbmap *DbMap, i interface{}, query string, args ...interface{}) []interface{} {
