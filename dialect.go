@@ -28,7 +28,7 @@ type Dialect interface {
 type MySQLDialect struct {
 
 	// Engine is the storage engine to use "InnoDB" vs "MyISAM" for example
-	Engine   string
+	Engine string
 
 	// Encoding is the character encoding to use for created tables
 	Encoding string

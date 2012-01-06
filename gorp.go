@@ -33,10 +33,10 @@ var zeroVal reflect.Value
 //
 type DbMap struct {
 	// Db handle to use with this map
-	Db        *sql.DB
+	Db *sql.DB
 
 	// Dialect implementation to use with this map
-	Dialect   Dialect
+	Dialect Dialect
 
 	tables    []*TableMap
 	logger    *log.Logger
@@ -48,9 +48,9 @@ type DbMap struct {
 type TableMap struct {
 	// Name of database table.
 	TableName string
-	gotype  reflect.Type
-	columns []*ColumnMap
-	keys    []*ColumnMap
+	gotype    reflect.Type
+	columns   []*ColumnMap
+	keys      []*ColumnMap
 }
 
 // SetKeys lets you specify the fields on a struct that map to primary 
@@ -75,7 +75,7 @@ func (t *TableMap) ColMap(field string) *ColumnMap {
 	for _, col := range t.columns {
 		if col.fieldName == field {
 			return col
-		} 
+		}
 	}
 
 	e := fmt.Sprintf("No ColumnMap in table %s type %s with field %s",
@@ -89,7 +89,7 @@ func (t *TableMap) ColMap(field string) *ColumnMap {
 // CreateTables() function and are not used by Insert/Update/Delete/Get.
 type ColumnMap struct {
 	// Column name in db table
-	ColumnName       string
+	ColumnName string
 
 	// If true, this column is skipped in generated SQL statements
 	Transient bool
@@ -107,7 +107,7 @@ type ColumnMap struct {
 	// Not used elsewhere
 	MaxSize int
 
-	fieldName string
+	fieldName  string
 	gotype     reflect.Type
 	isPK       bool
 	isAutoIncr bool
@@ -117,28 +117,28 @@ type ColumnMap struct {
 //
 // Example:  table.ColMap("Updated").Rename("date_updated")
 //
-func (c *ColumnMap) Rename(colname string) *ColumnMap { 
+func (c *ColumnMap) Rename(colname string) *ColumnMap {
 	c.ColumnName = colname
 	return c
 }
 
 // SetTransient allows you to mark the column as transient. If true
 // this column will be skipped when SQL statements are generated
-func (c *ColumnMap) SetTransient(b bool) *ColumnMap { 
+func (c *ColumnMap) SetTransient(b bool) *ColumnMap {
 	c.Transient = b
 	return c
 }
 
 // If true " not null" will be added to create table statements for this
 // column
-func (c *ColumnMap) SetNullable(b bool) *ColumnMap { 
+func (c *ColumnMap) SetNullable(b bool) *ColumnMap {
 	c.Nullable = b
 	return c
 }
 
 // If true " unique" will be added to create table statements for this
 // column
-func (c *ColumnMap) SetUnique(b bool) *ColumnMap { 
+func (c *ColumnMap) SetUnique(b bool) *ColumnMap {
 	c.Unique = b
 	return c
 }
@@ -146,7 +146,7 @@ func (c *ColumnMap) SetUnique(b bool) *ColumnMap {
 // SetMaxSize specifies the max length of values of this column. This is
 // passed to the dialect.ToSqlType() function, which can use the value
 // to alter the generated type for "create table" statements
-func (c *ColumnMap) SetMaxSize(size int) *ColumnMap { 
+func (c *ColumnMap) SetMaxSize(size int) *ColumnMap {
 	c.MaxSize = size
 	return c
 }
@@ -172,7 +172,7 @@ type SqlExecutor interface {
 	Update(list ...interface{}) error
 	Delete(list ...interface{}) (int64, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
-	Select(i interface{}, query string, 
+	Select(i interface{}, query string,
 		args ...interface{}) ([]interface{}, error)
 	query(query string, args ...interface{}) (*sql.Rows, error)
 	queryRow(query string, args ...interface{}) *sql.Row
@@ -222,10 +222,10 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		tmap.columns[i] = &ColumnMap{
-			ColumnName:    f.Name,
-		Nullable: true,
-		fieldName : f.Name,
-			gotype:  f.Type,
+			ColumnName: f.Name,
+			Nullable:   true,
+			fieldName:  f.Name,
+			gotype:     f.Type,
 		}
 	}
 
@@ -381,7 +381,8 @@ func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]inte
 // This is equivalent to running:  Prepare(), Exec() using exp/sql
 func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	m.trace(query, args)
-	stmt, err := m.Db.Prepare(query); if err != nil {
+	stmt, err := m.Db.Prepare(query)
+	if err != nil {
 		return nil, err
 	}
 	return stmt.Exec(args...)
@@ -474,7 +475,8 @@ func (t *Transaction) Select(i interface{}, query string, args ...interface{}) (
 // Same behavior as DbMap.Exec(), but runs in a transaction
 func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error) {
 	t.dbmap.trace(query, args)
-	stmt, err := t.tx.Prepare(query); if err != nil {
+	stmt, err := t.tx.Prepare(query)
+	if err != nil {
 		return nil, err
 	}
 	return stmt.Exec(args...)
@@ -579,7 +581,7 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 				s.WriteString(",")
 			}
 			s.WriteString(col.ColumnName)
-			
+
 			f := v.Elem().FieldByName(col.fieldName)
 			dest = append(dest, f.Addr().Interface())
 			x++

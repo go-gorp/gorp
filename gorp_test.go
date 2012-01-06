@@ -39,8 +39,8 @@ type InvoicePersonView struct {
 }
 
 type TableWithNull struct {
-	Id       int64
-	Memo     sql.NullableString
+	Id   int64
+	Memo sql.NullableString
 }
 
 func (p *Person) PreInsert(s SqlExecutor) error {
@@ -105,7 +105,7 @@ func TestNullValues(t *testing.T) {
 	t1.Memo = sql.NullableString{"hi", true}
 	expected.Memo = t1.Memo
 	update(dbmap, t1)
-    obj = get(dbmap, TableWithNull{}, 10)
+	obj = get(dbmap, TableWithNull{}, 10)
 	t1 = obj.(*TableWithNull)
 	if !reflect.DeepEqual(expected, t1) {
 		t.Errorf("%v != %v", expected, t1)
@@ -120,7 +120,7 @@ func TestColumnProps(t *testing.T) {
 	t1.ColMap("Updated").SetTransient(true)
 	t1.ColMap("Memo").SetMaxSize(10)
 	t1.ColMap("PersonId").SetUnique(true)
-	
+
 	dbmap.CreateTables()
 	defer dbmap.DropTables()
 
@@ -359,7 +359,8 @@ func get(dbmap *DbMap, i interface{}, keys ...interface{}) interface{} {
 }
 
 func rawexec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
-	res, err := dbmap.Exec(query, args...); if err != nil {
+	res, err := dbmap.Exec(query, args...)
+	if err != nil {
 		panic(err)
 	}
 	return res
