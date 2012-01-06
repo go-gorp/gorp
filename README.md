@@ -24,7 +24,11 @@ not infrastructure.
 * Select by primary key(s)
 * Optional trace sql logging
 * Bind arbitrary SQL queries to a struct
-* Coming soon: Optional optimistic locking using a version column
+
+## TODO ##
+
+* BIG: Sort out NULL value mapping (see Issues below)
+* Optional optimistic locking using a version column
 
 ## Examples ##
 
@@ -216,3 +220,55 @@ Coming soon: optimistic locking (similar to JPA)
         fmt.Printf("Got err: %v\n", err)
     }
     
+## Issues ##
+
+The main snag I'm hitting is how to map NULL values in tables.  Brad has
+done some work here with `sql.NullableString`, so here's an example from 
+the gorp unit tests.
+
+    type TableWithNull struct {
+        Id       int64
+        Memo     sql.NullableString
+    }
+    
+    // insert raw row directly with a null value
+    dbmap.Exec("insert into TableWithNull values (10, null)")
+
+	// try to load it
+	obj, err := dbmap.Get(TableWithNull{}, 10); if err != nil {
+        panic(err)
+    }
+    
+    // this test passes. row loads correctly
+	t1 := obj.(*TableWithNull)
+    expected := &TableWithNull{10, sql.NullableString{"", false}}
+	if !reflect.DeepEqual(expected, t1) {
+		t.Errorf("%v != %v", expected, t1)
+	}
+    
+    // try to update it
+    t1.Memo = sql.NullableString{"hi", true}
+	expected.Memo = t1.Memo
+    
+    // this blows up because mymysql doesn't provide a ColumnConverter
+	dbmap.Update(t1)
+    
+Proposal for Brad:
+
+* Add `Nullable` types for int64, etc (there's already a TODO for this)
+* Modify `exp/sql/driver/types.go: ConvertValue()` to know about the nullable types
+
+I hacked this into my fork of `mymysql` to get my tests to pass:
+
+    func (s stmt) ConvertValue(v interface{}) (interface{}, error) {
+    	if ns, ok := v.(sql.NullableString); ok {
+    		if ns.Valid {
+    			return ns.String, nil
+    		} else {
+    			return nil, nil
+    		}
+    	}
+    	return driver.DefaultParameterConverter.ConvertValue(v)
+    }
+    
+But it seems like this should be moved into `DefaultParameterConverter`
