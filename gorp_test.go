@@ -197,7 +197,7 @@ func TestHooks(t *testing.T) {
 		t.Errorf("p1.PostUpdate() didn't run: %v", p1)
 	}
 
-	delete(dbmap, p1)
+	del(dbmap, p1)
 	if p1.FName != "predelete" {
 		t.Errorf("p1.PreDelete() didn't run: %v", p1)
 	} else if p1.LName != "postdelete" {
@@ -257,7 +257,7 @@ func TestMultiple(t *testing.T) {
 	inv2.Memo = "d"
 	update(dbmap, inv1, inv2)
 
-	count := delete(dbmap, inv1, inv2)
+	count := del(dbmap, inv1, inv2)
 	if count != 2 {
 		t.Errorf("%d != 2", count)
 	}
@@ -295,7 +295,7 @@ func TestCrud(t *testing.T) {
 	}
 
 	// DELETE row
-	deleted := delete(dbmap, inv)
+	deleted := del(dbmap, inv)
 	if deleted != 1 {
 		t.Errorf("Did not delete row with Id: %d", inv.Id)
 		return
@@ -340,7 +340,7 @@ func update(dbmap *DbMap, list ...interface{}) {
 	}
 }
 
-func delete(dbmap *DbMap, list ...interface{}) int64 {
+func del(dbmap *DbMap, list ...interface{}) int64 {
 	count, err := dbmap.Delete(list...)
 	if err != nil {
 		panic(err)
