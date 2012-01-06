@@ -32,6 +32,14 @@ not infrastructure.
 * AddTable should return existing table if same interface is passed in
 * Optional optimistic locking using a version column
 
+## Installation ##
+
+    goinstall github.com/coopernurse/gorp
+    
+    import (
+        "github.com/coopernurse/gorp"
+    )
+
 ## Examples ##
 
 First define some types:
