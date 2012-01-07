@@ -94,7 +94,7 @@ type ColumnMap struct {
 	// If true, this column is skipped in generated SQL statements
 	Transient bool
 
-	// If true, " not null" is added to create table statements.
+	// If false, " not null" is added to create table statements.
 	// Not used elsewhere
 	Nullable bool
 
