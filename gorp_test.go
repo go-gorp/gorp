@@ -39,8 +39,12 @@ type InvoicePersonView struct {
 }
 
 type TableWithNull struct {
-	Id   int64
-	Memo sql.NullableString
+	Id      int64
+	Str     sql.NullableString
+	Int64   sql.NullableInt64
+	Float64 sql.NullableFloat64
+	Bool    sql.NullableBool
+	Bytes   sql.NullableBytes
 }
 
 func (p *Person) PreInsert(s SqlExecutor) error {
@@ -91,10 +95,11 @@ func TestNullValues(t *testing.T) {
 	defer dbmap.DropTables()
 
 	// insert a row directly
-	rawexec(dbmap, "insert into TableWithNull values (10, null)")
+	rawexec(dbmap, "insert into TableWithNull values (10, null, "+
+		"null, null, null, null)")
 
 	// try to load it
-	expected := &TableWithNull{10, sql.NullableString{"", false}}
+	expected := &TableWithNull{Id: 10}
 	obj := get(dbmap, TableWithNull{}, 10)
 	t1 := obj.(*TableWithNull)
 	if !reflect.DeepEqual(expected, t1) {
@@ -102,11 +107,23 @@ func TestNullValues(t *testing.T) {
 	}
 
 	// update it
-	t1.Memo = sql.NullableString{"hi", true}
-	expected.Memo = t1.Memo
+	t1.Str = sql.NullableString{"hi", true}
+	expected.Str = t1.Str
+	t1.Int64 = sql.NullableInt64{999, true}
+	expected.Int64 = t1.Int64
+	t1.Float64 = sql.NullableFloat64{53.33, true}
+	expected.Float64 = t1.Float64
+	t1.Bool = sql.NullableBool{true, true}
+	expected.Bool = t1.Bool
+	t1.Bytes = sql.NullableBytes{[]byte{1, 30, 31, 33}, true}
+	expected.Bytes = t1.Bytes
 	update(dbmap, t1)
+
 	obj = get(dbmap, TableWithNull{}, 10)
 	t1 = obj.(*TableWithNull)
+	if t1.Str.String != "hi" {
+		t.Errorf("%s != hi", t1.Str.String)
+	}
 	if !reflect.DeepEqual(expected, t1) {
 		t.Errorf("%v != %v", expected, t1)
 	}

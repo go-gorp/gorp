@@ -40,7 +40,22 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int) string {
 		return "int"
 	case reflect.Int64:
 		return "bigint"
+	case reflect.Float64, reflect.Float32:
+		return "double"
 	}
+
+	switch val.Name() {
+	case "NullableInt64":
+		return "bigint"
+	case "NullableFloat64":
+		return "double"
+	case "NullableBool":
+		return "tinyint"
+	case "NullableBytes":
+		return "mediumblob"
+	}
+
+	fmt.Printf("type=%v\n", val)
 
 	if maxsize < 1 {
 		maxsize = 255
