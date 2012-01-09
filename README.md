@@ -24,11 +24,11 @@ not infrastructure.
 * Select by primary key(s)
 * Optional trace sql logging
 * Bind arbitrary SQL queries to a struct
+* Optional optimistic locking using a version column (for update/deletes)
 
 ## TODO ##
 
-* BIG: Sort out NULL value mapping (see Issues below)
-* Optional optimistic locking using a version column
+* Reconcile the exp/sql changes I've made for Nullables with the standard Go lib
 
 ## Installation ##
 
@@ -198,7 +198,7 @@ Full list of hooks that you can implement:
     PreDelete
     PostDelete
     
-Coming soon: optimistic locking (similar to JPA)
+Optimistic locking (similar to JPA)
 
     // Version is an auto-incremented number, managed by gorp
     // If this property is present on your struct, update
@@ -208,12 +208,14 @@ Coming soon: optimistic locking (similar to JPA)
     
     type Person struct {
         Id       int64
+        Created  int64
+        Updated  int64
         FName    string
         LName    string
         Version  int64
     }
     
-    p1 := &Person{0, "Bob", "Smith", 0}
+    p1 := &Person{0, 0, 0, "Bob", "Smith", 0}
     dbmap.Insert(p1)  // Version is now 1
     
     obj, err := dbmap.Get(Person{}, p1.Id)
@@ -222,8 +224,10 @@ Coming soon: optimistic locking (similar to JPA)
     dbmap.Update(p2)  // Version is now 2
     
     p1.LName = "Howard"
-    err := dbmap.Update(p1)  // Raises error. p1.Version == 1, which is stale
-    if err != nil {
+    
+    // Raises error because p1.Version == 1, which is out of date
+    count, err := dbmap.Update(p1)
+    if _, ok := err.(OptimisticLockError); !ok {
         // should reach this statement
         fmt.Printf("Got err: %v\n", err)
     }

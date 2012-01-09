@@ -29,6 +29,7 @@ type Person struct {
 	Updated int64
 	FName   string
 	LName   string
+	Version int64
 }
 
 type InvoicePersonView struct {
@@ -84,6 +85,42 @@ func (p *Person) PostDelete(s SqlExecutor) error {
 func (p *Person) PostGet(s SqlExecutor) error {
 	p.LName = "postget"
 	return nil
+}
+
+func TestOptimisticLocking(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	p1 := &Person{0, 0, 0, "Bob", "Smith", 0}
+	dbmap.Insert(p1) // Version is now 1
+	if p1.Version != 1 {
+		t.Errorf("Insert didn't incr Version: %d != %d", 1, p1.Version)
+	}
+
+	obj, err := dbmap.Get(Person{}, p1.Id)
+	p2 := obj.(*Person)
+	p2.LName = "Edwards"
+	dbmap.Update(p2) // Version is now 2
+	if p2.Version != 2 {
+		t.Errorf("Update didn't incr Version: %d != %d", 2, p2.Version)
+	}
+
+	p1.LName = "Howard"
+	count, err := dbmap.Update(p1)
+	if _, ok := err.(OptimisticLockError); !ok {
+		t.Errorf("update - Expected OptimisticLockError, got: %v", err)
+	}
+	if count != -1 {
+		t.Errorf("update - Expected -1 count, got: %d", count)
+	}
+
+	count, err = dbmap.Delete(p1)
+	if _, ok := err.(OptimisticLockError); !ok {
+		t.Errorf("delete - Expected OptimisticLockError, got: %v", err)
+	}
+	if count != -1 {
+		t.Errorf("delete - Expected -1 count, got: %d", count)
+	}
 }
 
 // what happens if a legacy table has a null value?
@@ -180,7 +217,7 @@ func TestRawSelect(t *testing.T) {
 	dbmap := initDbMap()
 	defer dbmap.DropTables()
 
-	p1 := &Person{0, 0, 0, "bob", "smith"}
+	p1 := &Person{0, 0, 0, "bob", "smith", 0}
 	insert(dbmap, p1)
 
 	inv1 := &Invoice{0, 0, 0, "xmas order", p1.Id}
@@ -203,7 +240,7 @@ func TestHooks(t *testing.T) {
 	dbmap := initDbMap()
 	defer dbmap.DropTables()
 
-	p1 := &Person{0, 0, 0, "bob", "smith"}
+	p1 := &Person{0, 0, 0, "bob", "smith", 0}
 	insert(dbmap, p1)
 	if p1.Created == 0 || p1.Updated == 0 {
 		t.Errorf("p1.PreInsert() didn't run: %v", p1)
@@ -232,7 +269,7 @@ func TestHooks(t *testing.T) {
 	}
 
 	// Test error case
-	p2 := &Person{0, 0, 0, "badname", ""}
+	p2 := &Person{0, 0, 0, "badname", "", 0}
 	err := dbmap.Insert(p2)
 	if err == nil {
 		t.Errorf("p2.PreInsert() didn't return an error")

@@ -22,6 +22,35 @@ import (
 
 var zeroVal reflect.Value
 
+// OptimisticLockError is returned by Update() or Delete() if the 
+// struct being modified has a Version field and the value is not equal to
+// the current value in the database
+type OptimisticLockError struct {
+	// Table name where the lock error occurred
+	TableName string
+
+	// Primary key values of the row being updated/deleted
+	Keys []interface{}
+
+	// true if a row was found with those keys, indicating the 
+	// LocalVersion is stale.  false if no value was found with those
+	// keys, suggesting the row has been deleted since loaded, or 
+	// was never inserted to begin with
+	RowExists bool
+
+	// version value on the struct being updated/deleted
+	LocalVersion int64
+}
+
+// Error returns a description of the cause of the lock error
+func (e OptimisticLockError) Error() string {
+	if e.RowExists {
+		return fmt.Sprintf("gorp: OptimisticLockError table=%s keys=%v out of date version=%d", e.TableName, e.Keys, e.LocalVersion)
+	}
+
+	return fmt.Sprintf("gorp: OptimisticLockError no row found for table=%s keys=%v", e.TableName, e.Keys)
+}
+
 // DbMap is the root gorp mapping object. Create one of these for each
 // database schema you wish to map.  Each DbMap contains a list of 
 // mapped tables.
@@ -51,6 +80,7 @@ type TableMap struct {
 	gotype    reflect.Type
 	columns   []*ColumnMap
 	keys      []*ColumnMap
+	version   *ColumnMap
 }
 
 // SetKeys lets you specify the fields on a struct that map to primary 
@@ -240,6 +270,10 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 			Nullable:   true,
 			fieldName:  f.Name,
 			gotype:     f.Type,
+		}
+
+		if tmap.columns[i].fieldName == "Version" {
+			tmap.version = tmap.columns[i]
 		}
 	}
 
@@ -619,7 +653,6 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 	s.WriteString(";")
 
 	sqlstr := s.String()
-	m.trace(sqlstr, keys)
 	row := exec.queryRow(sqlstr, keys...)
 	err = row.Scan(dest...)
 	if err != nil {
@@ -656,6 +689,19 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 		s := bytes.Buffer{}
 		s.WriteString("delete from ")
 		s.WriteString(table.TableName)
+
+		existingVersion := int64(0)
+		for y := range table.columns {
+			col := table.columns[y]
+			if !col.Transient {
+				if col == table.version {
+					f := elem.FieldByName(col.fieldName)
+					existingVersion = f.Int()
+				}
+			}
+		}
+
+		keyvals := make([]interface{}, 0)
 		s.WriteString(" where ")
 		for x := range table.keys {
 			k := table.keys[x]
@@ -665,9 +711,18 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 			s.WriteString(k.ColumnName)
 			s.WriteString("=?")
 
-			args = append(args, elem.FieldByName(k.fieldName).Interface())
+			val := elem.FieldByName(k.fieldName).Interface()
+			keyvals = append(keyvals, val)
+			args = append(args, val)
+		}
+		if existingVersion > 0 {
+			s.WriteString(" and ")
+			s.WriteString(table.version.ColumnName)
+			s.WriteString("=?")
+			args = append(args, existingVersion)
 		}
 		s.WriteString(";")
+
 		res, err := exec.Exec(s.String(), args...)
 		if err != nil {
 			return -1, err
@@ -676,6 +731,12 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 		if err != nil {
 			return -1, err
 		}
+
+		if rows == 0 && existingVersion > 0 {
+			return lockError(m, exec, table.TableName,
+				existingVersion, elem, keyvals...)
+		}
+
 		count += rows
 
 		err = runHook("PostDelete", eptr, hookarg)
@@ -708,6 +769,8 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 		s.WriteString(table.TableName)
 		s.WriteString(" set ")
 		x := 0
+		existingVersion := int64(0)
+		versionField := zeroVal
 		for y := range table.columns {
 			col := table.columns[y]
 			if !col.isPK && !col.Transient {
@@ -717,10 +780,20 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 				s.WriteString(col.ColumnName)
 				s.WriteString("=?")
 
-				args = append(args, elem.FieldByName(col.fieldName).Interface())
+				f := elem.FieldByName(col.fieldName)
+
+				if col == table.version {
+					existingVersion = f.Int()
+					versionField = f
+					args = append(args, existingVersion+1)
+				} else {
+					args = append(args, f.Interface())
+				}
 				x++
 			}
 		}
+
+		keyvals := make([]interface{}, 0)
 		s.WriteString(" where ")
 		for y := range table.keys {
 			col := table.keys[y]
@@ -729,8 +802,16 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 			}
 			s.WriteString(col.ColumnName)
 			s.WriteString("=?")
-			args = append(args, elem.FieldByName(col.fieldName).Interface())
+			val := elem.FieldByName(col.fieldName).Interface()
+			keyvals = append(keyvals, val)
+			args = append(args, val)
 			x++
+		}
+		if existingVersion > 0 {
+			s.WriteString(" and ")
+			s.WriteString(table.version.ColumnName)
+			s.WriteString("=?")
+			args = append(args, existingVersion)
 		}
 		s.WriteString(";")
 
@@ -743,6 +824,16 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 		if err != nil {
 			return -1, err
 		}
+
+		if rows == 0 && existingVersion > 0 {
+			return lockError(m, exec, table.TableName,
+				existingVersion, elem, keyvals...)
+		}
+
+		if versionField != zeroVal {
+			versionField.SetInt(existingVersion + 1)
+		}
+
 		count += rows
 
 		err = runHook("PostUpdate", eptr, hookarg)
@@ -785,7 +876,13 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 				s.WriteString(col.ColumnName)
 				s2.WriteString("?")
 
-				args = append(args, elem.FieldByName(col.fieldName).Interface())
+				f := elem.FieldByName(col.fieldName)
+
+				if col == table.version {
+					f.SetInt(int64(1))
+				}
+
+				args = append(args, f.Interface())
 				x++
 			}
 		}
@@ -827,4 +924,20 @@ func runHook(name string, eptr reflect.Value, arg []reflect.Value) error {
 		}
 	}
 	return nil
+}
+
+func lockError(m *DbMap, exec SqlExecutor, tableName string,
+	existingVer int64, elem reflect.Value,
+	keys ...interface{}) (int64, error) {
+
+	existing, err := get(m, exec, elem.Interface(), keys...)
+	if err != nil {
+		return -1, err
+	}
+
+	ole := OptimisticLockError{tableName, keys, true, existingVer}
+	if existing == nil {
+		ole.RowExists = false
+	}
+	return -1, ole
 }
