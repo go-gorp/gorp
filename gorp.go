@@ -204,6 +204,9 @@ func (m *DbMap) TraceOff() {
 // will be given the name of the TypeOf(i).  You must call this function,
 // or AddTableWithName, for any struct type you wish to persist with 
 // the given DbMap.
+//
+// This operation is idempotent. If i's type is already mapped, the 
+// existing *TableMap is returned
 func (m *DbMap) AddTable(i interface{}) *TableMap {
 	return m.AddTableWithName(i, "")
 }
@@ -215,6 +218,17 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	if name == "" {
 		name = t.Name()
 	}
+
+	// check if we have a table for this type already
+	// if so, update the name and return the existing pointer
+	for i := range m.tables {
+		table := m.tables[i]
+		if table.gotype == t {
+			table.TableName = name
+			return table
+		}
+	}
+
 	tmap := &TableMap{gotype: t, TableName: name}
 
 	n := t.NumField()

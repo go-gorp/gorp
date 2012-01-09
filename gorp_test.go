@@ -87,6 +87,16 @@ func (p *Person) PostGet(s SqlExecutor) error {
 }
 
 // what happens if a legacy table has a null value?
+func TestDoubleAddTable(t *testing.T) {
+	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	t1 := dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
+	t2 := dbmap.AddTable(TableWithNull{})
+	if t1 != t2 {
+		t.Errorf("%v != %v", t1, t2)
+	}
+}
+
+// what happens if a legacy table has a null value?
 func TestNullValues(t *testing.T) {
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
