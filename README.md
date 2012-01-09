@@ -28,7 +28,6 @@ not infrastructure.
 ## TODO ##
 
 * BIG: Sort out NULL value mapping (see Issues below)
-* Add tests for all exp/sql types: int64, int32, float64, []byte
 * Optional optimistic locking using a version column
 
 ## Installation ##
