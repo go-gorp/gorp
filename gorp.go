@@ -113,6 +113,15 @@ func (t *TableMap) ColMap(field string) *ColumnMap {
 	panic(e)
 }
 
+// SetVersionCol sets the column to use as the Version field.  By default
+// the "Version" field is used.  Returns the column found, or panics
+// if the struct does not contain a field matching this name.
+func (t *TableMap) SetVersionCol(field string) *ColumnMap {
+	c := t.ColMap(field)
+	t.version = c
+	return c
+}
+
 // ColumnMap represents a mapping between a Go struct field and a single
 // column in a table.
 // Nullable, Unique, and MaxSize only inform the 
@@ -313,14 +322,11 @@ func (m *DbMap) CreateTables() error {
 				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize)
 				s.WriteString(fmt.Sprintf("%s %s", col.ColumnName, stype))
 
-				if !col.Nullable {
+				if !col.Nullable || col.isPK {
 					s.WriteString(" not null")
 				}
 				if col.Unique {
 					s.WriteString(" unique")
-				}
-				if col.isPK {
-					s.WriteString(" primary key")
 				}
 				if col.isAutoIncr {
 					s.WriteString(fmt.Sprintf(" %s", m.Dialect.AutoIncrStr()))
@@ -328,6 +334,16 @@ func (m *DbMap) CreateTables() error {
 
 				x++
 			}
+		}
+		if len(table.keys) > 0 {
+			s.WriteString(", primary key (")
+			for x := range table.keys {
+				if x > 0 {
+					s.WriteString(", ")
+				}
+				s.WriteString(table.keys[x].ColumnName)
+			}
+			s.WriteString(")")
 		}
 		s.WriteString(") ")
 		s.WriteString(m.Dialect.CreateTableSuffix())

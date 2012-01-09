@@ -212,6 +212,10 @@ Optimistic locking (similar to JPA)
         Updated  int64
         FName    string
         LName    string
+        
+        // automatically used as the Version col
+        // use dbmap.SetVersionCol() to map a different
+        // struct field as the version field
         Version  int64
     }
     

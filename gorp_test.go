@@ -33,10 +33,11 @@ type Person struct {
 }
 
 type InvoicePersonView struct {
-	InvoiceId int64
-	PersonId  int64
-	Memo      string
-	FName     string
+	InvoiceId     int64
+	PersonId      int64
+	Memo          string
+	FName         string
+	LegacyVersion int64
 }
 
 type TableWithNull struct {
@@ -85,6 +86,27 @@ func (p *Person) PostDelete(s SqlExecutor) error {
 func (p *Person) PostGet(s SqlExecutor) error {
 	p.LName = "postget"
 	return nil
+}
+
+func TestOverrideVersionCol(t *testing.T) {
+	dbmap := initDbMap()
+	dbmap.DropTables()
+	t1 := dbmap.AddTable(InvoicePersonView{}).SetKeys(false, "InvoiceId", "PersonId")
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
+	defer dbmap.DropTables()
+	c1 := t1.SetVersionCol("LegacyVersion")
+	if c1.ColumnName != "LegacyVersion" {
+		t.Errorf("Wrong col returned: %v", c1)
+	}
+
+	ipv := &InvoicePersonView{1, 2, "memo", "fname", 0}
+	update(dbmap, ipv)
+	if ipv.LegacyVersion != 1 {
+		t.Errorf("LegacyVersion not updated: %d", ipv.LegacyVersion)
+	}
 }
 
 func TestOptimisticLocking(t *testing.T) {
@@ -223,7 +245,7 @@ func TestRawSelect(t *testing.T) {
 	inv1 := &Invoice{0, 0, 0, "xmas order", p1.Id}
 	insert(dbmap, inv1)
 
-	expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName}
+	expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName, 0}
 
 	query := "select i.Id InvoiceId, p.Id PersonId, i.Memo, p.FName " +
 		"from invoice_test i, person_test p " +
