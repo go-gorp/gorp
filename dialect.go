@@ -55,8 +55,6 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int) string {
 		return "mediumblob"
 	}
 
-	fmt.Printf("type=%v\n", val)
-
 	if maxsize < 1 {
 		maxsize = 255
 	}

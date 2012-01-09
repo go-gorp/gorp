@@ -42,11 +42,11 @@ type InvoicePersonView struct {
 
 type TableWithNull struct {
 	Id      int64
-	Str     sql.NullableString
-	Int64   sql.NullableInt64
-	Float64 sql.NullableFloat64
-	Bool    sql.NullableBool
-	Bytes   sql.NullableBytes
+	Str     sql.NullString
+	Int64   sql.NullInt64
+	Float64 sql.NullFloat64
+	Bool    sql.NullBool
+	Bytes   sql.NullBytes
 }
 
 func (p *Person) PreInsert(s SqlExecutor) error {
@@ -176,15 +176,15 @@ func TestNullValues(t *testing.T) {
 	}
 
 	// update it
-	t1.Str = sql.NullableString{"hi", true}
+	t1.Str = sql.NullString{"hi", true}
 	expected.Str = t1.Str
-	t1.Int64 = sql.NullableInt64{999, true}
+	t1.Int64 = sql.NullInt64{999, true}
 	expected.Int64 = t1.Int64
-	t1.Float64 = sql.NullableFloat64{53.33, true}
+	t1.Float64 = sql.NullFloat64{53.33, true}
 	expected.Float64 = t1.Float64
-	t1.Bool = sql.NullableBool{true, true}
+	t1.Bool = sql.NullBool{true, true}
 	expected.Bool = t1.Bool
-	t1.Bytes = sql.NullableBytes{[]byte{1, 30, 31, 33}, true}
+	t1.Bytes = sql.NullBytes{[]byte{1, 30, 31, 33}, true}
 	expected.Bytes = t1.Bytes
 	update(dbmap, t1)
 
@@ -395,6 +395,36 @@ func TestCrud(t *testing.T) {
 	if obj != nil {
 		t.Errorf("Found invoice with id: %d after Delete()", inv.Id)
 	}
+}
+
+func BenchmarkNativeInsert(b *testing.B) {
+	b.StopTimer()
+	dbmap := initDbMapBench()
+	b.StartTimer()
+
+	query := "insert into invoice_test (Created, Updated, Memo, PersonId) values (?, ?, ?, ?)"
+	stmt, err := dbmap.Db.Prepare(query)
+	if err != nil {
+		panic(err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		stmt.Exec(100, 200, "my memo", 0)
+	}
+
+	b.StopTimer()
+	dbmap.DropTables()
+	b.StartTimer()
+}
+
+func initDbMapBench() *DbMap {
+	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
+	return dbmap
 }
 
 func initDbMap() *DbMap {
