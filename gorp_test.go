@@ -304,7 +304,10 @@ func TestCrud(t *testing.T) {
 	inv.Memo = "second order"
 	inv.Created = 999
 	inv.Updated = 11111
-	update(dbmap, inv)
+	count := update(dbmap, inv)
+	if count != 1 {
+		t.Errorf("update 1 != %d", count)
+	}
 	obj = get(dbmap, Invoice{}, inv.Id)
 	inv2 = obj.(*Invoice)
 	if !reflect.DeepEqual(inv, inv2) {
@@ -350,11 +353,12 @@ func insert(dbmap *DbMap, list ...interface{}) {
 	}
 }
 
-func update(dbmap *DbMap, list ...interface{}) {
-	err := dbmap.Update(list...)
+func update(dbmap *DbMap, list ...interface{}) int64 {
+	count, err := dbmap.Update(list...)
 	if err != nil {
 		panic(err)
 	}
+	return count
 }
 
 func del(dbmap *DbMap, list ...interface{}) int64 {

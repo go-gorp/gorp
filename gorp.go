@@ -169,7 +169,7 @@ type Transaction struct {
 type SqlExecutor interface {
 	Get(i interface{}, keys ...interface{}) (interface{}, error)
 	Insert(list ...interface{}) error
-	Update(list ...interface{}) error
+	Update(list ...interface{}) (int64, error)
 	Delete(list ...interface{}) (int64, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Select(i interface{}, query string,
@@ -323,9 +323,11 @@ func (m *DbMap) Insert(list ...interface{}) error {
 // Hook functions PreUpdate() and/or PostUpdate() will be executed 
 // before/after the UPDATE statement if the interface defines them.
 //
+// Returns number of rows updated
+//
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
-func (m *DbMap) Update(list ...interface{}) error {
+func (m *DbMap) Update(list ...interface{}) (int64, error) {
 	return update(m, m, list...)
 }
 
@@ -334,6 +336,8 @@ func (m *DbMap) Update(list ...interface{}) error {
 //
 // Hook functions PreDelete() and/or PostDelete() will be executed 
 // before/after the DELETE statement if the interface defines them.  
+//
+// Returns number of rows deleted
 //
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
@@ -453,7 +457,7 @@ func (t *Transaction) Insert(list ...interface{}) error {
 }
 
 // Same behavior as DbMap.Update(), but runs in a transaction
-func (t *Transaction) Update(list ...interface{}) error {
+func (t *Transaction) Update(list ...interface{}) (int64, error) {
 	return update(t.dbmap, t, list...)
 }
 
@@ -669,18 +673,19 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 	return count, nil
 }
 
-func update(m *DbMap, exec SqlExecutor, list ...interface{}) error {
+func update(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 	hookarg := hookArg(exec)
+	count := int64(0)
 	for _, ptr := range list {
 		table, elem, err := m.tableForPointer(ptr, true)
 		if err != nil {
-			return err
+			return -1, err
 		}
 
 		eptr := elem.Addr()
 		err = runHook("PreUpdate", eptr, hookarg)
 		if err != nil {
-			return err
+			return -1, err
 		}
 
 		args := make([]interface{}, 0)
@@ -715,17 +720,23 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 		}
 		s.WriteString(";")
 
-		_, err = exec.Exec(s.String(), args...)
+		res, err := exec.Exec(s.String(), args...)
 		if err != nil {
-			return err
+			return -1, err
 		}
+
+		rows, err := res.RowsAffected()
+		if err != nil {
+			return -1, err
+		}
+		count += rows
 
 		err = runHook("PostUpdate", eptr, hookarg)
 		if err != nil {
-			return err
+			return -1, err
 		}
 	}
-	return nil
+	return count, nil
 }
 
 func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
