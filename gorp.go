@@ -21,6 +21,7 @@ import (
 )
 
 var zeroVal reflect.Value
+var versFieldConst = "[gorp_ver_field]"
 
 // OptimisticLockError is returned by Update() or Delete() if the 
 // struct being modified has a Version field and the value is not equal to
@@ -76,16 +77,32 @@ type DbMap struct {
 // Use dbmap.AddTable() or dbmap.AddTableWithName() to create these
 type TableMap struct {
 	// Name of database table.
-	TableName string
-	gotype    reflect.Type
-	columns   []*ColumnMap
-	keys      []*ColumnMap
-	version   *ColumnMap
+	TableName  string
+	gotype     reflect.Type
+	columns    []*ColumnMap
+	keys       []*ColumnMap
+	version    *ColumnMap
+	insertPlan bindPlan
+	updatePlan bindPlan
+	deletePlan bindPlan
+	getPlan    bindPlan
+}
+
+// ResetSql removes cached insert/update/select/delete SQL strings 
+// associated with this TableMap.  Call this if you've modified 
+// any column names or the table name itself.
+func (t *TableMap) ResetSql() {
+	t.insertPlan = bindPlan{}
+	t.updatePlan = bindPlan{}
+	t.deletePlan = bindPlan{}
+	t.getPlan = bindPlan{}
 }
 
 // SetKeys lets you specify the fields on a struct that map to primary 
 // key columns on the table.  If isAutoIncr is set, result.LastInsertId()
-// will be used after INSERT to bind the generated id to the Go struct 
+// will be used after INSERT to bind the generated id to the Go struct.
+//
+// Automatically calls ResetSql() to ensure SQL statements are regenerated.
 func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
 	t.keys = make([]*ColumnMap, 0)
 	for _, name := range fieldNames {
@@ -94,6 +111,7 @@ func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
 		colmap.isAutoIncr = isAutoIncr
 		t.keys = append(t.keys, colmap)
 	}
+	t.ResetSql()
 
 	return t
 }
@@ -116,10 +134,236 @@ func (t *TableMap) ColMap(field string) *ColumnMap {
 // SetVersionCol sets the column to use as the Version field.  By default
 // the "Version" field is used.  Returns the column found, or panics
 // if the struct does not contain a field matching this name.
+//
+// Automatically calls ResetSql() to ensure SQL statements are regenerated.
 func (t *TableMap) SetVersionCol(field string) *ColumnMap {
 	c := t.ColMap(field)
 	t.version = c
+	t.ResetSql()
 	return c
+}
+
+type bindPlan struct {
+	query       string
+	argFields   []string
+	keyFields   []string
+	versField   string
+	autoIncrIdx int
+}
+
+func (plan bindPlan) createBindInstance(elem reflect.Value) bindInstance {
+	bi := bindInstance{query: plan.query, autoIncrIdx: plan.autoIncrIdx, versField: plan.versField}
+
+	if plan.versField != "" {
+		bi.existingVersion = elem.FieldByName(plan.versField).Int()
+	}
+
+	for i := 0; i < len(plan.argFields); i++ {
+		k := plan.argFields[i]
+		if k == versFieldConst {
+			bi.args = append(bi.args, bi.existingVersion+1)
+		} else {
+			bi.args = append(bi.args, elem.FieldByName(k).Interface())
+		}
+	}
+
+	for i := 0; i < len(plan.keyFields); i++ {
+		k := plan.keyFields[i]
+		bi.keys = append(bi.keys, elem.FieldByName(k).Interface())
+	}
+
+	return bi
+}
+
+type bindInstance struct {
+	query           string
+	args            []interface{}
+	keys            []interface{}
+	existingVersion int64
+	versField       string
+	autoIncrIdx     int
+}
+
+func (t *TableMap) bindInsert(elem reflect.Value) bindInstance {
+	plan := t.insertPlan
+	if plan.query == "" {
+		s := bytes.Buffer{}
+		s2 := bytes.Buffer{}
+		s.WriteString(fmt.Sprintf("insert into %s (", t.TableName))
+
+		x := 0
+		for y := range t.columns {
+			col := t.columns[y]
+			if col.isAutoIncr {
+				plan.autoIncrIdx = y
+			} else if !col.Transient {
+				if x > 0 {
+					s.WriteString(",")
+					s2.WriteString(",")
+				}
+				s.WriteString(col.ColumnName)
+				s2.WriteString("?")
+
+				f := elem.FieldByName(col.fieldName)
+
+				if col == t.version {
+					f.SetInt(int64(1))
+				}
+
+				plan.argFields = append(plan.argFields, col.fieldName)
+				x++
+			}
+		}
+		s.WriteString(") values (")
+		s.WriteString(s2.String())
+		s.WriteString(");")
+
+		plan.query = s.String()
+		t.insertPlan = plan
+	}
+
+	return plan.createBindInstance(elem)
+}
+
+func (t *TableMap) bindUpdate(elem reflect.Value) bindInstance {
+	plan := t.updatePlan
+	if plan.query == "" {
+
+		s := bytes.Buffer{}
+		s.WriteString("update ")
+		s.WriteString(t.TableName)
+		s.WriteString(" set ")
+		x := 0
+
+		for y := range t.columns {
+			col := t.columns[y]
+			if !col.isPK && !col.Transient {
+				if x > 0 {
+					s.WriteString(", ")
+				}
+				s.WriteString(col.ColumnName)
+				s.WriteString("=?")
+
+				if col == t.version {
+					plan.versField = col.fieldName
+					plan.argFields = append(plan.argFields, versFieldConst)
+				} else {
+					plan.argFields = append(plan.argFields, col.fieldName)
+				}
+				x++
+			}
+		}
+
+		s.WriteString(" where ")
+		for y := range t.keys {
+			col := t.keys[y]
+			if y > 0 {
+				s.WriteString(" and ")
+			}
+			s.WriteString(col.ColumnName)
+			s.WriteString("=?")
+
+			plan.argFields = append(plan.argFields, col.fieldName)
+			plan.keyFields = append(plan.keyFields, col.fieldName)
+			x++
+		}
+		if plan.versField != "" {
+			s.WriteString(" and ")
+			s.WriteString(t.version.ColumnName)
+			s.WriteString("=?")
+			plan.argFields = append(plan.argFields, plan.versField)
+		}
+		s.WriteString(";")
+
+		plan.query = s.String()
+		t.updatePlan = plan
+	}
+
+	return plan.createBindInstance(elem)
+}
+
+func (t *TableMap) bindDelete(elem reflect.Value) bindInstance {
+	plan := t.deletePlan
+	if plan.query == "" {
+
+		s := bytes.Buffer{}
+		s.WriteString("delete from ")
+		s.WriteString(t.TableName)
+
+		for y := range t.columns {
+			col := t.columns[y]
+			if !col.Transient {
+				if col == t.version {
+					plan.versField = col.fieldName
+				}
+			}
+		}
+
+		s.WriteString(" where ")
+		for x := range t.keys {
+			k := t.keys[x]
+			if x > 0 {
+				s.WriteString(" and ")
+			}
+			s.WriteString(k.ColumnName)
+			s.WriteString("=?")
+
+			plan.keyFields = append(plan.keyFields, k.fieldName)
+			plan.argFields = append(plan.argFields, k.fieldName)
+		}
+		if plan.versField != "" {
+			s.WriteString(" and ")
+			s.WriteString(t.version.ColumnName)
+			s.WriteString("=?")
+			plan.argFields = append(plan.argFields, plan.versField)
+		}
+		s.WriteString(";")
+
+		plan.query = s.String()
+		t.deletePlan = plan
+	}
+
+	return plan.createBindInstance(elem)
+}
+
+func (t *TableMap) bindGet() bindPlan {
+	plan := t.getPlan
+	if plan.query == "" {
+
+		s := bytes.Buffer{}
+		s.WriteString("select ")
+
+		x := 0
+		for _, col := range t.columns {
+			if !col.Transient {
+				if x > 0 {
+					s.WriteString(",")
+				}
+				s.WriteString(col.ColumnName)
+				plan.argFields = append(plan.argFields, col.fieldName)
+				x++
+			}
+		}
+		s.WriteString(" from ")
+		s.WriteString(t.TableName)
+		s.WriteString(" where ")
+		for x := range t.keys {
+			col := t.keys[x]
+			if x > 0 {
+				s.WriteString(" and ")
+			}
+			s.WriteString(col.ColumnName)
+			s.WriteString("=?")
+
+			plan.keyFields = append(plan.keyFields, col.fieldName)
+		}
+		s.WriteString(";")
+
+		plan.query = s.String()
+		t.getPlan = plan
+	}
+
+	return plan
 }
 
 // ColumnMap represents a mapping between a Go struct field and a single
@@ -636,40 +880,17 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 		return nil, err
 	}
 
+	plan := table.bindGet()
+
 	v := reflect.New(t)
 	dest := make([]interface{}, 0)
 
-	s := bytes.Buffer{}
-	s.WriteString("select ")
-
-	x := 0
-	for _, col := range table.columns {
-		if !col.Transient {
-			if x > 0 {
-				s.WriteString(",")
-			}
-			s.WriteString(col.ColumnName)
-
-			f := v.Elem().FieldByName(col.fieldName)
-			dest = append(dest, f.Addr().Interface())
-			x++
-		}
+	for i := 0; i < len(plan.argFields); i++ {
+		f := v.Elem().FieldByName(plan.argFields[i])
+		dest = append(dest, f.Addr().Interface())
 	}
-	s.WriteString(" from ")
-	s.WriteString(table.TableName)
-	s.WriteString(" where ")
-	for x := range table.keys {
-		col := table.keys[x]
-		if x > 0 {
-			s.WriteString(" and ")
-		}
-		s.WriteString(col.ColumnName)
-		s.WriteString("=?")
-	}
-	s.WriteString(";")
 
-	sqlstr := s.String()
-	row := exec.queryRow(sqlstr, keys...)
+	row := exec.queryRow(plan.query, keys...)
 	err = row.Scan(dest...)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -701,45 +922,9 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 			return -1, err
 		}
 
-		args := make([]interface{}, 0)
-		s := bytes.Buffer{}
-		s.WriteString("delete from ")
-		s.WriteString(table.TableName)
+		bi := table.bindDelete(elem)
 
-		existingVersion := int64(0)
-		for y := range table.columns {
-			col := table.columns[y]
-			if !col.Transient {
-				if col == table.version {
-					f := elem.FieldByName(col.fieldName)
-					existingVersion = f.Int()
-				}
-			}
-		}
-
-		keyvals := make([]interface{}, 0)
-		s.WriteString(" where ")
-		for x := range table.keys {
-			k := table.keys[x]
-			if x > 0 {
-				s.WriteString(" and ")
-			}
-			s.WriteString(k.ColumnName)
-			s.WriteString("=?")
-
-			val := elem.FieldByName(k.fieldName).Interface()
-			keyvals = append(keyvals, val)
-			args = append(args, val)
-		}
-		if existingVersion > 0 {
-			s.WriteString(" and ")
-			s.WriteString(table.version.ColumnName)
-			s.WriteString("=?")
-			args = append(args, existingVersion)
-		}
-		s.WriteString(";")
-
-		res, err := exec.Exec(s.String(), args...)
+		res, err := exec.Exec(bi.query, bi.args...)
 		if err != nil {
 			return -1, err
 		}
@@ -748,9 +933,9 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 			return -1, err
 		}
 
-		if rows == 0 && existingVersion > 0 {
+		if rows == 0 && bi.existingVersion > 0 {
 			return lockError(m, exec, table.TableName,
-				existingVersion, elem, keyvals...)
+				bi.existingVersion, elem, bi.keys...)
 		}
 
 		count += rows
@@ -779,59 +964,9 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 			return -1, err
 		}
 
-		args := make([]interface{}, 0)
-		s := bytes.Buffer{}
-		s.WriteString("update ")
-		s.WriteString(table.TableName)
-		s.WriteString(" set ")
-		x := 0
-		existingVersion := int64(0)
-		versionField := zeroVal
-		for y := range table.columns {
-			col := table.columns[y]
-			if !col.isPK && !col.Transient {
-				if x > 0 {
-					s.WriteString(", ")
-				}
-				s.WriteString(col.ColumnName)
-				s.WriteString("=?")
+		bi := table.bindUpdate(elem)
 
-				f := elem.FieldByName(col.fieldName)
-
-				if col == table.version {
-					existingVersion = f.Int()
-					versionField = f
-					args = append(args, existingVersion+1)
-				} else {
-					args = append(args, f.Interface())
-				}
-				x++
-			}
-		}
-
-		keyvals := make([]interface{}, 0)
-		s.WriteString(" where ")
-		for y := range table.keys {
-			col := table.keys[y]
-			if y > 0 {
-				s.WriteString(" and ")
-			}
-			s.WriteString(col.ColumnName)
-			s.WriteString("=?")
-			val := elem.FieldByName(col.fieldName).Interface()
-			keyvals = append(keyvals, val)
-			args = append(args, val)
-			x++
-		}
-		if existingVersion > 0 {
-			s.WriteString(" and ")
-			s.WriteString(table.version.ColumnName)
-			s.WriteString("=?")
-			args = append(args, existingVersion)
-		}
-		s.WriteString(";")
-
-		res, err := exec.Exec(s.String(), args...)
+		res, err := exec.Exec(bi.query, bi.args...)
 		if err != nil {
 			return -1, err
 		}
@@ -841,13 +976,13 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 			return -1, err
 		}
 
-		if rows == 0 && existingVersion > 0 {
+		if rows == 0 && bi.existingVersion > 0 {
 			return lockError(m, exec, table.TableName,
-				existingVersion, elem, keyvals...)
+				bi.existingVersion, elem, bi.keys...)
 		}
 
-		if versionField != zeroVal {
-			versionField.SetInt(existingVersion + 1)
+		if bi.versField != "" {
+			elem.FieldByName(bi.versField).SetInt(bi.existingVersion + 1)
 		}
 
 		count += rows
@@ -874,48 +1009,19 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			return err
 		}
 
-		args := make([]interface{}, 0)
-		s := bytes.Buffer{}
-		s2 := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("insert into %s (", table.TableName))
-		autoIncrIdx := -1
-		x := 0
-		for y := range table.columns {
-			col := table.columns[y]
-			if col.isAutoIncr {
-				autoIncrIdx = y
-			} else if !col.Transient {
-				if x > 0 {
-					s.WriteString(",")
-					s2.WriteString(",")
-				}
-				s.WriteString(col.ColumnName)
-				s2.WriteString("?")
+		bi := table.bindInsert(elem)
 
-				f := elem.FieldByName(col.fieldName)
-
-				if col == table.version {
-					f.SetInt(int64(1))
-				}
-
-				args = append(args, f.Interface())
-				x++
-			}
-		}
-		s.WriteString(") values (")
-		s.WriteString(s2.String())
-		s.WriteString(");")
-		res, err := exec.Exec(s.String(), args...)
+		res, err := exec.Exec(bi.query, bi.args...)
 		if err != nil {
 			return err
 		}
 
-		if autoIncrIdx > -1 {
+		if bi.autoIncrIdx > -1 {
 			id, err := res.LastInsertId()
 			if err != nil {
 				return err
 			}
-			elem.Field(autoIncrIdx).SetInt(id)
+			elem.Field(bi.autoIncrIdx).SetInt(id)
 		}
 
 		err = runHook("PostInsert", eptr, hookarg)

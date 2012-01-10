@@ -117,6 +117,7 @@ func TestOptimisticLocking(t *testing.T) {
 	dbmap.Insert(p1) // Version is now 1
 	if p1.Version != 1 {
 		t.Errorf("Insert didn't incr Version: %d != %d", 1, p1.Version)
+		return
 	}
 
 	obj, err := dbmap.Get(Person{}, p1.Id)
@@ -491,6 +492,7 @@ func BenchmarkGorpCrud(b *testing.B) {
 
 func initDbMapBench() *DbMap {
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap.Db.Exec("drop table if exists invoice_test")
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	err := dbmap.CreateTables()
 	if err != nil {

@@ -32,15 +32,17 @@ not infrastructure.
 
 ## Installation ##
 
+    # install the library:
     goinstall github.com/coopernurse/gorp
     
+    // use in your .go code:
     import (
         "github.com/coopernurse/gorp"
     )
 
 ## Performance ##
 
-gorp uses reflection to construct SQL queries.  See the BenchmarkNativeCrud vs BenchmarkGorpCrud in gorp_test.go for a simple perf test.  On my MacBook Pro gorp is about 5-10% slower than hand written SQL.  I haven't done any work to tune performance, but there are probably some easy wins (like caching the constructed SQL statements for a given TableMap).
+gorp uses reflection to construct SQL queries and bind parameters.  See the BenchmarkNativeCrud vs BenchmarkGorpCrud in gorp_test.go for a simple perf test.  On my MacBook Pro gorp is about 2-3% slower than hand written SQL. 
 
 ## Examples ##
 
