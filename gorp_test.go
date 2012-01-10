@@ -397,24 +397,96 @@ func TestCrud(t *testing.T) {
 	}
 }
 
-func BenchmarkNativeInsert(b *testing.B) {
+func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
+	defer dbmap.DropTables()
 	b.StartTimer()
 
-	query := "insert into invoice_test (Created, Updated, Memo, PersonId) values (?, ?, ?, ?)"
-	stmt, err := dbmap.Db.Prepare(query)
-	if err != nil {
-		panic(err)
-	}
+	insert := "insert into invoice_test (Created, Updated, Memo, PersonId) values (?, ?, ?, ?)"
+	sel := "select Id, Created, Updated, Memo, PersonId from invoice_test where Id=?"
+	update := "update invoice_test set Created=?, Updated=?, Memo=?, PersonId=? where Id=?"
+	delete := "delete from invoice_test where Id=?"
+
+	inv := &Invoice{0, 100, 200, "my memo", 0}
 
 	for i := 0; i < b.N; i++ {
-		stmt.Exec(100, 200, "my memo", 0)
+		res, err := dbmap.Db.Exec(insert, inv.Created, inv.Updated,
+			inv.Memo, inv.PersonId)
+		if err != nil {
+			panic(err)
+		}
+
+		newid, err := res.LastInsertId()
+		if err != nil {
+			panic(err)
+		}
+		inv.Id = newid
+
+		row := dbmap.Db.QueryRow(sel, inv.Id)
+		err = row.Scan(&inv.Id, &inv.Created, &inv.Updated, &inv.Memo,
+			&inv.PersonId)
+		if err != nil {
+			panic(err)
+		}
+
+		inv.Created = 1000
+		inv.Updated = 2000
+		inv.Memo = "my memo 2"
+		inv.PersonId = 3000
+
+		_, err = dbmap.Db.Exec(update, inv.Created, inv.Updated, inv.Memo,
+			inv.PersonId, inv.Id)
+		if err != nil {
+			panic(err)
+		}
+
+		_, err = dbmap.Db.Exec(delete, inv.Id)
+		if err != nil {
+			panic(err)
+		}
 	}
 
+}
+
+func BenchmarkGorpCrud(b *testing.B) {
 	b.StopTimer()
-	dbmap.DropTables()
+	dbmap := initDbMapBench()
+	defer dbmap.DropTables()
 	b.StartTimer()
+
+	inv := &Invoice{0, 100, 200, "my memo", 0}
+	for i := 0; i < b.N; i++ {
+		err := dbmap.Insert(inv)
+		if err != nil {
+			panic(err)
+		}
+
+		obj, err := dbmap.Get(Invoice{}, inv.Id)
+		if err != nil {
+			panic(err)
+		}
+
+		inv2, ok := obj.(*Invoice)
+		if !ok {
+			panic(fmt.Sprintf("expected *Invoice, got: %v", obj))
+		}
+
+		inv2.Created = 1000
+		inv2.Updated = 2000
+		inv2.Memo = "my memo 2"
+		inv2.PersonId = 3000
+		_, err = dbmap.Update(inv2)
+		if err != nil {
+			panic(err)
+		}
+
+		_, err = dbmap.Delete(inv2)
+		if err != nil {
+			panic(err)
+		}
+
+	}
 }
 
 func initDbMapBench() *DbMap {

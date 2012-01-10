@@ -449,11 +449,11 @@ func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]inte
 // This is equivalent to running:  Prepare(), Exec() using exp/sql
 func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	m.trace(query, args)
-	stmt, err := m.Db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	return stmt.Exec(args...)
+	//stmt, err := m.Db.Prepare(query)
+	//if err != nil {
+	//	return nil, err
+	//}
+	return m.Db.Exec(query, args...)
 }
 
 // Begin starts a gorp Transaction
