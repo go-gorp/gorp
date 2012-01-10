@@ -170,13 +170,13 @@ You can also batch operations into a transaction:
 Use hooks to update data before/after saving to the db. Good for timestamps:
 
     // implement the PreInsert and PreUpdate hooks
-    func (i *Invoice) PreInsert(s SqlExecutor) error {
+    func (i *Invoice) PreInsert(s gorp.SqlExecutor) error {
         i.Created = time.Now().UnixNano()
         i.Updated = i.Created
         return nil
     }
     
-    func (i *Invoice) PreUpdate(s SqlExecutor) error {
+    func (i *Invoice) PreUpdate(s gorp.SqlExecutor) error {
         i.Updated = time.Now().UnixNano()
         return nil
     }
@@ -186,7 +186,7 @@ Use hooks to update data before/after saving to the db. Good for timestamps:
     //
     // Here's an example of a cascading delete
     //
-    func (p *Person) PreDelete(s SqlExecutor) error {
+    func (p *Person) PreDelete(s gorp.SqlExecutor) error {
         query := "delete from invoice_test where PersonId=?"
         err := s.Exec(query, p.Id); if err != nil {
             return err
@@ -203,6 +203,10 @@ Full list of hooks that you can implement:
     PostUpdate
     PreDelete
     PostDelete
+    
+    All have the same signature.  for example:
+    
+    func (p *MyStruct) PostUpdate(s gorp.SqlExecutor) error
     
 Optimistic locking (similar to JPA)
 
@@ -239,5 +243,9 @@ Optimistic locking (similar to JPA)
     count, err := dbmap.Update(p1)
     if _, ok := err.(OptimisticLockError); !ok {
         // should reach this statement
-        fmt.Printf("Got err: %v\n", err)
+        
+        // in a real app you might reload the row and retry, or
+        // you might propegate this to the user, depending on the desired
+        // semantics
+        fmt.Printf("Tried to update row with stale data: %v\n", err)
     }

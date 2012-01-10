@@ -203,7 +203,7 @@ func TestColumnProps(t *testing.T) {
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
-	t1.ColMap("Created").Rename("date_created").SetNullable(false)
+	t1.ColMap("Created").Rename("date_created")
 	t1.ColMap("Updated").SetTransient(true)
 	t1.ColMap("Memo").SetMaxSize(10)
 	t1.ColMap("PersonId").SetUnique(true)

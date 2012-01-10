@@ -368,7 +368,7 @@ func (t *TableMap) bindGet() bindPlan {
 
 // ColumnMap represents a mapping between a Go struct field and a single
 // column in a table.
-// Nullable, Unique, and MaxSize only inform the 
+// Unique and MaxSize only inform the 
 // CreateTables() function and are not used by Insert/Update/Delete/Get.
 type ColumnMap struct {
 	// Column name in db table
@@ -376,10 +376,6 @@ type ColumnMap struct {
 
 	// If true, this column is skipped in generated SQL statements
 	Transient bool
-
-	// If false, " not null" is added to create table statements.
-	// Not used elsewhere
-	Nullable bool
 
 	// If true, " unique" is added to create table statements.
 	// Not used elsewhere
@@ -409,13 +405,6 @@ func (c *ColumnMap) Rename(colname string) *ColumnMap {
 // this column will be skipped when SQL statements are generated
 func (c *ColumnMap) SetTransient(b bool) *ColumnMap {
 	c.Transient = b
-	return c
-}
-
-// If true " not null" will be added to create table statements for this
-// column
-func (c *ColumnMap) SetNullable(b bool) *ColumnMap {
-	c.Nullable = b
 	return c
 }
 
@@ -520,7 +509,6 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 		f := t.Field(i)
 		tmap.columns[i] = &ColumnMap{
 			ColumnName: f.Name,
-			Nullable:   true,
 			fieldName:  f.Name,
 			gotype:     f.Type,
 		}
@@ -566,7 +554,7 @@ func (m *DbMap) CreateTables() error {
 				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize)
 				s.WriteString(fmt.Sprintf("%s %s", col.ColumnName, stype))
 
-				if !col.Nullable || col.isPK {
+				if col.isPK {
 					s.WriteString(" not null")
 				}
 				if col.Unique {
