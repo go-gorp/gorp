@@ -187,6 +187,8 @@ type bindInstance struct {
 func (t *TableMap) bindInsert(elem reflect.Value) bindInstance {
 	plan := t.insertPlan
 	if plan.query == "" {
+		plan.autoIncrIdx = -1
+
 		s := bytes.Buffer{}
 		s2 := bytes.Buffer{}
 		s.WriteString(fmt.Sprintf("insert into %s (", t.TableName))
