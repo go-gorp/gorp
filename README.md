@@ -28,6 +28,7 @@ not infrastructure.
 
 ## TODO ##
 
+* Test with more exp/sql drivers, such as Postgresql
 * Reconcile the exp/sql changes I've made for Nullables with the standard Go lib
 
 ## Installation ##
@@ -39,6 +40,25 @@ not infrastructure.
     import (
         "github.com/coopernurse/gorp"
     )
+
+## Running the tests ##
+
+The included tests are written against MySQL at the moment. I need to look into
+adding additional drivers to the test suite, but for now you can clone the repo
+and setup an environment variable before running "go test"
+
+    # Set env variable with dsn using mymysql format.  From the mymysql docs, 
+    # the format can be of 3 types:
+    #
+    #    DBNAME/USER/PASSWD
+    #    unix:SOCKPATH*DBNAME/USER/PASSWD
+    #    tcp:ADDR*DBNAME/USER/PASSWD
+    #
+    # for example, on my box I use:
+    export GORP_TEST_DSN=gomysql_test/gomysql_test/abc123
+    
+    # run the tests
+    go test
 
 ## Performance ##
 

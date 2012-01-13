@@ -88,6 +88,30 @@ func (p *Person) PostGet(s SqlExecutor) error {
 	return nil
 }
 
+type PersistentUser struct {
+	Key            int32
+	Id             string
+	PassedTraining bool
+}
+
+func TestPersistentUser(t *testing.T) {
+	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap.Exec("drop table if exists PersistentUser")
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
+	table.ColMap("Key").Rename("mykey")
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
+	defer dbmap.DropTables()
+	pu := &PersistentUser{43, "33r", false}
+	err = dbmap.Insert(pu)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestOverrideVersionCol(t *testing.T) {
 	dbmap := initDbMap()
 	dbmap.DropTables()
@@ -512,7 +536,12 @@ func initDbMap() *DbMap {
 }
 
 func connect() *sql.DB {
-	db, err := sql.Open("mymysql", "gomysql_test/gomysql_test/abc123")
+	dsn := os.Getenv("GORP_TEST_DSN")
+	if dsn == "" {
+		panic("GORP_TEST_DSN env variable is not set. Please see README.md")
+	}
+
+	db, err := sql.Open("mymysql", dsn)
 	if err != nil {
 		panic("Error connecting to db: " + err.Error())
 	}
