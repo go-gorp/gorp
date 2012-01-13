@@ -59,6 +59,9 @@ and setup an environment variable before running "go test"
     
     # run the tests
     go test
+    
+    # run the tests and benchmarks
+    go test -bench="Bench" -benchtime 10
 
 ## Performance ##
 
