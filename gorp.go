@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-// Package gorp provides a simple way to marshall Go structs to and from
+// Package gorp provides a simple way to marshal Go structs to and from
 // SQL databases.  It uses the exp/sql package, and should work with any 
 // compliant exp/sql driver.
 //
@@ -39,7 +39,8 @@ type OptimisticLockError struct {
 	// was never inserted to begin with
 	RowExists bool
 
-	// version value on the struct being updated/deleted
+	// Version value on the struct passed to Update/Delete. This value is
+	// out of sync with the database.
 	LocalVersion int64
 }
 
@@ -647,7 +648,9 @@ func (m *DbMap) Delete(list ...interface{}) (int64, error) {
 // primary key(s)
 //
 //  i should be an empty value for the struct to load
-//  keys should be the primary key value(s) for the row to load
+//  keys should be the primary key value(s) for the row to load.  If 
+//  multiple keys exist on the table, the order should match the column 
+//  order specified in SetKeys() when the table mapping was defined.
 //
 // Hook function PostGet() will be executed 
 // after the SELECT statement if the interface defines them.
