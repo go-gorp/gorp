@@ -2,7 +2,7 @@ package gorp_test
 
 import (
 	"errors"
-	"exp/sql"
+	"database/sql"
 	"fmt"
 	. "github.com/coopernurse/gorp"
 	_ "github.com/ziutek/mymysql/godrv"
@@ -46,7 +46,7 @@ type TableWithNull struct {
 	Int64   sql.NullInt64
 	Float64 sql.NullFloat64
 	Bool    sql.NullBool
-	Bytes   sql.NullBytes
+	Bytes   []byte
 }
 
 func (p *Person) PreInsert(s SqlExecutor) error {
@@ -209,7 +209,7 @@ func TestNullValues(t *testing.T) {
 	expected.Float64 = t1.Float64
 	t1.Bool = sql.NullBool{true, true}
 	expected.Bool = t1.Bool
-	t1.Bytes = sql.NullBytes{[]byte{1, 30, 31, 33}, true}
+	t1.Bytes = []byte{1, 30, 31, 33}
 	expected.Bytes = t1.Bytes
 	update(dbmap, t1)
 

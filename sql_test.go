@@ -1,7 +1,7 @@
 package gorp_test
 
 import (
-	"exp/sql"
+	"database/sql"
 	_ "github.com/ziutek/mymysql/godrv"
 	"testing"
 )

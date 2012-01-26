@@ -14,7 +14,7 @@ package gorp
 import (
 	"bytes"
 	"errors"
-	"exp/sql"
+	"database/sql"
 	"fmt"
 	"log"
 	"reflect"
