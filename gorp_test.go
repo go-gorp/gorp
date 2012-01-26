@@ -1,8 +1,8 @@
 package gorp_test
 
 import (
-	"errors"
 	"database/sql"
+	"errors"
 	"fmt"
 	. "github.com/coopernurse/gorp"
 	_ "github.com/ziutek/mymysql/godrv"

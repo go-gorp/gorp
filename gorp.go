@@ -13,8 +13,8 @@ package gorp
 
 import (
 	"bytes"
-	"errors"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"reflect"

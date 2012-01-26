@@ -13,6 +13,16 @@ I hope that gorp saves you time, minimizes the drudgery of getting data
 in and out of your database, and helps your code focus on algorithms, 
 not infrastructure.
 
+## Note on Building ##
+
+As of this writing (Jan 26 2012) Go 1 is in the process of being stabilized.
+gorp is currently tracking the tip of the golang hg tree to stay up to date with
+the latest sql package changes.  Consequently you may have issues building gorp
+unless you're also tracking tip (or at a minimum, the latest weekly).
+
+Please bear with us during this transition period. Once Go 1 lands gorp should build
+against it and I'll begin playing ball with the "go install" branch detection stuff.
+
 ## Features ##
 
 * Support for transactions
