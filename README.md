@@ -15,13 +15,14 @@ not infrastructure.
 
 ## Note on Building ##
 
-As of this writing (Jan 26 2012) Go 1 is in the process of being stabilized.
-gorp is currently tracking the tip of the golang hg tree to stay up to date with
-the latest sql package changes.  Consequently you may have issues building gorp
-unless you're also tracking tip (or at a minimum, the latest weekly).
+The database/sql package that gorp relies on is under active development.
+Please use the latest Go weekly when building gorp.  Specifically, the
+2012-01-20 weekly contains the change to rename exp/sql to database/sql, 
+and the 2012-01-27 weekly contains the additional Null* types that the
+gorp tests rely on.
 
-Please bear with us during this transition period. Once Go 1 lands gorp should build
-against it and I'll begin playing ball with the "go install" branch detection stuff.
+Once Go 1 lands (real soon now), building gorp should become a reliable, 
+boring afair, as it should be.
 
 ## Features ##
 
