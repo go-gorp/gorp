@@ -3,8 +3,8 @@
 // license that can be found in the LICENSE file.
 
 // Package gorp provides a simple way to marshal Go structs to and from
-// SQL databases.  It uses the exp/sql package, and should work with any 
-// compliant exp/sql driver.
+// SQL databases.  It uses the database/sql package, and should work with any 
+// compliant database/sql driver.
 //
 // Source code and project home:
 // https://github.com/coopernurse/gorp
@@ -683,7 +683,7 @@ func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]inte
 }
 
 // Exec runs an arbitrary SQL statement.  args represent the bind parameters.
-// This is equivalent to running:  Prepare(), Exec() using exp/sql
+// This is equivalent to running:  Prepare(), Exec() using database/sql
 func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	m.trace(query, args)
 	//stmt, err := m.Db.Prepare(query)

@@ -39,8 +39,7 @@ boring afair, as it should be.
 
 ## TODO ##
 
-* Test with more exp/sql drivers, such as Postgresql
-* Reconcile the exp/sql changes I've made for Nullables with the standard Go lib
+* Test with more database/sql drivers, such as Postgresql
 
 ## Installation ##
 
@@ -100,8 +99,8 @@ First define some types:
 
 Then create a mapper, typically you'd do this one time at app startup:
 
-    // connect to db using standard Go exp/sql API
-    // use whatever exp/sql driver you wish
+    // connect to db using standard Go database/sql API
+    // use whatever database/sql driver you wish
     db, err := sql.Open("mysql", "myuser:mypassword@localhost:3306/dbname")
     
     // construct a gorp DbMap
@@ -275,7 +274,7 @@ Optimistic locking (similar to JPA)
     
     // Raises error because p1.Version == 1, which is out of date
     count, err := dbmap.Update(p1)
-    if _, ok := err.(OptimisticLockError); !ok {
+    if _, ok := err.(gorp.OptimisticLockError); !ok {
         // should reach this statement
         
         // in a real app you might reload the row and retry, or
