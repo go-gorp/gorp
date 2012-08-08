@@ -122,7 +122,7 @@ func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
 // name.
 func (t *TableMap) ColMap(field string) *ColumnMap {
 	for _, col := range t.columns {
-		if col.fieldName == field {
+		if col.fieldName == field || col.ColumnName == field {
 			return col
 		}
 	}

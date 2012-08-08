@@ -13,43 +13,43 @@ import (
 	"time"
 )
 
-var dialect = MySQLDialect{"InnoDB", "UTF8"}
+var dialect_tagged = MySQLDialect{"InnoDB", "UTF8"}
 
-type Invoice struct {
-	Id       int64
-	Created  int64
-	Updated  int64
-	Memo     string
-	PersonId int64
+type InvoiceTagged struct {
+	Id             int64  `db:"Id_tagged"`
+	Created        int64  `db:"Created_tagged"`
+	Updated        int64  `db:"Updated_tagged"`
+	Memo           string `db:"Memo_tagged"`
+	PersonTaggedId int64  `db:"PersonTaggedId_tagged"`
 }
 
-type Person struct {
-	Id      int64
-	Created int64
-	Updated int64
-	FName   string
-	LName   string
-	Version int64
+type PersonTagged struct {
+	Id      int64  `db:"Id_tagged"`
+	Created int64  `db:"Created_tagged"`
+	Updated int64  `db:"Updated_tagged"`
+	FName   string `db:"FName_tagged"`
+	LName   string `db:"LName_tagged"`
+	Version int64  `db:"Version_tagged"`
 }
 
-type InvoicePersonView struct {
-	InvoiceId     int64
-	PersonId      int64
-	Memo          string
-	FName         string
-	LegacyVersion int64
+type InvoiceTaggedPersonTaggedView struct {
+	InvoiceTaggedId int64  `db:"InvoiceTaggedId_tagged"`
+	PersonTaggedId  int64  `db:"PersonTaggedId_tagged"`
+	Memo            string `db:"Memo_tagged"`
+	FName           string `db:"FName_tagged"`
+	LegacyVersion   int64  `db:"LegacyVersion_tagged"`
 }
 
-type TableWithNull struct {
-	Id      int64
-	Str     sql.NullString
-	Int64   sql.NullInt64
-	Float64 sql.NullFloat64
-	Bool    sql.NullBool
-	Bytes   []byte
+type TableWithNullTagged struct {
+	Id      int64           `db:"Id_tagged"`
+	Str     sql.NullString  `db:"Str_tagged"`
+	Int64   sql.NullInt64   `db:"Int64_tagged"`
+	Float64 sql.NullFloat64 `db:"Float64_tagged"`
+	Bool    sql.NullBool    `db:"Bool_tagged"`
+	Bytes   []byte          `db:"Bytes_tagged"`
 }
 
-func (p *Person) PreInsert(s SqlExecutor) error {
+func (p *PersonTagged) PreInsert(s SqlExecutor) error {
 	p.Created = time.Now().UnixNano()
 	p.Updated = p.Created
 	if p.FName == "badname" {
@@ -58,94 +58,94 @@ func (p *Person) PreInsert(s SqlExecutor) error {
 	return nil
 }
 
-func (p *Person) PostInsert(s SqlExecutor) error {
+func (p *PersonTagged) PostInsert(s SqlExecutor) error {
 	p.LName = "postinsert"
 	return nil
 }
 
-func (p *Person) PreUpdate(s SqlExecutor) error {
+func (p *PersonTagged) PreUpdate(s SqlExecutor) error {
 	p.FName = "preupdate"
 	return nil
 }
 
-func (p *Person) PostUpdate(s SqlExecutor) error {
+func (p *PersonTagged) PostUpdate(s SqlExecutor) error {
 	p.LName = "postupdate"
 	return nil
 }
 
-func (p *Person) PreDelete(s SqlExecutor) error {
+func (p *PersonTagged) PreDelete(s SqlExecutor) error {
 	p.FName = "predelete"
 	return nil
 }
 
-func (p *Person) PostDelete(s SqlExecutor) error {
+func (p *PersonTagged) PostDelete(s SqlExecutor) error {
 	p.LName = "postdelete"
 	return nil
 }
 
-func (p *Person) PostGet(s SqlExecutor) error {
+func (p *PersonTagged) PostGet(s SqlExecutor) error {
 	p.LName = "postget"
 	return nil
 }
 
-type PersistentUser struct {
+type PersistentUserTagged struct {
 	Key            int32
 	Id             string
 	PassedTraining bool
 }
 
-func TestPersistentUser(t *testing.T) {
+func TestPersistentUserTagged(t *testing.T) {
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
-	dbmap.Exec("drop table if exists PersistentUser")
+	dbmap.Exec("drop table if exists PersistentUserTagged")
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
-	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
+	table := dbmap.AddTable(PersistentUserTagged{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
 	err := dbmap.CreateTables()
 	if err != nil {
 		panic(err)
 	}
 	defer dbmap.DropTables()
-	pu := &PersistentUser{43, "33r", false}
+	pu := &PersistentUserTagged{43, "33r", false}
 	err = dbmap.Insert(pu)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func TestOverrideVersionCol(t *testing.T) {
-	dbmap := initDbMap()
+func TestOverrideVersionColTagged(t *testing.T) {
+	dbmap := initDbMapTagged()
 	dbmap.DropTables()
-	t1 := dbmap.AddTable(InvoicePersonView{}).SetKeys(false, "InvoiceId", "PersonId")
+	t1 := dbmap.AddTable(InvoiceTaggedPersonTaggedView{}).SetKeys(false, "InvoiceTaggedId_tagged", "PersonTaggedId_tagged")
 	err := dbmap.CreateTables()
 	if err != nil {
 		panic(err)
 	}
 	defer dbmap.DropTables()
 	c1 := t1.SetVersionCol("LegacyVersion")
-	if c1.ColumnName != "LegacyVersion" {
+	if c1.ColumnName != "LegacyVersion_tagged" {
 		t.Errorf("Wrong col returned: %v", c1)
 	}
 
-	ipv := &InvoicePersonView{1, 2, "memo", "fname", 0}
+	ipv := &InvoiceTaggedPersonTaggedView{1, 2, "memo", "fname", 0}
 	update(dbmap, ipv)
 	if ipv.LegacyVersion != 1 {
 		t.Errorf("LegacyVersion not updated: %d", ipv.LegacyVersion)
 	}
 }
 
-func TestOptimisticLocking(t *testing.T) {
-	dbmap := initDbMap()
+func TestOptimisticLockingTagged(t *testing.T) {
+	dbmap := initDbMapTagged()
 	defer dbmap.DropTables()
 
-	p1 := &Person{0, 0, 0, "Bob", "Smith", 0}
+	p1 := &PersonTagged{0, 0, 0, "Bob", "Smith", 0}
 	dbmap.Insert(p1) // Version is now 1
 	if p1.Version != 1 {
 		t.Errorf("Insert didn't incr Version: %d != %d", 1, p1.Version)
 		return
 	}
 
-	obj, err := dbmap.Get(Person{}, p1.Id)
-	p2 := obj.(*Person)
+	obj, err := dbmap.Get(PersonTagged{}, p1.Id)
+	p2 := obj.(*PersonTagged)
 	p2.LName = "Edwards"
 	dbmap.Update(p2) // Version is now 2
 	if p2.Version != 2 {
@@ -171,31 +171,31 @@ func TestOptimisticLocking(t *testing.T) {
 }
 
 // what happens if a legacy table has a null value?
-func TestDoubleAddTable(t *testing.T) {
+func TestDoubleAddTableTagged(t *testing.T) {
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
-	t1 := dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
-	t2 := dbmap.AddTable(TableWithNull{})
+	t1 := dbmap.AddTable(TableWithNullTagged{}).SetKeys(false, "Id")
+	t2 := dbmap.AddTable(TableWithNullTagged{})
 	if t1 != t2 {
 		t.Errorf("%v != %v", t1, t2)
 	}
 }
 
 // what happens if a legacy table has a null value?
-func TestNullValues(t *testing.T) {
+func TestNullValuesTagged(t *testing.T) {
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
-	dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
+	dbmap.AddTable(TableWithNullTagged{}).SetKeys(false, "Id")
 	dbmap.CreateTables()
 	defer dbmap.DropTables()
 
 	// insert a row directly
-	rawexec(dbmap, "insert into TableWithNull values (10, null, "+
+	rawexec(dbmap, "insert into TableWithNullTagged values (10, null, "+
 		"null, null, null, null)")
 
 	// try to load it
-	expected := &TableWithNull{Id: 10}
-	obj := get(dbmap, TableWithNull{}, 10)
-	t1 := obj.(*TableWithNull)
+	expected := &TableWithNullTagged{Id: 10}
+	obj := get(dbmap, TableWithNullTagged{}, 10)
+	t1 := obj.(*TableWithNullTagged)
 	if !reflect.DeepEqual(expected, t1) {
 		t.Errorf("%v != %v", expected, t1)
 	}
@@ -213,8 +213,8 @@ func TestNullValues(t *testing.T) {
 	expected.Bytes = t1.Bytes
 	update(dbmap, t1)
 
-	obj = get(dbmap, TableWithNull{}, 10)
-	t1 = obj.(*TableWithNull)
+	obj = get(dbmap, TableWithNullTagged{}, 10)
+	t1 = obj.(*TableWithNullTagged)
 	if t1.Str.String != "hi" {
 		t.Errorf("%s != hi", t1.Str.String)
 	}
@@ -223,23 +223,23 @@ func TestNullValues(t *testing.T) {
 	}
 }
 
-func TestColumnProps(t *testing.T) {
+func TestColumnPropsTagged(t *testing.T) {
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
-	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
+	t1 := dbmap.AddTable(InvoiceTagged{}).SetKeys(true, "Id")
 	t1.ColMap("Created").Rename("date_created")
 	t1.ColMap("Updated").SetTransient(true)
 	t1.ColMap("Memo").SetMaxSize(10)
-	t1.ColMap("PersonId").SetUnique(true)
+	t1.ColMap("PersonTaggedId").SetUnique(true)
 
 	dbmap.CreateTables()
 	defer dbmap.DropTables()
 
 	// test transient
-	inv := &Invoice{0, 0, 1, "my invoice", 0}
+	inv := &InvoiceTagged{0, 0, 1, "my invoice", 0}
 	insert(dbmap, inv)
-	obj := get(dbmap, Invoice{}, inv.Id)
-	inv = obj.(*Invoice)
+	obj := get(dbmap, InvoiceTagged{}, inv.Id)
+	inv = obj.(*InvoiceTagged)
 	fmt.Printf("inv: %v\n", inv)
 	if inv.Updated != 0 {
 		t.Errorf("Saved transient column 'Updated'")
@@ -253,29 +253,29 @@ func TestColumnProps(t *testing.T) {
 	}
 
 	// test unique - same person id
-	inv = &Invoice{0, 0, 1, "my invoice2", 0}
+	inv = &InvoiceTagged{0, 0, 1, "my invoice2", 0}
 	err = dbmap.Insert(inv)
 	if err == nil {
-		t.Errorf("same PersonId inserted, but Insert did not fail.")
+		t.Errorf("same PersonTaggedId inserted, but Insert did not fail.")
 	}
 }
 
-func TestRawSelect(t *testing.T) {
-	dbmap := initDbMap()
+func TestRawSelectTagged(t *testing.T) {
+	dbmap := initDbMapTagged()
 	defer dbmap.DropTables()
 
-	p1 := &Person{0, 0, 0, "bob", "smith", 0}
+	p1 := &PersonTagged{0, 0, 0, "bob", "smith", 0}
 	insert(dbmap, p1)
 
-	inv1 := &Invoice{0, 0, 0, "xmas order", p1.Id}
+	inv1 := &InvoiceTagged{0, 0, 0, "xmas order", p1.Id}
 	insert(dbmap, inv1)
 
-	expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName, 0}
+	expected := &InvoiceTaggedPersonTaggedView{inv1.Id, p1.Id, inv1.Memo, p1.FName, 0}
 
-	query := "select i.Id InvoiceId, p.Id PersonId, i.Memo, p.FName " +
-		"from invoice_test i, person_test p " +
-		"where i.PersonId = p.Id"
-	list := rawselect(dbmap, InvoicePersonView{}, query)
+	query := "select i.Id_tagged InvoiceTaggedId_tagged, p.Id_tagged PersonTaggedId_tagged, i.Memo_tagged, p.FName_tagged " +
+		"from invoice_test_tagged i, person_test_tagged p " +
+		"where i.PersonTaggedId_tagged = p.Id_tagged"
+	list := rawselect(dbmap, InvoiceTaggedPersonTaggedView{}, query)
 	if len(list) != 1 {
 		t.Errorf("len(list) != 1: %d", len(list))
 	} else if !reflect.DeepEqual(expected, list[0]) {
@@ -283,11 +283,11 @@ func TestRawSelect(t *testing.T) {
 	}
 }
 
-func TestHooks(t *testing.T) {
-	dbmap := initDbMap()
+func TestHooksTagged(t *testing.T) {
+	dbmap := initDbMapTagged()
 	defer dbmap.DropTables()
 
-	p1 := &Person{0, 0, 0, "bob", "smith", 0}
+	p1 := &PersonTagged{0, 0, 0, "bob", "smith", 0}
 	insert(dbmap, p1)
 	if p1.Created == 0 || p1.Updated == 0 {
 		t.Errorf("p1.PreInsert() didn't run: %v", p1)
@@ -295,8 +295,8 @@ func TestHooks(t *testing.T) {
 		t.Errorf("p1.PostInsert() didn't run: %v", p1)
 	}
 
-	obj := get(dbmap, Person{}, p1.Id)
-	p1 = obj.(*Person)
+	obj := get(dbmap, PersonTagged{}, p1.Id)
+	p1 = obj.(*PersonTagged)
 	if p1.LName != "postget" {
 		t.Errorf("p1.PostGet() didn't run: %v", p1)
 	}
@@ -316,19 +316,19 @@ func TestHooks(t *testing.T) {
 	}
 
 	// Test error case
-	p2 := &Person{0, 0, 0, "badname", "", 0}
+	p2 := &PersonTagged{0, 0, 0, "badname", "", 0}
 	err := dbmap.Insert(p2)
 	if err == nil {
 		t.Errorf("p2.PreInsert() didn't return an error")
 	}
 }
 
-func TestTransaction(t *testing.T) {
-	dbmap := initDbMap()
+func TestTransactionTagged(t *testing.T) {
+	dbmap := initDbMapTagged()
 	defer dbmap.DropTables()
 
-	inv1 := &Invoice{0, 100, 200, "t1", 0}
-	inv2 := &Invoice{0, 100, 200, "t2", 0}
+	inv1 := &InvoiceTagged{0, 100, 200, "t1", 0}
+	inv2 := &InvoiceTagged{0, 100, 200, "t2", 0}
 
 	trans, err := dbmap.Begin()
 	if err != nil {
@@ -340,14 +340,14 @@ func TestTransaction(t *testing.T) {
 		panic(err)
 	}
 
-	obj, err := dbmap.Get(Invoice{}, inv1.Id)
+	obj, err := dbmap.Get(InvoiceTagged{}, inv1.Id)
 	if err != nil {
 		panic(err)
 	}
 	if !reflect.DeepEqual(inv1, obj) {
 		t.Errorf("%v != %v", inv1, obj)
 	}
-	obj, err = dbmap.Get(Invoice{}, inv2.Id)
+	obj, err = dbmap.Get(InvoiceTagged{}, inv2.Id)
 	if err != nil {
 		panic(err)
 	}
@@ -356,12 +356,12 @@ func TestTransaction(t *testing.T) {
 	}
 }
 
-func TestMultiple(t *testing.T) {
-	dbmap := initDbMap()
+func TestMultipleTagged(t *testing.T) {
+	dbmap := initDbMapTagged()
 	defer dbmap.DropTables()
 
-	inv1 := &Invoice{0, 100, 200, "a", 0}
-	inv2 := &Invoice{0, 100, 200, "b", 0}
+	inv1 := &InvoiceTagged{0, 100, 200, "a", 0}
+	inv2 := &InvoiceTagged{0, 100, 200, "b", 0}
 	insert(dbmap, inv1, inv2)
 
 	inv1.Memo = "c"
@@ -374,11 +374,11 @@ func TestMultiple(t *testing.T) {
 	}
 }
 
-func TestCrud(t *testing.T) {
-	dbmap := initDbMap()
+func TestCrudTagged(t *testing.T) {
+	dbmap := initDbMapTagged()
 	defer dbmap.DropTables()
 
-	inv := &Invoice{0, 100, 200, "first order", 0}
+	inv := &InvoiceTagged{0, 100, 200, "first order", 0}
 
 	// INSERT row
 	insert(dbmap, inv)
@@ -388,8 +388,8 @@ func TestCrud(t *testing.T) {
 	}
 
 	// SELECT row
-	obj := get(dbmap, Invoice{}, inv.Id)
-	inv2 := obj.(*Invoice)
+	obj := get(dbmap, InvoiceTagged{}, inv.Id)
+	inv2 := obj.(*InvoiceTagged)
 	if !reflect.DeepEqual(inv, inv2) {
 		t.Errorf("%v != %v", inv, inv2)
 	}
@@ -402,8 +402,8 @@ func TestCrud(t *testing.T) {
 	if count != 1 {
 		t.Errorf("update 1 != %d", count)
 	}
-	obj = get(dbmap, Invoice{}, inv.Id)
-	inv2 = obj.(*Invoice)
+	obj = get(dbmap, InvoiceTagged{}, inv.Id)
+	inv2 = obj.(*InvoiceTagged)
 	if !reflect.DeepEqual(inv, inv2) {
 		t.Errorf("%v != %v", inv, inv2)
 	}
@@ -416,28 +416,28 @@ func TestCrud(t *testing.T) {
 	}
 
 	// VERIFY deleted
-	obj = get(dbmap, Invoice{}, inv.Id)
+	obj = get(dbmap, InvoiceTagged{}, inv.Id)
 	if obj != nil {
 		t.Errorf("Found invoice with id: %d after Delete()", inv.Id)
 	}
 }
 
-func BenchmarkNativeCrud(b *testing.B) {
+func BenchmarkNativeCrudTagged(b *testing.B) {
 	b.StopTimer()
-	dbmap := initDbMapBench()
+	dbmap := initDbMapTaggedBench()
 	defer dbmap.DropTables()
 	b.StartTimer()
 
-	insert := "insert into invoice_test (Created, Updated, Memo, PersonId) values (?, ?, ?, ?)"
-	sel := "select Id, Created, Updated, Memo, PersonId from invoice_test where Id=?"
-	update := "update invoice_test set Created=?, Updated=?, Memo=?, PersonId=? where Id=?"
+	insert := "insert into invoice_test (Created, Updated, Memo, PersonTaggedId) values (?, ?, ?, ?)"
+	sel := "select Id, Created, Updated, Memo, PersonTaggedId from invoice_test where Id=?"
+	update := "update invoice_test set Created=?, Updated=?, Memo=?, PersonTaggedId=? where Id=?"
 	delete := "delete from invoice_test where Id=?"
 
-	inv := &Invoice{0, 100, 200, "my memo", 0}
+	inv := &InvoiceTagged{0, 100, 200, "my memo", 0}
 
 	for i := 0; i < b.N; i++ {
 		res, err := dbmap.Db.Exec(insert, inv.Created, inv.Updated,
-			inv.Memo, inv.PersonId)
+			inv.Memo, inv.PersonTaggedId)
 		if err != nil {
 			panic(err)
 		}
@@ -450,7 +450,7 @@ func BenchmarkNativeCrud(b *testing.B) {
 
 		row := dbmap.Db.QueryRow(sel, inv.Id)
 		err = row.Scan(&inv.Id, &inv.Created, &inv.Updated, &inv.Memo,
-			&inv.PersonId)
+			&inv.PersonTaggedId)
 		if err != nil {
 			panic(err)
 		}
@@ -458,10 +458,10 @@ func BenchmarkNativeCrud(b *testing.B) {
 		inv.Created = 1000
 		inv.Updated = 2000
 		inv.Memo = "my memo 2"
-		inv.PersonId = 3000
+		inv.PersonTaggedId = 3000
 
 		_, err = dbmap.Db.Exec(update, inv.Created, inv.Updated, inv.Memo,
-			inv.PersonId, inv.Id)
+			inv.PersonTaggedId, inv.Id)
 		if err != nil {
 			panic(err)
 		}
@@ -474,33 +474,33 @@ func BenchmarkNativeCrud(b *testing.B) {
 
 }
 
-func BenchmarkGorpCrud(b *testing.B) {
+func BenchmarkGorpCrudTagged(b *testing.B) {
 	b.StopTimer()
-	dbmap := initDbMapBench()
+	dbmap := initDbMapTaggedBench()
 	defer dbmap.DropTables()
 	b.StartTimer()
 
-	inv := &Invoice{0, 100, 200, "my memo", 0}
+	inv := &InvoiceTagged{0, 100, 200, "my memo", 0}
 	for i := 0; i < b.N; i++ {
 		err := dbmap.Insert(inv)
 		if err != nil {
 			panic(err)
 		}
 
-		obj, err := dbmap.Get(Invoice{}, inv.Id)
+		obj, err := dbmap.Get(InvoiceTagged{}, inv.Id)
 		if err != nil {
 			panic(err)
 		}
 
-		inv2, ok := obj.(*Invoice)
+		inv2, ok := obj.(*InvoiceTagged)
 		if !ok {
-			panic(fmt.Sprintf("expected *Invoice, got: %v", obj))
+			panic(fmt.Sprintf("expected *InvoiceTagged, got: %v", obj))
 		}
 
 		inv2.Created = 1000
 		inv2.Updated = 2000
 		inv2.Memo = "my memo 2"
-		inv2.PersonId = 3000
+		inv2.PersonTaggedId = 3000
 		_, err = dbmap.Update(inv2)
 		if err != nil {
 			panic(err)
@@ -514,10 +514,10 @@ func BenchmarkGorpCrud(b *testing.B) {
 	}
 }
 
-func initDbMapBench() *DbMap {
+func initDbMapTaggedBench() *DbMap {
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
 	dbmap.Db.Exec("drop table if exists invoice_test")
-	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(InvoiceTagged{}, "invoice_test").SetKeys(true, "Id")
 	err := dbmap.CreateTables()
 	if err != nil {
 		panic(err)
@@ -525,74 +525,12 @@ func initDbMapBench() *DbMap {
 	return dbmap
 }
 
-func initDbMap() *DbMap {
+func initDbMapTagged() *DbMap {
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
-	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
-	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(InvoiceTagged{}, "invoice_test_tagged").SetKeys(true, "Id")
+	dbmap.AddTableWithName(PersonTagged{}, "person_test_tagged").SetKeys(true, "Id")
 	dbmap.CreateTables()
 
 	return dbmap
-}
-
-func connect() *sql.DB {
-	dsn := os.Getenv("GORP_TEST_DSN")
-	if dsn == "" {
-		panic("GORP_TEST_DSN env variable is not set. Please see README.md")
-	}
-
-	db, err := sql.Open("mymysql", dsn)
-	if err != nil {
-		panic("Error connecting to db: " + err.Error())
-	}
-	return db
-}
-
-func insert(dbmap *DbMap, list ...interface{}) {
-	err := dbmap.Insert(list...)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func update(dbmap *DbMap, list ...interface{}) int64 {
-	count, err := dbmap.Update(list...)
-	if err != nil {
-		panic(err)
-	}
-	return count
-}
-
-func del(dbmap *DbMap, list ...interface{}) int64 {
-	count, err := dbmap.Delete(list...)
-	if err != nil {
-		panic(err)
-	}
-
-	return count
-}
-
-func get(dbmap *DbMap, i interface{}, keys ...interface{}) interface{} {
-	obj, err := dbmap.Get(i, keys...)
-	if err != nil {
-		panic(err)
-	}
-
-	return obj
-}
-
-func rawexec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
-	res, err := dbmap.Exec(query, args...)
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
-func rawselect(dbmap *DbMap, i interface{}, query string, args ...interface{}) []interface{} {
-	list, err := dbmap.Select(i, query, args...)
-	if err != nil {
-		panic(err)
-	}
-	return list
 }
