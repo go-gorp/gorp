@@ -44,7 +44,7 @@ boring afair, as it should be.
 ## Installation ##
 
     # install the library:
-    goinstall github.com/coopernurse/gorp
+    go get github.com/coopernurse/gorp
     
     // use in your .go code:
     import (
