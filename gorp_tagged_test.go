@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	. "github.com/matthias-margush/gorp"
+	. "github.com/coopernurse/gorp"
 	_ "github.com/ziutek/mymysql/godrv"
 	"log"
 	"os"
