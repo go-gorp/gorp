@@ -13,19 +13,11 @@ I hope that gorp saves you time, minimizes the drudgery of getting data
 in and out of your database, and helps your code focus on algorithms, 
 not infrastructure.
 
-## Note on Building ##
-
-The database/sql package that gorp relies on is under active development.
-Please use the latest Go weekly when building gorp.  Specifically, the
-2012-01-20 weekly contains the change to rename exp/sql to database/sql, 
-and the 2012-01-27 weekly contains the additional Null* types that the
-gorp tests rely on.
-
-Once Go 1 lands (real soon now), building gorp should become a reliable, 
-boring afair, as it should be.
+gorp supports Go 1
 
 ## Features ##
 
+* Bind struct fields to table columns via API or tag
 * Support for transactions
 * Forward engineer db schema from structs (great for unit tests)
 * Pre/post insert/update/delete hooks
@@ -90,11 +82,25 @@ First define some types:
     }
 
     type Person struct {
-        Id      int64
+        Id      int64    
         Created int64
         Updated int64
         FName   string
         LName   string
+    }
+    
+    // Example of using tags to alias fields to column names
+    // The 'db' value is the column name
+    //
+    // This is equivalent to using the ColMap.Rename() function:
+    //
+    //   table := dbmap.AddTableWithName(Product{}, "product")
+    //   table.ColMap("Id").Rename("product_id")
+    //   table.ColMap("Price").Rename("unit_price")
+    //
+    type Product struct {
+        Id      int64     `db:"product_id"`
+        Price   int64     `db:"unit_price"`
     }
 
 Then create a mapper, typically you'd do this one time at app startup:
