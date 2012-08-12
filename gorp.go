@@ -122,7 +122,7 @@ func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
 // name.
 func (t *TableMap) ColMap(field string) *ColumnMap {
 	for _, col := range t.columns {
-		if col.fieldName == field {
+		if col.fieldName == field || col.ColumnName == field {
 			return col
 		}
 	}
@@ -510,8 +510,13 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	tmap.columns = make([]*ColumnMap, n, n)
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
+        columnName := f.Tag.Get("db")
+        if columnName == "" {
+            columnName = f.Name
+        }
+
 		tmap.columns[i] = &ColumnMap{
-			ColumnName: f.Name,
+			ColumnName: columnName,
 			fieldName:  f.Name,
 			gotype:     f.Type,
 		}
@@ -837,16 +842,28 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		// based on column name. all returned columns must match
 		// a field in the i struct
 		for x := range cols {
-			fieldName := cols[x]
-			f := v.Elem().FieldByName(fieldName)
-			if f == zeroVal {
-				e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
-					fieldName, t.Name(), query)
-				return nil, errors.New(e)
-			} else {
-				dest[x] = f.Addr().Interface()
-			}
-		}
+            var fieldName string
+			colName := cols[x]
+            numField := t.NumField()
+
+            for i := 0; i < numField; i++ {
+                field := t.Field(i)
+                if (field.Name == colName || field.Tag.Get("db") == colName) {
+                    fieldName = field.Name
+                    break
+                }
+            }
+
+            f := v.Elem().FieldByName(fieldName)
+
+            if f == zeroVal {
+                e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
+                colName, t.Name(), query)
+                return nil, errors.New(e)
+            } else {
+                dest[x] = f.Addr().Interface()
+            }
+        }
 
 		err = rows.Scan(dest...)
 		if err != nil {
