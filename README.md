@@ -263,7 +263,7 @@ Optimistic locking (similar to JPA)
         LName    string
         
         // automatically used as the Version col
-        // use dbmap.SetVersionCol() to map a different
+        // use table.SetVersionCol("columnName") to map a different
         // struct field as the version field
         Version  int64
     }
@@ -280,11 +280,15 @@ Optimistic locking (similar to JPA)
     
     // Raises error because p1.Version == 1, which is out of date
     count, err := dbmap.Update(p1)
-    if _, ok := err.(gorp.OptimisticLockError); !ok {
+    _, ok := err.(gorp.OptimisticLockError)
+    if ok {
         // should reach this statement
         
         // in a real app you might reload the row and retry, or
         // you might propegate this to the user, depending on the desired
         // semantics
         fmt.Printf("Tried to update row with stale data: %v\n", err)
+    } else {
+        // some other db error occurred - log or return up the stack
+        fmt.Printf("Unknown db err: %v\n", err)
     }
