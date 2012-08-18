@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strings"
 )
 
 var zeroVal reflect.Value
@@ -87,6 +88,7 @@ type TableMap struct {
 	updatePlan bindPlan
 	deletePlan bindPlan
 	getPlan    bindPlan
+    dbmap      *DbMap
 }
 
 // ResetSql removes cached insert/update/select/delete SQL strings 
@@ -205,7 +207,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) bindInstance {
 					s2.WriteString(",")
 				}
 				s.WriteString(col.ColumnName)
-				s2.WriteString("?")
+				s2.WriteString(t.dbmap.Dialect.BindVar(x))
 
 				f := elem.FieldByName(col.fieldName)
 
@@ -245,7 +247,8 @@ func (t *TableMap) bindUpdate(elem reflect.Value) bindInstance {
 					s.WriteString(", ")
 				}
 				s.WriteString(col.ColumnName)
-				s.WriteString("=?")
+				s.WriteString("=")
+				s.WriteString(t.dbmap.Dialect.BindVar(x))
 
 				if col == t.version {
 					plan.versField = col.fieldName
@@ -264,7 +267,8 @@ func (t *TableMap) bindUpdate(elem reflect.Value) bindInstance {
 				s.WriteString(" and ")
 			}
 			s.WriteString(col.ColumnName)
-			s.WriteString("=?")
+			s.WriteString("=")
+			s.WriteString(t.dbmap.Dialect.BindVar(x))
 
 			plan.argFields = append(plan.argFields, col.fieldName)
 			plan.keyFields = append(plan.keyFields, col.fieldName)
@@ -273,7 +277,8 @@ func (t *TableMap) bindUpdate(elem reflect.Value) bindInstance {
 		if plan.versField != "" {
 			s.WriteString(" and ")
 			s.WriteString(t.version.ColumnName)
-			s.WriteString("=?")
+			s.WriteString("=")
+			s.WriteString(t.dbmap.Dialect.BindVar(x))
 			plan.argFields = append(plan.argFields, plan.versField)
 		}
 		s.WriteString(";")
@@ -309,7 +314,8 @@ func (t *TableMap) bindDelete(elem reflect.Value) bindInstance {
 				s.WriteString(" and ")
 			}
 			s.WriteString(k.ColumnName)
-			s.WriteString("=?")
+			s.WriteString("=")
+			s.WriteString(t.dbmap.Dialect.BindVar(x))
 
 			plan.keyFields = append(plan.keyFields, k.fieldName)
 			plan.argFields = append(plan.argFields, k.fieldName)
@@ -317,7 +323,9 @@ func (t *TableMap) bindDelete(elem reflect.Value) bindInstance {
 		if plan.versField != "" {
 			s.WriteString(" and ")
 			s.WriteString(t.version.ColumnName)
-			s.WriteString("=?")
+			s.WriteString("=")
+			s.WriteString(t.dbmap.Dialect.BindVar(len(plan.argFields)))
+
 			plan.argFields = append(plan.argFields, plan.versField)
 		}
 		s.WriteString(";")
@@ -356,7 +364,8 @@ func (t *TableMap) bindGet() bindPlan {
 				s.WriteString(" and ")
 			}
 			s.WriteString(col.ColumnName)
-			s.WriteString("=?")
+			s.WriteString("=")
+			s.WriteString(t.dbmap.Dialect.BindVar(x))
 
 			plan.keyFields = append(plan.keyFields, col.fieldName)
 		}
@@ -504,7 +513,7 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 		}
 	}
 
-	tmap := &TableMap{gotype: t, TableName: name}
+	tmap := &TableMap{gotype: t, TableName: name, dbmap: m}
 
 	n := t.NumField()
 	tmap.columns = make([]*ColumnMap, n, n)
@@ -559,11 +568,14 @@ func (m *DbMap) CreateTables() error {
 				if x > 0 {
 					s.WriteString(", ")
 				}
-				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize)
+				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
 				s.WriteString(fmt.Sprintf("%s %s", col.ColumnName, stype))
 
 				if col.isPK {
 					s.WriteString(" not null")
+					if len(table.keys) == 1 {
+						s.WriteString(" primary key")
+					}
 				}
 				if col.Unique {
 					s.WriteString(" unique")
@@ -575,7 +587,7 @@ func (m *DbMap) CreateTables() error {
 				x++
 			}
 		}
-		if len(table.keys) > 0 {
+		if len(table.keys) > 1 {
 			s.WriteString(", primary key (")
 			for x := range table.keys {
 				if x > 0 {
@@ -589,6 +601,9 @@ func (m *DbMap) CreateTables() error {
 		s.WriteString(m.Dialect.CreateTableSuffix())
 		s.WriteString(";")
 		_, err = m.Exec(s.String())
+		if err != nil {
+			break
+		}
 	}
 	return err
 }
@@ -843,22 +858,22 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		// a field in the i struct
 		for x := range cols {
             var fieldName string
-			colName := cols[x]
+			colName := strings.ToLower(cols[x])
             numField := t.NumField()
 
             for i := 0; i < numField; i++ {
                 field := t.Field(i)
-                if (field.Name == colName || field.Tag.Get("db") == colName) {
+                if (strings.ToLower(field.Name) == colName || strings.ToLower(field.Tag.Get("db")) == colName) {
                     fieldName = field.Name
                     break
                 }
             }
 
-            f := v.Elem().FieldByName(fieldName)
+			f := v.Elem().FieldByName(fieldName)
 
             if f == zeroVal {
                 e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
-                colName, t.Name(), query)
+					colName, t.Name(), query)
                 return nil, errors.New(e)
             } else {
                 dest[x] = f.Addr().Interface()
@@ -879,6 +894,30 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	return list, nil
+}
+
+func fieldByName(val reflect.Value, fieldName string) *reflect.Value {
+	// try to find field by exact match
+	f := val.FieldByName(fieldName)
+
+    if f != zeroVal {
+		return &f
+	}
+
+	// try to find by case insensitive match - only the Postgres driver
+	// seems to require this - in the case where columns are aliased in the sql
+	fieldNameL := strings.ToLower(fieldName)
+	fieldCount := val.NumField()
+	t := val.Type()
+	for i := 0; i < fieldCount; i++ {
+		sf := t.Field(i)
+		if strings.ToLower(sf.Name) == fieldNameL {
+			f := val.Field(i)
+			return &f
+		}
+	}
+
+	return nil
 }
 
 func get(m *DbMap, exec SqlExecutor, i interface{},
@@ -1027,7 +1066,7 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 		}
 
 		if bi.autoIncrIdx > -1 {
-			id, err := res.LastInsertId()
+			id, err := m.Dialect.LastInsertId(&res, table, exec)
 			if err != nil {
 				return err
 			}

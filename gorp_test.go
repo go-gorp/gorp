@@ -6,6 +6,8 @@ import (
 	"fmt"
 	. "github.com/coopernurse/gorp"
 	_ "github.com/ziutek/mymysql/godrv"
+	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/bmizerany/pq"
 	"log"
 	"os"
 	"reflect"
@@ -13,7 +15,18 @@ import (
 	"time"
 )
 
+// export GORP_TEST_DSN=gomysql_test/gomysql_test/abc123
 var dialect = MySQLDialect{"InnoDB", "UTF8"}
+var driver = "mymysql"
+
+// export GORP_TEST_DSN=somefile.bin
+//var dialect = SqliteDialect{}
+//var driver = "sqlite3"
+
+// export GORP_TEST_DSN="user=test password=test dbname=gorptest sslmode=disable"
+//var dialect = PostgresDialect{}
+//var driver = "postgres"
+
 
 type Invoice struct {
 	Id       int64
@@ -185,7 +198,10 @@ func TestNullValues(t *testing.T) {
 	dbmap := &DbMap{Db: connect(), Dialect: dialect}
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
-	dbmap.CreateTables()
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
 	defer dbmap.DropTables()
 
 	// insert a row directly
@@ -232,7 +248,10 @@ func TestColumnProps(t *testing.T) {
 	t1.ColMap("Memo").SetMaxSize(10)
 	t1.ColMap("PersonId").SetUnique(true)
 
-	dbmap.CreateTables()
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
 	defer dbmap.DropTables()
 
 	// test transient
@@ -240,14 +259,13 @@ func TestColumnProps(t *testing.T) {
 	insert(dbmap, inv)
 	obj := get(dbmap, Invoice{}, inv.Id)
 	inv = obj.(*Invoice)
-	fmt.Printf("inv: %v\n", inv)
 	if inv.Updated != 0 {
 		t.Errorf("Saved transient column 'Updated'")
 	}
 
 	// test max size
 	inv.Memo = "this memo is too long"
-	err := dbmap.Insert(inv)
+	err = dbmap.Insert(inv)
 	if err == nil {
 		t.Errorf("max size exceeded, but Insert did not fail.")
 	}
@@ -530,7 +548,10 @@ func initDbMap() *DbMap {
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
-	dbmap.CreateTables()
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
 
 	return dbmap
 }
@@ -541,7 +562,7 @@ func connect() *sql.DB {
 		panic("GORP_TEST_DSN env variable is not set. Please see README.md")
 	}
 
-	db, err := sql.Open("mymysql", dsn)
+	db, err := sql.Open(driver, dsn)
 	if err != nil {
 		panic("Error connecting to db: " + err.Error())
 	}
