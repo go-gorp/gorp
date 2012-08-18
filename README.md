@@ -13,7 +13,21 @@ I hope that gorp saves you time, minimizes the drudgery of getting data
 in and out of your database, and helps your code focus on algorithms, 
 not infrastructure.
 
-gorp supports Go 1
+## Database Drivers ##
+
+gorp uses the Go 1 `database/sql` package.  A full list of compliant drivers is available here:
+
+http://code.google.com/p/go-wiki/wiki/SQLDrivers
+
+Sadly, SQL databases differ on various issues. gorp provides a Dialect interface that should be
+implemented per database vendor.  Dialects are provided for:
+
+* MySQL
+* PostgreSQL
+* sqlite3
+
+Each of these three databases pass the test suite.  See `gorp_test.go` for example 
+DSNs for these three databases.
 
 ## Features ##
 
@@ -292,3 +306,7 @@ Optimistic locking (similar to JPA)
         // some other db error occurred - log or return up the stack
         fmt.Printf("Unknown db err: %v\n", err)
     }
+
+## Contributors
+
+* matthias-margush - column aliasing via tags
