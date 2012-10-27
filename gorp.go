@@ -849,7 +849,13 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 
 	list := make([]interface{}, 0)
 
-	for rows.Next() {
+	for true {
+		if !rows.Next() {
+			if rows.Err() != nil {
+				return nil, rows.Err()
+			}
+			break
+		}
 		v := reflect.New(t)
 		dest := make([]interface{}, len(cols))
 
