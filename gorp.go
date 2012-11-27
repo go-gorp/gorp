@@ -88,7 +88,7 @@ type TableMap struct {
 	updatePlan bindPlan
 	deletePlan bindPlan
 	getPlan    bindPlan
-    dbmap      *DbMap
+	dbmap      *DbMap
 }
 
 // ResetSql removes cached insert/update/select/delete SQL strings 
@@ -131,6 +131,7 @@ func (t *TableMap) ColMap(field string) *ColumnMap {
 
 	e := fmt.Sprintf("No ColumnMap in table %s type %s with field %s",
 		t.TableName, t.gotype.Name(), field)
+
 	panic(e)
 }
 
@@ -519,10 +520,10 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	tmap.columns = make([]*ColumnMap, n, n)
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
-        columnName := f.Tag.Get("db")
-        if columnName == "" {
-            columnName = f.Name
-        }
+		columnName := f.Tag.Get("db")
+		if columnName == "" {
+			columnName = f.Name
+		}
 
 		tmap.columns[i] = &ColumnMap{
 			ColumnName: columnName,
@@ -710,6 +711,7 @@ func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	//if err != nil {
 	//	return nil, err
 	//}
+	//fmt.Println("Exec", query, args)
 	return m.Db.Exec(query, args...)
 }
 
@@ -857,28 +859,28 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		// based on column name. all returned columns must match
 		// a field in the i struct
 		for x := range cols {
-            var fieldName string
+			var fieldName string
 			colName := strings.ToLower(cols[x])
-            numField := t.NumField()
+			numField := t.NumField()
 
-            for i := 0; i < numField; i++ {
-                field := t.Field(i)
-                if (strings.ToLower(field.Name) == colName || strings.ToLower(field.Tag.Get("db")) == colName) {
-                    fieldName = field.Name
-                    break
-                }
-            }
+			for i := 0; i < numField; i++ {
+				field := t.Field(i)
+				if strings.ToLower(field.Name) == colName || strings.ToLower(field.Tag.Get("db")) == colName {
+					fieldName = field.Name
+					break
+				}
+			}
 
 			f := v.Elem().FieldByName(fieldName)
 
-            if f == zeroVal {
-                e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
+			if f == zeroVal {
+				e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
 					colName, t.Name(), query)
-                return nil, errors.New(e)
-            } else {
-                dest[x] = f.Addr().Interface()
-            }
-        }
+				return nil, errors.New(e)
+			} else {
+				dest[x] = f.Addr().Interface()
+			}
+		}
 
 		err = rows.Scan(dest...)
 		if err != nil {
@@ -900,7 +902,7 @@ func fieldByName(val reflect.Value, fieldName string) *reflect.Value {
 	// try to find field by exact match
 	f := val.FieldByName(fieldName)
 
-    if f != zeroVal {
+	if f != zeroVal {
 		return &f
 	}
 

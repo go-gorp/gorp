@@ -130,6 +130,7 @@ func TestOverrideVersionCol(t *testing.T) {
 	dbmap.DropTables()
 	t1 := dbmap.AddTable(InvoicePersonView{}).SetKeys(false, "InvoiceId", "PersonId")
 	err := dbmap.CreateTables()
+	
 	if err != nil {
 		panic(err)
 	}
