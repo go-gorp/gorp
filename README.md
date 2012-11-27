@@ -45,7 +45,7 @@ DSNs for these three databases.
 
 ## TODO ##
 
-* Test with more database/sql drivers, such as Postgresql
+* Support embedded structs
 
 ## Installation ##
 
@@ -121,7 +121,7 @@ Then create a mapper, typically you'd do this one time at app startup:
 
     // connect to db using standard Go database/sql API
     // use whatever database/sql driver you wish
-    db, err := sql.Open("mysql", "myuser:mypassword@localhost:3306/dbname")
+    db, err := sql.Open("mymysql", "tcp:localhost:3306*mydb/myuser/mypassword")
     
     // construct a gorp DbMap
     dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
