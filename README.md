@@ -63,6 +63,7 @@ The included tests are written against MySQL at the moment. I need to look into
 adding additional drivers to the test suite, but for now you can clone the repo
 and setup an environment variable before running "go test"
 
+```sh
     # Set env variable with dsn using mymysql format.  From the mymysql docs, 
     # the format can be of 3 types:
     #
@@ -78,6 +79,7 @@ and setup an environment variable before running "go test"
     
     # run the tests and benchmarks
     go test -bench="Bench" -benchtime 10
+```
 
 ## Performance ##
 
@@ -87,6 +89,7 @@ gorp uses reflection to construct SQL queries and bind parameters.  See the Benc
 
 First define some types:
 
+```go
     type Invoice struct {
         Id       int64
         Created  int64
@@ -116,9 +119,11 @@ First define some types:
         Id      int64     `db:"product_id"`
         Price   int64     `db:"unit_price"`
     }
+```
 
 Then create a mapper, typically you'd do this one time at app startup:
 
+```go
     // connect to db using standard Go database/sql API
     // use whatever database/sql driver you wish
     db, err := sql.Open("mymysql", "tcp:localhost:3306*mydb/myuser/mypassword")
@@ -135,26 +140,32 @@ Then create a mapper, typically you'd do this one time at app startup:
     //
     t1 := dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	t2 := dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
+```
 
 Automatically create / drop registered tables.  Great for unit tests:
 
+```go
     // create all registered tables
     dbmap.CreateTables()
     
     // drop
     dbmap.DropTables()
+```
 
 Optionally you can pass in a log.Logger to trace all SQL statements:
 
+```go
     // Will log all SQL statements + args as they are run
     // The first arg is a string prefix to prepend to all log messages
     dbmap.TraceOn("[gorp]", log.New(os.Stdout, "myapp:", log.Lmicroseconds)) 
     
     // Turn off tracing
     dbmap.TraceOff()
+```
 
 Then save some data:
 
+```go
     // Must declare as pointers so optional callback hooks
     // can operate on your data, not copies
     inv1 := &Invoice{0, 100, 200, "first order", 0}
@@ -166,6 +177,7 @@ Then save some data:
     // Because we called SetKeys(true) on Invoice, the Id field
     // will be populated after the Insert() automatically
     fmt.Printf("inv1.Id=%d  inv2.Id=%d\n", inv1.Id, inv2.Id)
+```
 
 You can execute raw SQL if you wish.  Particularly good for batch operations.
 
@@ -173,6 +185,7 @@ You can execute raw SQL if you wish.  Particularly good for batch operations.
 
 Want to do joins?  Just write the SQL and the struct. gorp will bind them:
 
+```go
     // Define a type for your join
     // It *must* contain all the columns in your SELECT statement
     //
@@ -205,9 +218,11 @@ Want to do joins?  Just write the SQL and the struct. gorp will bind them:
     if reflect.DeepEqual(list[0], expected) {
         fmt.Println("Woot! My join worked!")
     }
+```
 
 You can also batch operations into a transaction:
 
+```go
     func InsertInv(dbmap *DbMap, inv *Invoice, per *Person) error {
         // Start a new transaction
         trans := dbmap.Begin()
@@ -219,9 +234,11 @@ You can also batch operations into a transaction:
         // if the commit is successful, a nil error is returned
         return trans.Commit()
     }
-    
+```
+
 Use hooks to update data before/after saving to the db. Good for timestamps:
 
+```go
     // implement the PreInsert and PreUpdate hooks
     func (i *Invoice) PreInsert(s gorp.SqlExecutor) error {
         i.Created = time.Now().UnixNano()
@@ -246,7 +263,8 @@ Use hooks to update data before/after saving to the db. Good for timestamps:
         }
         return nil
     }
-    
+```
+
 Full list of hooks that you can implement:
 
     PostGet
@@ -263,6 +281,7 @@ Full list of hooks that you can implement:
     
 Optimistic locking (similar to JPA)
 
+```go
     // Version is an auto-incremented number, managed by gorp
     // If this property is present on your struct, update
     // operations will be constrained
@@ -306,6 +325,7 @@ Optimistic locking (similar to JPA)
         // some other db error occurred - log or return up the stack
         fmt.Printf("Unknown db err: %v\n", err)
     }
+```
 
 ## Contributors
 
