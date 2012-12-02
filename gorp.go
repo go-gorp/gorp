@@ -848,9 +848,13 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	t := reflect.TypeOf(i)
+        // If a Pointer to a type, follow
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
+        if t.Kind() != reflect.Struct {
+            return nil, errors.New(fmt.Sprintf("gorp: Given non-struct type: %s", reflect.TypeOf(i)))
+        }
 
 	list := make([]interface{}, 0)
 
