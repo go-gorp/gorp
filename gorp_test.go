@@ -122,6 +122,23 @@ func TestPersistentUser(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
+	// prove we can pass a pointer into Get
+	pu2, err := dbmap.Get(pu, pu.Key)
+	if err != nil {
+		panic(err)
+	}
+	if !reflect.DeepEqual(pu, pu2) {
+		t.Errorf("%v!=%v", pu, pu2)
+	}
+
+	arr, err := dbmap.Select(pu, "select * from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if !reflect.DeepEqual(pu, arr[0]) {
+		t.Errorf("%v!=%v", pu, arr[0])
+	}
 }
 
 func TestOverrideVersionCol(t *testing.T) {

@@ -123,16 +123,23 @@ func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
 // name.  It panics if the struct does not contain a field matching this
 // name.
 func (t *TableMap) ColMap(field string) *ColumnMap {
+	col := colMapOrNil(t, field)
+	if col == nil {
+		e := fmt.Sprintf("No ColumnMap in table %s type %s with field %s",
+			t.TableName, t.gotype.Name(), field)
+
+		panic(e)
+	}
+	return col
+}
+
+func colMapOrNil(t *TableMap, field string) *ColumnMap {
 	for _, col := range t.columns {
 		if col.fieldName == field || col.ColumnName == field {
 			return col
 		}
 	}
-
-	e := fmt.Sprintf("No ColumnMap in table %s type %s with field %s",
-		t.TableName, t.gotype.Name(), field)
-
-	panic(e)
+	return nil
 }
 
 // SetVersionCol sets the column to use as the Version field.  By default
@@ -725,18 +732,28 @@ func (m *DbMap) Begin() (*Transaction, error) {
 }
 
 func (m *DbMap) tableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
+	table := tableOrNil(m, t)
+	if table == nil {
+		panic(fmt.Sprintf("No table found for type: %v", t.Name()))
+	}
+
+	if checkPK && len(table.keys) < 1 {
+		e := fmt.Sprintf("gorp: No keys defined for table: %s",
+			table.TableName)
+		return nil, errors.New(e)
+	}
+
+	return table, nil
+}
+
+func tableOrNil(m *DbMap, t reflect.Type) *TableMap {
 	for i := range m.tables {
 		table := m.tables[i]
 		if table.gotype == t {
-			if checkPK && len(table.keys) < 1 {
-				e := fmt.Sprintf("gorp: No keys defined for table: %s",
-					table.TableName)
-				return nil, errors.New(e)
-			}
-			return table, nil
+			return table
 		}
 	}
-	panic(fmt.Sprintf("No table found for type: %v", t.Name()))
+	return nil
 }
 
 func (m *DbMap) tableForPointer(ptr interface{}, checkPK bool) (*TableMap, reflect.Value, error) {
@@ -834,6 +851,12 @@ func (t *Transaction) query(query string, args ...interface{}) (*sql.Rows, error
 func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	args ...interface{}) ([]interface{}, error) {
 
+	// get type for i, verifying it's a struct
+	t, err := toType(i)
+	if err != nil {
+		return nil, err
+	}
+
 	// Run the query
 	rows, err := exec.query(query, args...)
 	if err != nil {
@@ -847,13 +870,49 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		return nil, err
 	}
 
-	t := reflect.TypeOf(i)
-	// If a Pointer to a type, follow
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
+	// check if type t is a mapped table - if so we'll 
+	// check the table for column aliasing below
+	tableMapped := false
+	table := tableOrNil(m, t)
+	if table != nil {
+		tableMapped = true
 	}
-	if t.Kind() != reflect.Struct {
-		return nil, errors.New(fmt.Sprintf("gorp: Given non-struct type: %s", reflect.TypeOf(i)))
+
+	colToFieldOffset := make([]int, len(cols))
+
+	numField := t.NumField()
+
+	// Loop over column names and find field in i to bind to
+	// based on column name. all returned columns must match
+	// a field in the i struct
+	for x := range cols {
+		colToFieldOffset[x] = -1
+		colName := strings.ToLower(cols[x])
+		for y := 0; y < numField; y++ {
+			field := t.Field(y)
+
+			fieldName := field.Tag.Get("db")
+			if fieldName == "" {
+				fieldName = field.Name
+			}
+			if tableMapped {
+				colMap := colMapOrNil(table, fieldName)
+				if colMap != nil {
+					fieldName = colMap.ColumnName
+				}
+			}
+			fieldName = strings.ToLower(fieldName)
+
+			if fieldName == colName {
+				colToFieldOffset[x] = y
+				break
+			}
+		}
+		if colToFieldOffset[x] == -1 {
+			e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
+				colName, t.Name(), query)
+			return nil, errors.New(e)
+		}
 	}
 
 	list := make([]interface{}, 0)
@@ -870,31 +929,9 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		v := reflect.New(t)
 		dest := make([]interface{}, len(cols))
 
-		// Loop over column names and find field in i to bind to
-		// based on column name. all returned columns must match
-		// a field in the i struct
 		for x := range cols {
-			var fieldName string
-			colName := strings.ToLower(cols[x])
-			numField := t.NumField()
-
-			for i := 0; i < numField; i++ {
-				field := t.Field(i)
-				if strings.ToLower(field.Name) == colName || strings.ToLower(field.Tag.Get("db")) == colName {
-					fieldName = field.Name
-					break
-				}
-			}
-
-			f := v.Elem().FieldByName(fieldName)
-
-			if f == zeroVal {
-				e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
-					colName, t.Name(), query)
-				return nil, errors.New(e)
-			} else {
-				dest[x] = f.Addr().Interface()
-			}
+			f := v.Elem().Field(colToFieldOffset[x])
+			dest[x] = f.Addr().Interface()
 		}
 
 		err = rows.Scan(dest...)
@@ -937,10 +974,28 @@ func fieldByName(val reflect.Value, fieldName string) *reflect.Value {
 	return nil
 }
 
+func toType(i interface{}) (reflect.Type, error) {
+	t := reflect.TypeOf(i)
+
+	// If a Pointer to a type, follow
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	if t.Kind() != reflect.Struct {
+		return nil, errors.New(fmt.Sprintf("gorp: Cannot SELECT into non-struct type: %v", reflect.TypeOf(i)))
+	}
+	return t, nil
+}
+
 func get(m *DbMap, exec SqlExecutor, i interface{},
 	keys ...interface{}) (interface{}, error) {
 
-	t := reflect.TypeOf(i)
+	t, err := toType(i)
+	if err != nil {
+		return nil, err
+	}
+
 	table, err := m.tableFor(t, true)
 	if err != nil {
 		return nil, err
