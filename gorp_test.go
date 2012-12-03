@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	. "github.com/coopernurse/gorp"
-	_ "github.com/ziutek/mymysql/godrv"
-	_ "github.com/mattn/go-sqlite3"
 	_ "github.com/bmizerany/pq"
+	. "github.com/coopernurse/gorp"
+	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/ziutek/mymysql/godrv"
 	"log"
 	"os"
 	"reflect"
@@ -26,7 +26,6 @@ var driver = "mymysql"
 // export GORP_TEST_DSN="user=test password=test dbname=gorptest sslmode=disable"
 //var dialect = PostgresDialect{}
 //var driver = "postgres"
-
 
 type Invoice struct {
 	Id       int64
@@ -130,7 +129,7 @@ func TestOverrideVersionCol(t *testing.T) {
 	dbmap.DropTables()
 	t1 := dbmap.AddTable(InvoicePersonView{}).SetKeys(false, "InvoiceId", "PersonId")
 	err := dbmap.CreateTables()
-	
+
 	if err != nil {
 		panic(err)
 	}
