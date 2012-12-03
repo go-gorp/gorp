@@ -428,10 +428,10 @@ func BenchmarkNativeCrudTagged(b *testing.B) {
 	defer dbmap.DropTables()
 	b.StartTimer()
 
-	insert := "insert into invoice_test (Created, Updated, Memo, PersonTaggedId) values (?, ?, ?, ?)"
-	sel := "select Id, Created, Updated, Memo, PersonTaggedId from invoice_test where Id=?"
-	update := "update invoice_test set Created=?, Updated=?, Memo=?, PersonTaggedId=? where Id=?"
-	delete := "delete from invoice_test where Id=?"
+	insert := "insert into invoice_test (Created_tagged, Updated_tagged, Memo_tagged, PersonTaggedId_tagged) values (?, ?, ?, ?)"
+	sel := "select Id_tagged, Created_tagged, Updated_tagged, Memo_tagged, PersonTaggedId_tagged from invoice_test where Id_tagged=?"
+	update := "update invoice_test set Created_tagged=?, Updated_tagged=?, Memo_tagged=?, PersonTaggedId_tagged=? where Id_tagged=?"
+	delete := "delete from invoice_test where Id_tagged=?"
 
 	inv := &InvoiceTagged{0, 100, 200, "my memo", 0}
 
