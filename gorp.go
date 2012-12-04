@@ -707,7 +707,7 @@ func (m *DbMap) Get(i interface{}, keys ...interface{}) (interface{}, error) {
 //
 // i does NOT need to be registered with AddTable()
 func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]interface{}, error) {
-	return rawselect(m, m, i, query, args...)
+	return hookedselect(m, m, i, query, args...)
 }
 
 // Exec runs an arbitrary SQL statement.  args represent the bind parameters.
@@ -813,7 +813,7 @@ func (t *Transaction) Get(i interface{}, keys ...interface{}) (interface{}, erro
 
 // Same behavior as DbMap.Select(), but runs in a transaction
 func (t *Transaction) Select(i interface{}, query string, args ...interface{}) ([]interface{}, error) {
-	return rawselect(t.dbmap, t, i, query, args...)
+	return hookedselect(t.dbmap, t, i, query, args...)
 }
 
 // Same behavior as DbMap.Exec(), but runs in a transaction
@@ -847,6 +847,24 @@ func (t *Transaction) query(query string, args ...interface{}) (*sql.Rows, error
 }
 
 ///////////////
+
+func hookedselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
+	args ...interface{}) ([]interface{}, error) {
+
+	list, err := rawselect(m, exec, i, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range list {
+		err = runHook("PostGet", reflect.ValueOf(v), hookArg(exec))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return list, nil
+}
 
 func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	args ...interface{}) ([]interface{}, error) {
@@ -935,11 +953,6 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		}
 
 		err = rows.Scan(dest...)
-		if err != nil {
-			return nil, err
-		}
-
-		err = runHook("PostGet", v, hookArg(exec))
 		if err != nil {
 			return nil, err
 		}
