@@ -524,7 +524,7 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	tmap := &TableMap{gotype: t, TableName: name, dbmap: m}
 
 	n := t.NumField()
-	tmap.columns = make([]*ColumnMap, n, n)
+	tmap.columns = make([]*ColumnMap, 0, n)
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		columnName := f.Tag.Get("db")
@@ -532,28 +532,18 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 			columnName = f.Name
 		}
 
-		tmap.columns[i] = &ColumnMap{
+		cm := &ColumnMap{
 			ColumnName: columnName,
+			Transient:  columnName == "-",
 			fieldName:  f.Name,
 			gotype:     f.Type,
 		}
-
-		if tmap.columns[i].fieldName == "Version" {
-			tmap.version = tmap.columns[i]
+		tmap.columns = append(tmap.columns, cm)
+		if cm.fieldName == "Version" {
+			tmap.version = tmap.columns[len(tmap.columns)-1]
 		}
 	}
-
-	// append to slice
-	// expand slice as necessary
-	n = len(m.tables)
-	if (n + 1) > cap(m.tables) {
-		newArr := make([]*TableMap, n, 2*(n+1))
-		copy(newArr, m.tables)
-		m.tables = newArr
-
-	}
-	m.tables = m.tables[0 : n+1]
-	m.tables[n] = tmap
+	m.tables = append(m.tables, tmap)
 
 	return tmap
 }
@@ -890,9 +880,11 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		colName := strings.ToLower(cols[x])
 		for y := 0; y < numField; y++ {
 			field := t.Field(y)
-
 			fieldName := field.Tag.Get("db")
-			if fieldName == "" {
+
+			if fieldName == "-" {
+				continue
+			} else if fieldName == "" {
 				fieldName = field.Name
 			}
 			if tableMapped {
