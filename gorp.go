@@ -209,7 +209,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) bindInstance {
 			col := t.columns[y]
 			if col.isAutoIncr {
 				plan.autoIncrIdx = y
-			} else if !col.Transient {
+			} else if !col.Transient && !col.Ignored {
 				if x > 0 {
 					s.WriteString(",")
 					s2.WriteString(",")
@@ -250,7 +250,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) bindInstance {
 
 		for y := range t.columns {
 			col := t.columns[y]
-			if !col.isPK && !col.Transient {
+			if !col.isPK && !col.Transient && !col.Ignored {
 				if x > 0 {
 					s.WriteString(", ")
 				}
@@ -308,7 +308,7 @@ func (t *TableMap) bindDelete(elem reflect.Value) bindInstance {
 
 		for y := range t.columns {
 			col := t.columns[y]
-			if !col.Transient {
+			if !col.Transient && !col.Ignored {
 				if col == t.version {
 					plan.versField = col.fieldName
 				}
@@ -354,7 +354,7 @@ func (t *TableMap) bindGet() bindPlan {
 
 		x := 0
 		for _, col := range t.columns {
-			if !col.Transient {
+			if !col.Transient && !col.Ignored {
 				if x > 0 {
 					s.WriteString(",")
 				}
@@ -397,6 +397,9 @@ type ColumnMap struct {
 	// If true, this column is skipped in generated SQL statements
 	Transient bool
 
+	// If true, this column is ignored completely
+	Ignored bool
+
 	// If true, " unique" is added to create table statements.
 	// Not used elsewhere
 	Unique bool
@@ -425,6 +428,13 @@ func (c *ColumnMap) Rename(colname string) *ColumnMap {
 // this column will be skipped when SQL statements are generated
 func (c *ColumnMap) SetTransient(b bool) *ColumnMap {
 	c.Transient = b
+	return c
+}
+
+// SetIgnored sets a column to be ignored. It will skipped when performing
+// any insertions or struct populations.
+func (c *ColumnMap) SetIgnored(b bool) *ColumnMap {
+	c.Ignored = true
 	return c
 }
 
@@ -527,9 +537,6 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	tmap.columns = make([]*ColumnMap, 0, n)
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
-		if f.Tag.Get("ignore") != "" {
-			continue
-		}
 		columnName := f.Tag.Get("db")
 		if columnName == "" {
 			columnName = f.Name
@@ -537,6 +544,7 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 
 		cm := &ColumnMap{
 			ColumnName: columnName,
+			Ignored:    columnName == "-",
 			fieldName:  f.Name,
 			gotype:     f.Type,
 		}
@@ -564,7 +572,7 @@ func (m *DbMap) CreateTables() error {
 		s.WriteString(fmt.Sprintf("create table %s (", table.TableName))
 		x := 0
 		for _, col := range table.columns {
-			if !col.Transient {
+			if !col.Transient && !col.Ignored {
 				if x > 0 {
 					s.WriteString(", ")
 				}
@@ -882,19 +890,20 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		colName := strings.ToLower(cols[x])
 		for y := 0; y < numField; y++ {
 			field := t.Field(y)
-			if field.Tag.Get("ignore") != "" {
-				continue
-			}
-
 			fieldName := field.Tag.Get("db")
 
-			if fieldName == "" {
+			if fieldName == "-" {
+				continue
+			} else if fieldName == "" {
 				fieldName = field.Name
 			}
 			if tableMapped {
 				colMap := colMapOrNil(table, fieldName)
 				if colMap != nil {
 					fieldName = colMap.ColumnName
+					if colMap.Ignored {
+						continue
+					}
 				}
 			}
 			fieldName = strings.ToLower(fieldName)

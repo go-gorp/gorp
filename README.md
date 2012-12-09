@@ -115,11 +115,9 @@ type Person struct {
 //   table.ColMap("Id").Rename("product_id")
 //   table.ColMap("Price").Rename("unit_price")
 //
-// Fields can also be ignored with an ignore tag
 type Product struct {
-    Id       int64     `db:"product_id"`
-    Price    int64     `db:"unit_price"`
-    internal fooStruct `ignore:"yes"`
+    Id      int64     `db:"product_id"`
+    Price   int64     `db:"unit_price"`
 }
 ```
 
