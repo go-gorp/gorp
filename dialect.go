@@ -2,9 +2,10 @@ package gorp
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
-	"errors"
+	"time"
 )
 
 // The Dialect interface encapsulates behaviors that differ across
@@ -12,7 +13,7 @@ import (
 // but this could change in the future
 type Dialect interface {
 
-	// ToSqlType returns the SQL column type to use when creating a 
+	// ToSqlType returns the SQL column type to use when creating a
 	// table of the given Go Type.  maxsize can be used to switch based on
 	// size.  For example, in MySQL []byte could map to BLOB, MEDIUMBLOB,
 	// or LONGBLOB depending on the maxsize
@@ -29,7 +30,7 @@ type Dialect interface {
 
 	// bind variable string to use when forming SQL statements
 	// in many dbs it is "?", but Postgres appears to use $1
-	// 
+	//
 	// i is a zero based index of the bind variable in this statement
 	//
 	BindVar(i int) string
@@ -39,7 +40,7 @@ type Dialect interface {
 // sqlite3 //
 /////////////
 
-type SqliteDialect struct { 
+type SqliteDialect struct {
 	suffix   string
 }
 
@@ -95,7 +96,7 @@ func (d SqliteDialect) LastInsertId(res *sql.Result, table *TableMap, exec SqlEx
 // PostgreSQL //
 ////////////////
 
-type PostgresDialect struct { 
+type PostgresDialect struct {
 	suffix string
 }
 
@@ -148,7 +149,7 @@ func (d PostgresDialect) CreateTableSuffix() string {
 
 // Returns "$(i+1)"
 func (d PostgresDialect) BindVar(i int) string {
-	return fmt.Sprintf("$%d",i+1)
+	return fmt.Sprintf("$%d", i+1)
 }
 
 func (d PostgresDialect) LastInsertId(res *sql.Result, table *TableMap, exec SqlExecutor) (int64, error) {
