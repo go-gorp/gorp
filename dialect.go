@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"time"
 )
 
 // The Dialect interface encapsulates behaviors that differ across
@@ -41,7 +40,7 @@ type Dialect interface {
 /////////////
 
 type SqliteDialect struct {
-	suffix   string
+	suffix string
 }
 
 func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
