@@ -61,6 +61,12 @@ type TableWithNull struct {
 	Bytes   []byte
 }
 
+type WithIgnoredColumn struct {
+	internal int64 `db:"-"`
+	Id       int64
+	Created  int64
+}
+
 func (p *Person) PreInsert(s SqlExecutor) error {
 	p.Created = time.Now().UnixNano()
 	p.Updated = p.Created
@@ -457,6 +463,27 @@ func TestCrud(t *testing.T) {
 	}
 }
 
+func TestWithIgnoredColumn(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	ic := &WithIgnoredColumn{-1, 0, 1}
+	insert(dbmap, ic)
+	expected := &WithIgnoredColumn{0, 1, 1}
+	ic2 := get(dbmap, WithIgnoredColumn{}, ic.Id).(*WithIgnoredColumn)
+
+	if !reflect.DeepEqual(expected, ic2) {
+		t.Errorf("%v != %v", expected, ic2)
+	}
+	if del(dbmap, ic) != 1 {
+		t.Errorf("Did not delete row with Id: %d", ic.Id)
+		return
+	}
+	if get(dbmap, WithIgnoredColumn{}, ic.Id) != nil {
+		t.Errorf("Found id: %d after Delete()", ic.Id)
+	}
+}
+
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
@@ -565,6 +592,7 @@ func initDbMap() *DbMap {
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
 	err := dbmap.CreateTables()
 	if err != nil {
 		panic(err)
