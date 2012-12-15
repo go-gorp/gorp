@@ -109,15 +109,20 @@ type Person struct {
 // Example of using tags to alias fields to column names
 // The 'db' value is the column name
 //
-// This is equivalent to using the ColMap.Rename() function:
+// A hyphen will cause gorp to skip this field, similar to the
+// Go json package.
+//
+// This is equivalent to using the ColMap methods:
 //
 //   table := dbmap.AddTableWithName(Product{}, "product")
 //   table.ColMap("Id").Rename("product_id")
 //   table.ColMap("Price").Rename("unit_price")
+//   table.ColMap("IgnoreMe").SetTransient(true)
 //
 type Product struct {
-    Id      int64     `db:"product_id"`
-    Price   int64     `db:"unit_price"`
+    Id         int64     `db:"product_id"`
+    Price      int64     `db:"unit_price"`
+    IgnoreMe   string    `db:"-"`
 }
 ```
 
@@ -140,6 +145,7 @@ dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
 //
 t1 := dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 t2 := dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
+t3 := dbmap.AddTableWithName(Product{}, "product_test").SetKeys(true, "Id")
 ```
 
 Automatically create / drop registered tables.  Great for unit tests:
