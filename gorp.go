@@ -214,7 +214,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) bindInstance {
 					s.WriteString(",")
 					s2.WriteString(",")
 				}
-				s.WriteString(col.ColumnName)
+				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 				s2.WriteString(t.dbmap.Dialect.BindVar(x))
 
 				f := elem.FieldByName(col.fieldName)
@@ -254,7 +254,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) bindInstance {
 				if x > 0 {
 					s.WriteString(", ")
 				}
-				s.WriteString(col.ColumnName)
+				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 				s.WriteString("=")
 				s.WriteString(t.dbmap.Dialect.BindVar(x))
 
@@ -274,7 +274,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) bindInstance {
 			if y > 0 {
 				s.WriteString(" and ")
 			}
-			s.WriteString(col.ColumnName)
+			s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 			s.WriteString("=")
 			s.WriteString(t.dbmap.Dialect.BindVar(x))
 
@@ -284,7 +284,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) bindInstance {
 		}
 		if plan.versField != "" {
 			s.WriteString(" and ")
-			s.WriteString(t.version.ColumnName)
+			s.WriteString(t.dbmap.Dialect.QuoteField(t.version.ColumnName))
 			s.WriteString("=")
 			s.WriteString(t.dbmap.Dialect.BindVar(x))
 			plan.argFields = append(plan.argFields, plan.versField)
@@ -321,7 +321,7 @@ func (t *TableMap) bindDelete(elem reflect.Value) bindInstance {
 			if x > 0 {
 				s.WriteString(" and ")
 			}
-			s.WriteString(k.ColumnName)
+			s.WriteString(t.dbmap.Dialect.QuoteField(k.ColumnName))
 			s.WriteString("=")
 			s.WriteString(t.dbmap.Dialect.BindVar(x))
 
@@ -330,7 +330,7 @@ func (t *TableMap) bindDelete(elem reflect.Value) bindInstance {
 		}
 		if plan.versField != "" {
 			s.WriteString(" and ")
-			s.WriteString(t.version.ColumnName)
+			s.WriteString(t.dbmap.Dialect.QuoteField(t.version.ColumnName))
 			s.WriteString("=")
 			s.WriteString(t.dbmap.Dialect.BindVar(len(plan.argFields)))
 
@@ -567,7 +567,7 @@ func (m *DbMap) CreateTables() error {
 					s.WriteString(", ")
 				}
 				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
-				s.WriteString(fmt.Sprintf("%s %s", col.ColumnName, stype))
+				s.WriteString(fmt.Sprintf("%s %s", t.dbmap.Dialect.QuoteField(col.ColumnName), stype))
 
 				if col.isPK {
 					s.WriteString(" not null")
@@ -591,7 +591,7 @@ func (m *DbMap) CreateTables() error {
 				if x > 0 {
 					s.WriteString(", ")
 				}
-				s.WriteString(table.keys[x].ColumnName)
+				s.WriteString(t.dbmap.Dialect.QuoteField(table.keys[x].ColumnName))
 			}
 			s.WriteString(")")
 		}
