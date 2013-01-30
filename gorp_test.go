@@ -2,6 +2,7 @@ package gorp_test
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	_ "github.com/bmizerany/pq"
@@ -65,6 +66,63 @@ type WithIgnoredColumn struct {
 	internal int64 `db:"-"`
 	Id       int64
 	Created  int64
+}
+
+type CustomStringType string
+
+type TypeConversionExample struct {
+	Id         int64
+	PersonJSON Person
+	Name       CustomStringType
+}
+
+type testTypeConverter struct{}
+
+func (me testTypeConverter) ToDb(val interface{}) (interface{}, error) {
+
+	switch t := val.(type) {
+	case Person:
+		b, err := json.Marshal(t)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	case CustomStringType:
+		return string(t), nil
+	}
+
+	return val, nil
+}
+
+func (me testTypeConverter) FromDb(target interface{}) (CustomScanner, bool) {
+	switch target.(type) {
+	case *Person:
+		binder := func(holder, target interface{}) error {
+			s, ok := holder.(*string)
+			if !ok {
+				return errors.New("FromDb: Unable to convert Person to *string")
+			}
+			b := []byte(*s)
+			return json.Unmarshal(b, target)
+		}
+		return CustomScanner{new(string), target, binder}, true
+	case *CustomStringType:
+		binder := func(holder, target interface{}) error {
+			s, ok := holder.(*string)
+			if !ok {
+				return errors.New("FromDb: Unable to convert CustomStringType to *string")
+			}
+			st, ok := target.(*CustomStringType)
+			if !ok {
+				return errors.New(fmt.Sprint("FromDb: Unable to convert target to *CustomStringType: ", reflect.TypeOf(target)))
+			}
+			*st = CustomStringType(*s)
+			return nil
+		}
+		return CustomScanner{new(string), target, binder}, true
+	}
+
+	return CustomScanner{}, false
 }
 
 func (p *Person) PreInsert(s SqlExecutor) error {
@@ -478,6 +536,93 @@ func TestWithIgnoredColumn(t *testing.T) {
 	}
 }
 
+func TestTypeConversionExample(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	p := Person{FName: "Bob", LName: "Smith"}
+	tc := &TypeConversionExample{-1, p, CustomStringType("hi")}
+	insert(dbmap, tc)
+
+	expected := &TypeConversionExample{1, p, CustomStringType("hi")}
+	tc2 := get(dbmap, TypeConversionExample{}, tc.Id).(*TypeConversionExample)
+	if !reflect.DeepEqual(expected, tc2) {
+		t.Errorf("tc2 %v != %v", expected, tc2)
+	}
+
+	tc2.Name = CustomStringType("hi2")
+	tc2.PersonJSON = Person{FName: "Jane", LName: "Doe"}
+	update(dbmap, tc2)
+
+	expected = &TypeConversionExample{1, tc2.PersonJSON, CustomStringType("hi2")}
+	tc3 := get(dbmap, TypeConversionExample{}, tc.Id).(*TypeConversionExample)
+	if !reflect.DeepEqual(expected, tc3) {
+		t.Errorf("tc3 %v != %v", expected, tc3)
+	}
+
+	if del(dbmap, tc) != 1 {
+		t.Errorf("Did not delete row with Id: %d", tc.Id)
+	}
+
+}
+
+func TestSelectVal(t *testing.T) {
+	dbmap := initDbMapNulls()
+	defer dbmap.DropTables()
+
+	t1 := TableWithNull{Str: sql.NullString{"abc", true},
+		Int64:   sql.NullInt64{78, true},
+		Float64: sql.NullFloat64{32.2, true},
+		Bool:    sql.NullBool{true, true},
+		Bytes:   []byte("hi")}
+	insert(dbmap, &t1)
+
+	// SelectInt
+	i64 := selectInt(dbmap, "select Int64 from TableWithNull where Str='abc'")
+	if i64 != 78 {
+		t.Errorf("int64 %d != 78", i64)
+	}
+	i64 = selectInt(dbmap, "select count(*) from TableWithNull")
+	if i64 != 1 {
+		t.Errorf("int64 count %d != 1", i64)
+	}
+	i64 = selectInt(dbmap, "select count(*) from TableWithNull where Str=?", "asdfasdf")
+	if i64 != 0 {
+		t.Errorf("int64 no rows %d != 0", i64)
+	}
+
+	// SelectNullInt
+	n := selectNullInt(dbmap, "select Int64 from TableWithNull where Str='notfound'")
+	if !reflect.DeepEqual(n, sql.NullInt64{0, false}) {
+		t.Errorf("nullint %v != 0,false", n)
+	}
+
+	n = selectNullInt(dbmap, "select Int64 from TableWithNull where Str='abc'")
+	if !reflect.DeepEqual(n, sql.NullInt64{78, true}) {
+		t.Errorf("nullint %v != 78, true", n)
+	}
+
+	// SelectStr
+	s := selectStr(dbmap, "select Str from TableWithNull where Int64=?", 78)
+	if s != "abc" {
+		t.Errorf("s %s != abc", s)
+	}
+	s = selectStr(dbmap, "select Str from TableWithNull where Str='asdfasdf'")
+	if s != "" {
+		t.Errorf("s no rows %s != ''", s)
+	}
+
+	// SelectNullStr
+	ns := selectNullStr(dbmap, "select Str from TableWithNull where Int64=?", 78)
+	if !reflect.DeepEqual(ns, sql.NullString{"abc", true}) {
+		t.Errorf("nullstr %v != abc,true", ns)
+	}
+	ns = selectNullStr(dbmap, "select Str from TableWithNull where Str='asdfasdf'")
+	if !reflect.DeepEqual(ns, sql.NullString{"", false}) {
+		t.Errorf("nullstr no rows %v != '',false", ns)
+	}
+}
+
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
@@ -587,6 +732,8 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
+	dbmap.TypeConverter = testTypeConverter{}
 	err := dbmap.CreateTables()
 	if err != nil {
 		panic(err)

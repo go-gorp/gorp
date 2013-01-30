@@ -54,6 +54,21 @@ func (e OptimisticLockError) Error() string {
 	return fmt.Sprintf("gorp: OptimisticLockError no row found for table=%s keys=%v", e.TableName, e.Keys)
 }
 
+type TypeConverter interface {
+	ToDb(val interface{}) (interface{}, error)
+	FromDb(target interface{}) (CustomScanner, bool)
+}
+
+type CustomScanner struct {
+	Holder interface{}
+	Target interface{}
+	Binder func(holder interface{}, target interface{}) error
+}
+
+func (me CustomScanner) Bind() error {
+	return me.Binder(me.Holder, me.Target)
+}
+
 // DbMap is the root gorp mapping object. Create one of these for each
 // database schema you wish to map.  Each DbMap contains a list of 
 // mapped tables.
@@ -69,6 +84,8 @@ type DbMap struct {
 
 	// Dialect implementation to use with this map
 	Dialect Dialect
+
+	TypeConverter TypeConverter
 
 	tables    []*TableMap
 	logger    *log.Logger
@@ -162,28 +179,44 @@ type bindPlan struct {
 	autoIncrIdx int
 }
 
-func (plan bindPlan) createBindInstance(elem reflect.Value) bindInstance {
+func (plan bindPlan) createBindInstance(elem reflect.Value, conv TypeConverter) (bindInstance, error) {
 	bi := bindInstance{query: plan.query, autoIncrIdx: plan.autoIncrIdx, versField: plan.versField}
 
 	if plan.versField != "" {
 		bi.existingVersion = elem.FieldByName(plan.versField).Int()
 	}
 
+	var err error
+
 	for i := 0; i < len(plan.argFields); i++ {
 		k := plan.argFields[i]
 		if k == versFieldConst {
 			bi.args = append(bi.args, bi.existingVersion+1)
 		} else {
-			bi.args = append(bi.args, elem.FieldByName(k).Interface())
+			val := elem.FieldByName(k).Interface()
+			if conv != nil {
+				val, err = conv.ToDb(val)
+				if err != nil {
+					return bindInstance{}, err
+				}
+			}
+			bi.args = append(bi.args, val)
 		}
 	}
 
 	for i := 0; i < len(plan.keyFields); i++ {
 		k := plan.keyFields[i]
-		bi.keys = append(bi.keys, elem.FieldByName(k).Interface())
+		val := elem.FieldByName(k).Interface()
+		if conv != nil {
+			val, err = conv.ToDb(val)
+			if err != nil {
+				return bindInstance{}, err
+			}
+		}
+		bi.keys = append(bi.keys, val)
 	}
 
-	return bi
+	return bi, nil
 }
 
 type bindInstance struct {
@@ -195,7 +228,7 @@ type bindInstance struct {
 	autoIncrIdx     int
 }
 
-func (t *TableMap) bindInsert(elem reflect.Value) bindInstance {
+func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 	plan := t.insertPlan
 	if plan.query == "" {
 		plan.autoIncrIdx = -1
@@ -235,10 +268,10 @@ func (t *TableMap) bindInsert(elem reflect.Value) bindInstance {
 		t.insertPlan = plan
 	}
 
-	return plan.createBindInstance(elem)
+	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
-func (t *TableMap) bindUpdate(elem reflect.Value) bindInstance {
+func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 	plan := t.updatePlan
 	if plan.query == "" {
 
@@ -295,10 +328,10 @@ func (t *TableMap) bindUpdate(elem reflect.Value) bindInstance {
 		t.updatePlan = plan
 	}
 
-	return plan.createBindInstance(elem)
+	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
-func (t *TableMap) bindDelete(elem reflect.Value) bindInstance {
+func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 	plan := t.deletePlan
 	if plan.query == "" {
 
@@ -342,7 +375,7 @@ func (t *TableMap) bindDelete(elem reflect.Value) bindInstance {
 		t.deletePlan = plan
 	}
 
-	return plan.createBindInstance(elem)
+	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
 func (t *TableMap) bindGet() bindPlan {
@@ -1032,6 +1065,8 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		}
 	}
 
+	conv := m.TypeConverter
+
 	list := make([]interface{}, 0)
 
 	for {
@@ -1046,14 +1081,31 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		v := reflect.New(t)
 		dest := make([]interface{}, len(cols))
 
+		custScan := make([]CustomScanner, 0)
+
 		for x := range cols {
 			f := v.Elem().Field(colToFieldOffset[x])
-			dest[x] = f.Addr().Interface()
+			target := f.Addr().Interface()
+			if conv != nil {
+				scanner, ok := conv.FromDb(target)
+				if ok {
+					target = scanner.Holder
+					custScan = append(custScan, scanner)
+				}
+			}
+			dest[x] = target
 		}
 
 		err = rows.Scan(dest...)
 		if err != nil {
 			return nil, err
+		}
+
+		for _, c := range custScan {
+			err = c.Bind()
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		list = append(list, v.Interface())
@@ -1116,11 +1168,22 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 	plan := table.bindGet()
 
 	v := reflect.New(t)
-	dest := make([]interface{}, 0)
+	dest := make([]interface{}, len(plan.argFields))
 
-	for i := 0; i < len(plan.argFields); i++ {
-		f := v.Elem().FieldByName(plan.argFields[i])
-		dest = append(dest, f.Addr().Interface())
+	conv := m.TypeConverter
+	custScan := make([]CustomScanner, 0)
+
+	for x, fieldName := range plan.argFields {
+		f := v.Elem().FieldByName(fieldName)
+		target := f.Addr().Interface()
+		if conv != nil {
+			scanner, ok := conv.FromDb(target)
+			if ok {
+				target = scanner.Holder
+				custScan = append(custScan, scanner)
+			}
+		}
+		dest[x] = target
 	}
 
 	row := exec.queryRow(plan.query, keys...)
@@ -1130,6 +1193,13 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 			err = nil
 		}
 		return nil, err
+	}
+
+	for _, c := range custScan {
+		err = c.Bind()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = runHook("PostGet", v, hookArg(exec))
@@ -1155,7 +1225,10 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 			return -1, err
 		}
 
-		bi := table.bindDelete(elem)
+		bi, err := table.bindDelete(elem)
+		if err != nil {
+			return -1, err
+		}
 
 		res, err := exec.Exec(bi.query, bi.args...)
 		if err != nil {
@@ -1197,7 +1270,10 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 			return -1, err
 		}
 
-		bi := table.bindUpdate(elem)
+		bi, err := table.bindUpdate(elem)
+		if err != nil {
+			return -1, err
+		}
 
 		res, err := exec.Exec(bi.query, bi.args...)
 		if err != nil {
@@ -1242,7 +1318,10 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			return err
 		}
 
-		bi := table.bindInsert(elem)
+		bi, err := table.bindInsert(elem)
+		if err != nil {
+			return err
+		}
 
 		res, err := exec.Exec(bi.query, bi.args...)
 		if err != nil {
