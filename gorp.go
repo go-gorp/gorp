@@ -712,6 +712,26 @@ func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return m.Db.Exec(query, args...)
 }
 
+// SelectInt is a convenience wrapper around the gorp.SelectInt function
+func (m *DbMap) SelectInt(query string, args ...interface{}) (int64, error) {
+	return SelectInt(m, query, args...)
+}
+
+// SelectNullInt is a convenience wrapper around the gorp.SelectNullInt function
+func (m *DbMap) SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error) {
+	return SelectNullInt(m, query, args...)
+}
+
+// SelectStr is a convenience wrapper around the gorp.SelectStr function
+func (m *DbMap) SelectStr(query string, args ...interface{}) (string, error) {
+	return SelectStr(m, query, args...)
+}
+
+// SelectNullStr is a convenience wrapper around the gorp.SelectNullStr function
+func (m *DbMap) SelectNullStr(query string, args ...interface{}) (sql.NullString, error) {
+	return SelectNullStr(m, query, args...)
+}
+
 // Begin starts a gorp Transaction
 func (m *DbMap) Begin() (*Transaction, error) {
 	tx, err := m.Db.Begin()
@@ -816,6 +836,26 @@ func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error
 	return stmt.Exec(args...)
 }
 
+// SelectInt is a convenience wrapper around the gorp.SelectInt function
+func (t *Transaction) SelectInt(query string, args ...interface{}) (int64, error) {
+	return SelectInt(t, query, args...)
+}
+
+// SelectNullInt is a convenience wrapper around the gorp.SelectNullInt function
+func (t *Transaction) SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error) {
+	return SelectNullInt(t, query, args...)
+}
+
+// SelectStr is a convenience wrapper around the gorp.SelectStr function
+func (t *Transaction) SelectStr(query string, args ...interface{}) (string, error) {
+	return SelectStr(t, query, args...)
+}
+
+// SelectNullStr is a convenience wrapper around the gorp.SelectNullStr function
+func (t *Transaction) SelectNullStr(query string, args ...interface{}) (sql.NullString, error) {
+	return SelectNullStr(t, query, args...)
+}
+
 // Commits the underlying database transaction
 func (t *Transaction) Commit() error {
 	return t.tx.Commit()
@@ -834,6 +874,73 @@ func (t *Transaction) queryRow(query string, args ...interface{}) *sql.Row {
 func (t *Transaction) query(query string, args ...interface{}) (*sql.Rows, error) {
 	t.dbmap.trace(query, args)
 	return t.tx.Query(query, args...)
+}
+
+///////////////
+
+// SelectInt executes the given query, which should be a SELECT statement for a single
+// integer column, and returns the value of the first row returned.  If no rows are
+// found, zero is returned.
+func SelectInt(e SqlExecutor, query string, args ...interface{}) (int64, error) {
+	var h int64
+	err := selectVal(e, &h, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	return h, nil
+}
+
+// SelectNullInt executes the given query, which should be a SELECT statement for a single
+// integer column, and returns the value of the first row returned.  If no rows are
+// found, the empty sql.NullInt64 value is returned.
+func SelectNullInt(e SqlExecutor, query string, args ...interface{}) (sql.NullInt64, error) {
+	var h sql.NullInt64
+	err := selectVal(e, &h, query, args...)
+	if err != nil {
+		return h, err
+	}
+	return h, nil
+}
+
+// SelectStr executes the given query, which should be a SELECT statement for a single
+// char/varchar column, and returns the value of the first row returned.  If no rows are
+// found, an empty string is returned.
+func SelectStr(e SqlExecutor, query string, args ...interface{}) (string, error) {
+	var h string
+	err := selectVal(e, &h, query, args...)
+	if err != nil {
+		return "", err
+	}
+	return h, nil
+}
+
+// SelectStr executes the given query, which should be a SELECT statement for a single
+// char/varchar column, and returns the value of the first row returned.  If no rows are
+// found, the empty sql.NullString is returned.
+func SelectNullStr(e SqlExecutor, query string, args ...interface{}) (sql.NullString, error) {
+	var h sql.NullString
+	err := selectVal(e, &h, query, args...)
+	if err != nil {
+		return h, err
+	}
+	return h, nil
+}
+
+func selectVal(e SqlExecutor, holder interface{}, query string, args ...interface{}) error {
+	rows, err := e.query(query, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		err = rows.Scan(holder)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 ///////////////

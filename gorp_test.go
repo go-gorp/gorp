@@ -218,13 +218,7 @@ func TestDoubleAddTable(t *testing.T) {
 
 // what happens if a legacy table has a null value?
 func TestNullValues(t *testing.T) {
-	dbmap := &DbMap{Db: connect(), Dialect: dialect}
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
-	dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
-	err := dbmap.CreateTables()
-	if err != nil {
-		panic(err)
-	}
+	dbmap := initDbMapNulls()
 	defer dbmap.DropTables()
 
 	// insert a row directly
@@ -601,6 +595,17 @@ func initDbMap() *DbMap {
 	return dbmap
 }
 
+func initDbMapNulls() *DbMap {
+	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
+	return dbmap
+}
+
 func connect() *sql.DB {
 	dsn := os.Getenv("GORP_TEST_DSN")
 	if dsn == "" {
@@ -645,6 +650,42 @@ func get(dbmap *DbMap, i interface{}, keys ...interface{}) interface{} {
 	}
 
 	return obj
+}
+
+func selectInt(dbmap *DbMap, query string, args ...interface{}) int64 {
+	i64, err := SelectInt(dbmap, query, args...)
+	if err != nil {
+		panic(err)
+	}
+
+	return i64
+}
+
+func selectNullInt(dbmap *DbMap, query string, args ...interface{}) sql.NullInt64 {
+	i64, err := SelectNullInt(dbmap, query, args...)
+	if err != nil {
+		panic(err)
+	}
+
+	return i64
+}
+
+func selectStr(dbmap *DbMap, query string, args ...interface{}) string {
+	s, err := SelectStr(dbmap, query, args...)
+	if err != nil {
+		panic(err)
+	}
+
+	return s
+}
+
+func selectNullStr(dbmap *DbMap, query string, args ...interface{}) sql.NullString {
+	s, err := SelectNullStr(dbmap, query, args...)
+	if err != nil {
+		panic(err)
+	}
+
+	return s
 }
 
 func rawexec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
