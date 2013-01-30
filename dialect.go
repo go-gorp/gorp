@@ -33,6 +33,10 @@ type Dialect interface {
 	// i is a zero based index of the bind variable in this statement
 	//
 	BindVar(i int) string
+
+	// Handles quoting of a field name to ensure that it doesn't raise any
+	// SQL parsing exceptions by using a reserved word as a field name.
+	QuoteField(field string) string
 }
 
 ///////////////////////////////////////////////////////
@@ -89,6 +93,10 @@ func (d SqliteDialect) BindVar(i int) string {
 
 func (d SqliteDialect) LastInsertId(res *sql.Result, table *TableMap, exec SqlExecutor) (int64, error) {
 	return (*res).LastInsertId()
+}
+
+func (d SqliteDialect) QuoteField(f string) string {
+	return "'" + f + "'"
 }
 
 ///////////////////////////////////////////////////////
@@ -167,6 +175,10 @@ func (d PostgresDialect) LastInsertId(res *sql.Result, table *TableMap, exec Sql
 	return 0, errors.New(fmt.Sprintf("PostgresDialect: %s did not return a row", sql))
 }
 
+func (d PostgresDialect) QuoteField(f string) string {
+	return `"` + f + `"`
+}
+
 ///////////////////////////////////////////////////////
 // MySQL //
 ///////////
@@ -229,4 +241,8 @@ func (m MySQLDialect) BindVar(i int) string {
 
 func (m MySQLDialect) LastInsertId(res *sql.Result, table *TableMap, exec SqlExecutor) (int64, error) {
 	return (*res).LastInsertId()
+}
+
+func (d MySQLDialect) QuoteField(f string) string {
+	return "`" + f + "`"
 }

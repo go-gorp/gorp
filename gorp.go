@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Package gorp provides a simple way to marshal Go structs to and from
-// SQL databases.  It uses the database/sql package, and should work with any 
+// SQL databases.  It uses the database/sql package, and should work with any
 // compliant database/sql driver.
 //
 // Source code and project home:
@@ -24,7 +24,7 @@ import (
 var zeroVal reflect.Value
 var versFieldConst = "[gorp_ver_field]"
 
-// OptimisticLockError is returned by Update() or Delete() if the 
+// OptimisticLockError is returned by Update() or Delete() if the
 // struct being modified has a Version field and the value is not equal to
 // the current value in the database
 type OptimisticLockError struct {
@@ -34,9 +34,9 @@ type OptimisticLockError struct {
 	// Primary key values of the row being updated/deleted
 	Keys []interface{}
 
-	// true if a row was found with those keys, indicating the 
+	// true if a row was found with those keys, indicating the
 	// LocalVersion is stale.  false if no value was found with those
-	// keys, suggesting the row has been deleted since loaded, or 
+	// keys, suggesting the row has been deleted since loaded, or
 	// was never inserted to begin with
 	RowExists bool
 
@@ -94,10 +94,10 @@ func (me CustomScanner) Bind() error {
 }
 
 // DbMap is the root gorp mapping object. Create one of these for each
-// database schema you wish to map.  Each DbMap contains a list of 
+// database schema you wish to map.  Each DbMap contains a list of
 // mapped tables.
 //
-// Example: 
+// Example:
 //
 //     dialect := gorp.MySQLDialect{"InnoDB", "UTF8"}
 //     dbmap := &gorp.DbMap{Db: db, Dialect: dialect}
@@ -132,8 +132,8 @@ type TableMap struct {
 	dbmap      *DbMap
 }
 
-// ResetSql removes cached insert/update/select/delete SQL strings 
-// associated with this TableMap.  Call this if you've modified 
+// ResetSql removes cached insert/update/select/delete SQL strings
+// associated with this TableMap.  Call this if you've modified
 // any column names or the table name itself.
 func (t *TableMap) ResetSql() {
 	t.insertPlan = bindPlan{}
@@ -142,7 +142,7 @@ func (t *TableMap) ResetSql() {
 	t.getPlan = bindPlan{}
 }
 
-// SetKeys lets you specify the fields on a struct that map to primary 
+// SetKeys lets you specify the fields on a struct that map to primary
 // key columns on the table.  If isAutoIncr is set, result.LastInsertId()
 // will be used after INSERT to bind the generated id to the Go struct.
 //
@@ -271,7 +271,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 					s.WriteString(",")
 					s2.WriteString(",")
 				}
-				s.WriteString(col.ColumnName)
+				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 				s2.WriteString(t.dbmap.Dialect.BindVar(x))
 
 				f := elem.FieldByName(col.fieldName)
@@ -311,7 +311,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 				if x > 0 {
 					s.WriteString(", ")
 				}
-				s.WriteString(col.ColumnName)
+				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 				s.WriteString("=")
 				s.WriteString(t.dbmap.Dialect.BindVar(x))
 
@@ -331,7 +331,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 			if y > 0 {
 				s.WriteString(" and ")
 			}
-			s.WriteString(col.ColumnName)
+			s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 			s.WriteString("=")
 			s.WriteString(t.dbmap.Dialect.BindVar(x))
 
@@ -341,7 +341,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 		}
 		if plan.versField != "" {
 			s.WriteString(" and ")
-			s.WriteString(t.version.ColumnName)
+			s.WriteString(t.dbmap.Dialect.QuoteField(t.version.ColumnName))
 			s.WriteString("=")
 			s.WriteString(t.dbmap.Dialect.BindVar(x))
 			plan.argFields = append(plan.argFields, plan.versField)
@@ -378,7 +378,7 @@ func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 			if x > 0 {
 				s.WriteString(" and ")
 			}
-			s.WriteString(k.ColumnName)
+			s.WriteString(t.dbmap.Dialect.QuoteField(k.ColumnName))
 			s.WriteString("=")
 			s.WriteString(t.dbmap.Dialect.BindVar(x))
 
@@ -387,7 +387,7 @@ func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 		}
 		if plan.versField != "" {
 			s.WriteString(" and ")
-			s.WriteString(t.version.ColumnName)
+			s.WriteString(t.dbmap.Dialect.QuoteField(t.version.ColumnName))
 			s.WriteString("=")
 			s.WriteString(t.dbmap.Dialect.BindVar(len(plan.argFields)))
 
@@ -415,7 +415,7 @@ func (t *TableMap) bindGet() bindPlan {
 				if x > 0 {
 					s.WriteString(",")
 				}
-				s.WriteString(col.ColumnName)
+				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 				plan.argFields = append(plan.argFields, col.fieldName)
 				x++
 			}
@@ -428,7 +428,7 @@ func (t *TableMap) bindGet() bindPlan {
 			if x > 0 {
 				s.WriteString(" and ")
 			}
-			s.WriteString(col.ColumnName)
+			s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 			s.WriteString("=")
 			s.WriteString(t.dbmap.Dialect.BindVar(x))
 
@@ -445,7 +445,7 @@ func (t *TableMap) bindGet() bindPlan {
 
 // ColumnMap represents a mapping between a Go struct field and a single
 // column in a table.
-// Unique and MaxSize only inform the 
+// Unique and MaxSize only inform the
 // CreateTables() function and are not used by Insert/Update/Delete/Get.
 type ColumnMap struct {
 	// Column name in db table
@@ -500,7 +500,7 @@ func (c *ColumnMap) SetMaxSize(size int) *ColumnMap {
 	return c
 }
 
-// Transaction represents a database transaction.  
+// Transaction represents a database transaction.
 // Insert/Update/Delete/Get/Exec operations will be run in the context
 // of that transaction.  Transactions should be terminated with
 // a call to Commit() or Rollback()
@@ -529,7 +529,7 @@ type SqlExecutor interface {
 
 // TraceOn turns on SQL statement logging for this DbMap.  After this is
 // called, all SQL statements will be sent to the logger.  If prefix is
-// a non-empty string, it will be written to the front of all logged 
+// a non-empty string, it will be written to the front of all logged
 // strings, which can aid in filtering log lines.
 //
 // Use TraceOn if you want to spy on the SQL statements that gorp
@@ -551,16 +551,16 @@ func (m *DbMap) TraceOff() {
 
 // AddTable registers the given interface type with gorp. The table name
 // will be given the name of the TypeOf(i).  You must call this function,
-// or AddTableWithName, for any struct type you wish to persist with 
+// or AddTableWithName, for any struct type you wish to persist with
 // the given DbMap.
 //
-// This operation is idempotent. If i's type is already mapped, the 
+// This operation is idempotent. If i's type is already mapped, the
 // existing *TableMap is returned
 func (m *DbMap) AddTable(i interface{}) *TableMap {
 	return m.AddTableWithName(i, "")
 }
 
-// AddTableWithName has the same behavior as AddTable, but sets 
+// AddTableWithName has the same behavior as AddTable, but sets
 // table.TableName to name.
 func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	t := reflect.TypeOf(i)
@@ -607,7 +607,7 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 
 // CreateTables iterates through TableMaps registered to this DbMap and
 // executes "create table" statements against the database for each.
-// 
+//
 // This is particularly useful in unit tests where you want to create
 // and destroy the schema automatically.
 func (m *DbMap) CreateTables() error {
@@ -624,7 +624,7 @@ func (m *DbMap) CreateTables() error {
 					s.WriteString(", ")
 				}
 				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
-				s.WriteString(fmt.Sprintf("%s %s", col.ColumnName, stype))
+				s.WriteString(fmt.Sprintf("%s %s", t.dbmap.Dialect.QuoteField(col.ColumnName), stype))
 
 				if col.isPK {
 					s.WriteString(" not null")
@@ -648,7 +648,7 @@ func (m *DbMap) CreateTables() error {
 				if x > 0 {
 					s.WriteString(", ")
 				}
-				s.WriteString(table.keys[x].ColumnName)
+				s.WriteString(t.dbmap.Dialect.QuoteField(table.keys[x].ColumnName))
 			}
 			s.WriteString(")")
 		}
@@ -677,13 +677,13 @@ func (m *DbMap) DropTables() error {
 	return err
 }
 
-// Insert runs a SQL INSERT statement for each element in list.  List 
+// Insert runs a SQL INSERT statement for each element in list.  List
 // items must be pointers.
 //
 // Any interface whose TableMap has an auto-increment primary key will
 // have its last insert id bound to the PK field on the struct.
 //
-// Hook functions PreInsert() and/or PostInsert() will be executed 
+// Hook functions PreInsert() and/or PostInsert() will be executed
 // before/after the INSERT statement if the interface defines them.
 //
 // Panics if any interface in the list has not been registered with AddTable
@@ -691,10 +691,10 @@ func (m *DbMap) Insert(list ...interface{}) error {
 	return insert(m, m, list...)
 }
 
-// Update runs a SQL UPDATE statement for each element in list.  List 
-// items must be pointers.  
+// Update runs a SQL UPDATE statement for each element in list.  List
+// items must be pointers.
 //
-// Hook functions PreUpdate() and/or PostUpdate() will be executed 
+// Hook functions PreUpdate() and/or PostUpdate() will be executed
 // before/after the UPDATE statement if the interface defines them.
 //
 // Returns number of rows updated
@@ -705,11 +705,11 @@ func (m *DbMap) Update(list ...interface{}) (int64, error) {
 	return update(m, m, list...)
 }
 
-// Delete runs a SQL DELETE statement for each element in list.  List 
+// Delete runs a SQL DELETE statement for each element in list.  List
 // items must be pointers.
 //
-// Hook functions PreDelete() and/or PostDelete() will be executed 
-// before/after the DELETE statement if the interface defines them.  
+// Hook functions PreDelete() and/or PostDelete() will be executed
+// before/after the DELETE statement if the interface defines them.
 //
 // Returns number of rows deleted
 //
@@ -723,11 +723,11 @@ func (m *DbMap) Delete(list ...interface{}) (int64, error) {
 // primary key(s)
 //
 //  i should be an empty value for the struct to load
-//  keys should be the primary key value(s) for the row to load.  If 
-//  multiple keys exist on the table, the order should match the column 
+//  keys should be the primary key value(s) for the row to load.  If
+//  multiple keys exist on the table, the order should match the column
 //  order specified in SetKeys() when the table mapping was defined.
 //
-// Hook function PostGet() will be executed 
+// Hook function PostGet() will be executed
 // after the SELECT statement if the interface defines them.
 //
 // Returns a pointer to a struct that matches or nil if no row is found
@@ -739,15 +739,15 @@ func (m *DbMap) Get(i interface{}, keys ...interface{}) (interface{}, error) {
 }
 
 // Select runs an arbitrary SQL query, binding the columns in the result
-// to fields on the struct specified by i.  args represent the bind 
+// to fields on the struct specified by i.  args represent the bind
 // parameters for the SQL statement.
 //
 // Column names on the SELECT statement should be aliased to the field names
 // on the struct i. Returns an error if one or more columns in the result
-// do not match.  It is OK if fields on i are not part of the SQL 
+// do not match.  It is OK if fields on i are not part of the SQL
 // statement.
 //
-// Hook function PostGet() will be executed 
+// Hook function PostGet() will be executed
 // after the SELECT statement if the interface defines them.
 //
 // Returns a slice of pointers to matching rows of type i.
@@ -1042,7 +1042,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		return nil, err
 	}
 
-	// check if type t is a mapped table - if so we'll 
+	// check if type t is a mapped table - if so we'll
 	// check the table for column aliasing below
 	tableMapped := false
 	table := tableOrNil(m, t)
