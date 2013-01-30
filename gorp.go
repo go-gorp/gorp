@@ -624,7 +624,7 @@ func (m *DbMap) CreateTables() error {
 					s.WriteString(", ")
 				}
 				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
-				s.WriteString(fmt.Sprintf("%s %s", t.dbmap.Dialect.QuoteField(col.ColumnName), stype))
+				s.WriteString(fmt.Sprintf("%s %s", m.Dialect.QuoteField(col.ColumnName), stype))
 
 				if col.isPK {
 					s.WriteString(" not null")
@@ -648,7 +648,7 @@ func (m *DbMap) CreateTables() error {
 				if x > 0 {
 					s.WriteString(", ")
 				}
-				s.WriteString(t.dbmap.Dialect.QuoteField(table.keys[x].ColumnName))
+				s.WriteString(m.Dialect.QuoteField(table.keys[x].ColumnName))
 			}
 			s.WriteString(")")
 		}
