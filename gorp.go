@@ -54,17 +54,41 @@ func (e OptimisticLockError) Error() string {
 	return fmt.Sprintf("gorp: OptimisticLockError no row found for table=%s keys=%v", e.TableName, e.Keys)
 }
 
+// The TypeConverter interface provides a way to map a value of one
+// type to another type when persisting to, or loading from, a database.
+//
+// Example use cases: Implement type converter to convert bool types to "y"/"n" strings,
+// or serialize a struct member as a JSON blob.
 type TypeConverter interface {
+	// ToDb converts val to another type. Called before INSERT/UPDATE operations
 	ToDb(val interface{}) (interface{}, error)
+
+	// FromDb returns a CustomScanner appropriate for this type. This will be used
+	// to hold values returned from SELECT queries.  
+	// 
+	// In particular the CustomScanner returned should implement a Binder
+	// function appropriate for the Go type you wish to convert the db value to
+	//
+	// If bool==false, then no custom scanner will be used for this field.
 	FromDb(target interface{}) (CustomScanner, bool)
 }
 
+// CustomScanner binds a database column value to a Go type
 type CustomScanner struct {
+	// After a row is scanned, Holder will contain the value from the database column.
+	// Initialize the CustomScanner with the concrete Go type you wish the database
+	// driver to scan the raw column into.
 	Holder interface{}
+	// Target typically holds a pointer to the target struct field to bind the Holder
+	// value to.
 	Target interface{}
+	// Binder is a custom function that converts the holder value to the target type
+	// and sets target accordingly.  This function should return error if a problem
+	// occurs converting the holder to the target.
 	Binder func(holder interface{}, target interface{}) error
 }
 
+// Bind is called automatically by gorp after Scan() 
 func (me CustomScanner) Bind() error {
 	return me.Binder(me.Holder, me.Target)
 }
