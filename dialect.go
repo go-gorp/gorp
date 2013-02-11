@@ -96,7 +96,7 @@ func (d SqliteDialect) LastInsertId(res *sql.Result, table *TableMap, exec SqlEx
 }
 
 func (d SqliteDialect) QuoteField(f string) string {
-	return "'" + f + "'"
+	return "`" + f + "`"
 }
 
 ///////////////////////////////////////////////////////
