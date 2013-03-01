@@ -237,8 +237,15 @@ func TestOptimisticLocking(t *testing.T) {
 		t.Errorf("Insert didn't incr Version: %d != %d", 1, p1.Version)
 		return
 	}
+	if p1.Id == 0 {
+		t.Errorf("Insert didn't return a generated PK")
+		return
+	}
 
 	obj, err := dbmap.Get(Person{}, p1.Id)
+	if err != nil {
+		panic(err)
+	}
 	p2 := obj.(*Person)
 	p2.LName = "Edwards"
 	dbmap.Update(p2) // Version is now 2
@@ -570,6 +577,8 @@ func TestSelectVal(t *testing.T) {
 	dbmap := initDbMapNulls()
 	defer dbmap.DropTables()
 
+	bindVar := dbmap.Dialect.BindVar(0)
+
 	t1 := TableWithNull{Str: sql.NullString{"abc", true},
 		Int64:   sql.NullInt64{78, true},
 		Float64: sql.NullFloat64{32.2, true},
@@ -586,7 +595,7 @@ func TestSelectVal(t *testing.T) {
 	if i64 != 1 {
 		t.Errorf("int64 count %d != 1", i64)
 	}
-	i64 = selectInt(dbmap, "select count(*) from TableWithNull where Str=?", "asdfasdf")
+	i64 = selectInt(dbmap, "select count(*) from TableWithNull where Str="+bindVar, "asdfasdf")
 	if i64 != 0 {
 		t.Errorf("int64 no rows %d != 0", i64)
 	}
@@ -603,7 +612,7 @@ func TestSelectVal(t *testing.T) {
 	}
 
 	// SelectStr
-	s := selectStr(dbmap, "select Str from TableWithNull where Int64=?", 78)
+	s := selectStr(dbmap, "select Str from TableWithNull where Int64="+bindVar, 78)
 	if s != "abc" {
 		t.Errorf("s %s != abc", s)
 	}
@@ -613,7 +622,7 @@ func TestSelectVal(t *testing.T) {
 	}
 
 	// SelectNullStr
-	ns := selectNullStr(dbmap, "select Str from TableWithNull where Int64=?", 78)
+	ns := selectNullStr(dbmap, "select Str from TableWithNull where Int64="+bindVar, 78)
 	if !reflect.DeepEqual(ns, sql.NullString{"abc", true}) {
 		t.Errorf("nullstr %v != abc,true", ns)
 	}

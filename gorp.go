@@ -262,17 +262,16 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 		s.WriteString(fmt.Sprintf("insert into %s (", t.TableName))
 
 		x := 0
+		first := true
 		for y := range t.columns {
 			col := t.columns[y]
-			if col.isAutoIncr {
-				plan.autoIncrIdx = y
-			} else if !col.Transient {
-				if x > 0 {
+
+			if !col.Transient {
+				if !first {
 					s.WriteString(",")
 					s2.WriteString(",")
 				}
 				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
-				s2.WriteString(t.dbmap.Dialect.BindVar(x))
 
 				f := elem.FieldByName(col.fieldName)
 
@@ -280,13 +279,25 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 					f.SetInt(int64(1))
 				}
 
-				plan.argFields = append(plan.argFields, col.fieldName)
-				x++
+				if col.isAutoIncr {
+					s2.WriteString(t.dbmap.Dialect.AutoIncrBindValue())
+					plan.autoIncrIdx = y
+				} else {
+					s2.WriteString(t.dbmap.Dialect.BindVar(x))
+					plan.argFields = append(plan.argFields, col.fieldName)
+					x++
+				}
+
+				first = false
 			}
 		}
 		s.WriteString(") values (")
 		s.WriteString(s2.String())
-		s.WriteString(");")
+		s.WriteString(")")
+		if plan.autoIncrIdx > -1 {
+			s.WriteString(t.dbmap.Dialect.AutoIncrInsertSuffix(t.columns[plan.autoIncrIdx]))
+		}
+		s.WriteString(";")
 
 		plan.query = s.String()
 		t.insertPlan = plan
@@ -1347,17 +1358,17 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			return err
 		}
 
-		res, err := exec.Exec(bi.query, bi.args...)
-		if err != nil {
-			return err
-		}
-
 		if bi.autoIncrIdx > -1 {
-			id, err := m.Dialect.LastInsertId(&res, table, exec)
+			id, err := m.Dialect.InsertAutoIncr(exec, bi.query, bi.args...)
 			if err != nil {
 				return err
 			}
 			elem.Field(bi.autoIncrIdx).SetInt(id)
+		} else {
+			_, err := exec.Exec(bi.query, bi.args...)
+			if err != nil {
+				return err
+			}
 		}
 
 		err = runHook("PostInsert", eptr, hookarg)

@@ -1,10 +1,10 @@
 package gorp
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // The Dialect interface encapsulates behaviors that differ across
@@ -21,11 +21,15 @@ type Dialect interface {
 	// string to append to primary key column definitions
 	AutoIncrStr() string
 
+	AutoIncrBindValue() string
+
+	AutoIncrInsertSuffix(col *ColumnMap) string
+
 	// string to append to "create table" statement for vendor specific
 	// table attributes
 	CreateTableSuffix() string
 
-	LastInsertId(res *sql.Result, table *TableMap, exec SqlExecutor) (int64, error)
+	InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error)
 
 	// bind variable string to use when forming SQL statements
 	// in many dbs it is "?", but Postgres appears to use $1
@@ -37,6 +41,14 @@ type Dialect interface {
 	// Handles quoting of a field name to ensure that it doesn't raise any
 	// SQL parsing exceptions by using a reserved word as a field name.
 	QuoteField(field string) string
+}
+
+func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+	res, err := exec.Exec(insertSql, params...)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }
 
 ///////////////////////////////////////////////////////
@@ -81,6 +93,14 @@ func (d SqliteDialect) AutoIncrStr() string {
 	return "autoincrement"
 }
 
+func (d SqliteDialect) AutoIncrBindValue() string {
+	return "null"
+}
+
+func (d SqliteDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
+	return ""
+}
+
 // Returns suffix
 func (d SqliteDialect) CreateTableSuffix() string {
 	return d.suffix
@@ -91,12 +111,12 @@ func (d SqliteDialect) BindVar(i int) string {
 	return "?"
 }
 
-func (d SqliteDialect) LastInsertId(res *sql.Result, table *TableMap, exec SqlExecutor) (int64, error) {
-	return (*res).LastInsertId()
+func (d SqliteDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+	return standardInsertAutoIncr(exec, insertSql, params...)
 }
 
 func (d SqliteDialect) QuoteField(f string) string {
-	return "'" + f + "'"
+	return `"` + f + `"`
 }
 
 ///////////////////////////////////////////////////////
@@ -149,6 +169,14 @@ func (d PostgresDialect) AutoIncrStr() string {
 	return ""
 }
 
+func (d PostgresDialect) AutoIncrBindValue() string {
+	return "default"
+}
+
+func (d PostgresDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
+	return " returning " + col.ColumnName
+}
+
 // Returns suffix
 func (d PostgresDialect) CreateTableSuffix() string {
 	return d.suffix
@@ -159,24 +187,24 @@ func (d PostgresDialect) BindVar(i int) string {
 	return fmt.Sprintf("$%d", i+1)
 }
 
-func (d PostgresDialect) LastInsertId(res *sql.Result, table *TableMap, exec SqlExecutor) (int64, error) {
-	sql := fmt.Sprintf("select currval('%s_%s_seq')", table.TableName, table.keys[0].ColumnName)
-	rows, err := exec.query(sql)
+func (d PostgresDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+	rows, err := exec.query(insertSql, params...)
 	if err != nil {
 		return 0, err
 	}
 	defer rows.Close()
 
 	if rows.Next() {
-		var dest int64
-		err = rows.Scan(&dest)
-		return dest, nil
+		var id int64
+		err := rows.Scan(&id)
+		return id, err
 	}
-	return 0, errors.New(fmt.Sprintf("PostgresDialect: %s did not return a row", sql))
+
+	return 0, errors.New("No serial value returned for insert: " + insertSql)
 }
 
 func (d PostgresDialect) QuoteField(f string) string {
-	return `"` + f + `"`
+	return `"` + strings.ToLower(f) + `"`
 }
 
 ///////////////////////////////////////////////////////
@@ -229,6 +257,14 @@ func (m MySQLDialect) AutoIncrStr() string {
 	return "auto_increment"
 }
 
+func (m MySQLDialect) AutoIncrBindValue() string {
+	return "null"
+}
+
+func (m MySQLDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
+	return ""
+}
+
 // Returns engine=%s charset=%s  based on values stored on struct
 func (m MySQLDialect) CreateTableSuffix() string {
 	return fmt.Sprintf(" engine=%s charset=%s", m.Engine, m.Encoding)
@@ -239,8 +275,8 @@ func (m MySQLDialect) BindVar(i int) string {
 	return "?"
 }
 
-func (m MySQLDialect) LastInsertId(res *sql.Result, table *TableMap, exec SqlExecutor) (int64, error) {
-	return (*res).LastInsertId()
+func (m MySQLDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+	return standardInsertAutoIncr(exec, insertSql, params...)
 }
 
 func (d MySQLDialect) QuoteField(f string) string {
