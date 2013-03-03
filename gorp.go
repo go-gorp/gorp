@@ -677,7 +677,7 @@ func (m *DbMap) DropTables() error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
-		_, e := m.Exec(fmt.Sprintf("drop table %s;", table.TableName))
+		_, e := m.Exec(fmt.Sprintf("drop table %s;", m.Dialect.QuoteField(table.TableName)))
 		if e != nil {
 			err = e
 		}
