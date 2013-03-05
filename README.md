@@ -119,8 +119,10 @@ type Person struct {
 //   table.ColMap("Price").Rename("unit_price")
 //   table.ColMap("IgnoreMe").SetTransient(true)
 //
+// the optional flags indicate if the field is a primary key (pk) and/or is an autoincrement field
+// this allows you to go declaratively when doing an AddTableWithName instead of using SetKeys
 type Product struct {
-    Id         int64     `db:"product_id"`
+    Id         int64     `db:"product_id" flags:"pk, autoincrement"`
     Price      int64     `db:"unit_price"`
     IgnoreMe   string    `db:"-"`
 }
