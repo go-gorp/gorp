@@ -231,7 +231,10 @@ You can also batch operations into a transaction:
 ```go
 func InsertInv(dbmap *DbMap, inv *Invoice, per *Person) error {
     // Start a new transaction
-    trans := dbmap.Begin()
+    trans, err := dbmap.Begin()
+    if err != nil {
+        return err
+    }
 
     trans.Insert(per)
     inv.PersonId = per.Id
