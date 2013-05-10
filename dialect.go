@@ -61,6 +61,8 @@ type SqliteDialect struct {
 
 func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
+	case reflect.Bool:
+		return "integer"
 	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64:
 		return "integer"
 	case reflect.Float64, reflect.Float32:
@@ -129,6 +131,8 @@ type PostgresDialect struct {
 
 func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
+	case reflect.Bool:
+		return "boolean"
 	case reflect.Int, reflect.Int16, reflect.Int32:
 		if isAutoIncr {
 			return "serial"
@@ -223,6 +227,8 @@ type MySQLDialect struct {
 
 func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
+	case reflect.Bool:
+		return "boolean"
 	case reflect.Int, reflect.Int16, reflect.Int32:
 		return "int"
 	case reflect.Int64:
