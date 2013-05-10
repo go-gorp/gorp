@@ -16,24 +16,13 @@ import (
 	"time"
 )
 
-// export GORP_TEST_DSN=gomysql_test/gomysql_test/abc123
-var dialect = MySQLDialect{"InnoDB", "UTF8"}
-var driver = "mymysql"
-
-// export GORP_TEST_DSN=somefile.bin
-//var dialect = SqliteDialect{}
-//var driver = "sqlite3"
-
-// export GORP_TEST_DSN="user=test password=test dbname=gorptest sslmode=disable"
-//var dialect = PostgresDialect{}
-//var driver = "postgres"
-
 type Invoice struct {
 	Id       int64
 	Created  int64
 	Updated  int64
 	Memo     string
 	PersonId int64
+	IsPaid   bool
 }
 
 type Person struct {
@@ -171,7 +160,7 @@ type PersistentUser struct {
 }
 
 func TestPersistentUser(t *testing.T) {
-	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap := newDbMap()
 	dbmap.Exec("drop table if exists PersistentUser")
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
@@ -273,7 +262,7 @@ func TestOptimisticLocking(t *testing.T) {
 
 // what happens if a legacy table has a null value?
 func TestDoubleAddTable(t *testing.T) {
-	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap := newDbMap()
 	t1 := dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
 	t2 := dbmap.AddTable(TableWithNull{})
 	if t1 != t2 {
@@ -322,7 +311,7 @@ func TestNullValues(t *testing.T) {
 }
 
 func TestColumnProps(t *testing.T) {
-	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap := newDbMap()
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
 	t1.ColMap("Created").Rename("date_created")
@@ -337,7 +326,7 @@ func TestColumnProps(t *testing.T) {
 	defer dbmap.DropTables()
 
 	// test transient
-	inv := &Invoice{0, 0, 1, "my invoice", 0}
+	inv := &Invoice{0, 0, 1, "my invoice", 0, true}
 	insert(dbmap, inv)
 	obj := get(dbmap, Invoice{}, inv.Id)
 	inv = obj.(*Invoice)
@@ -353,7 +342,7 @@ func TestColumnProps(t *testing.T) {
 	}
 
 	// test unique - same person id
-	inv = &Invoice{0, 0, 1, "my invoice2", 0}
+	inv = &Invoice{0, 0, 1, "my invoice2", 0, false}
 	err = dbmap.Insert(inv)
 	if err == nil {
 		t.Errorf("same PersonId inserted, but Insert did not fail.")
@@ -367,7 +356,7 @@ func TestRawSelect(t *testing.T) {
 	p1 := &Person{0, 0, 0, "bob", "smith", 0}
 	insert(dbmap, p1)
 
-	inv1 := &Invoice{0, 0, 0, "xmas order", p1.Id}
+	inv1 := &Invoice{0, 0, 0, "xmas order", p1.Id, true}
 	insert(dbmap, inv1)
 
 	expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName, 0}
@@ -427,8 +416,8 @@ func TestTransaction(t *testing.T) {
 	dbmap := initDbMap()
 	defer dbmap.DropTables()
 
-	inv1 := &Invoice{0, 100, 200, "t1", 0}
-	inv2 := &Invoice{0, 100, 200, "t2", 0}
+	inv1 := &Invoice{0, 100, 200, "t1", 0, true}
+	inv2 := &Invoice{0, 100, 200, "t2", 0, false}
 
 	trans, err := dbmap.Begin()
 	if err != nil {
@@ -460,8 +449,8 @@ func TestMultiple(t *testing.T) {
 	dbmap := initDbMap()
 	defer dbmap.DropTables()
 
-	inv1 := &Invoice{0, 100, 200, "a", 0}
-	inv2 := &Invoice{0, 100, 200, "b", 0}
+	inv1 := &Invoice{0, 100, 200, "a", 0, false}
+	inv2 := &Invoice{0, 100, 200, "b", 0, true}
 	insert(dbmap, inv1, inv2)
 
 	inv1.Memo = "c"
@@ -478,7 +467,7 @@ func TestCrud(t *testing.T) {
 	dbmap := initDbMap()
 	defer dbmap.DropTables()
 
-	inv := &Invoice{0, 100, 200, "first order", 0}
+	inv := &Invoice{0, 100, 200, "first order", 0, true}
 
 	// INSERT row
 	insert(dbmap, inv)
@@ -643,7 +632,7 @@ func BenchmarkNativeCrud(b *testing.B) {
 	update := "update invoice_test set Created=?, Updated=?, Memo=?, PersonId=? where Id=?"
 	delete := "delete from invoice_test where Id=?"
 
-	inv := &Invoice{0, 100, 200, "my memo", 0}
+	inv := &Invoice{0, 100, 200, "my memo", 0, false}
 
 	for i := 0; i < b.N; i++ {
 		res, err := dbmap.Db.Exec(insert, inv.Created, inv.Updated,
@@ -690,7 +679,7 @@ func BenchmarkGorpCrud(b *testing.B) {
 	defer dbmap.DropTables()
 	b.StartTimer()
 
-	inv := &Invoice{0, 100, 200, "my memo", 0}
+	inv := &Invoice{0, 100, 200, "my memo", 0, true}
 	for i := 0; i < b.N; i++ {
 		err := dbmap.Insert(inv)
 		if err != nil {
@@ -725,7 +714,7 @@ func BenchmarkGorpCrud(b *testing.B) {
 }
 
 func initDbMapBench() *DbMap {
-	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap := newDbMap()
 	dbmap.Db.Exec("drop table if exists invoice_test")
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	err := dbmap.CreateTables()
@@ -736,7 +725,7 @@ func initDbMapBench() *DbMap {
 }
 
 func initDbMap() *DbMap {
-	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap := newDbMap()
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
@@ -752,7 +741,7 @@ func initDbMap() *DbMap {
 }
 
 func initDbMapNulls() *DbMap {
-	dbmap := &DbMap{Db: connect(), Dialect: dialect}
+	dbmap := newDbMap()
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
 	err := dbmap.CreateTables()
@@ -762,7 +751,12 @@ func initDbMapNulls() *DbMap {
 	return dbmap
 }
 
-func connect() *sql.DB {
+func newDbMap() *DbMap {
+	dialect, driver := dialectAndDriver()
+	return &DbMap{Db: connect(driver), Dialect: dialect}
+}
+
+func connect(driver string) *sql.DB {
 	dsn := os.Getenv("GORP_TEST_DSN")
 	if dsn == "" {
 		panic("GORP_TEST_DSN env variable is not set. Please see README.md")
@@ -773,6 +767,18 @@ func connect() *sql.DB {
 		panic("Error connecting to db: " + err.Error())
 	}
 	return db
+}
+
+func dialectAndDriver() (Dialect, string) {
+	switch os.Getenv("GORP_TEST_DIALECT") {
+	case "mysql":
+		return MySQLDialect{"InnoDB", "UTF8"}, "mymysql"
+	case "postgres":
+		return PostgresDialect{}, "postgres"
+	case "sqlite":
+		return SqliteDialect{}, "sqlite3"
+	}
+	panic("GORP_TEST_DIALECT env variable is not set or is invalid. Please see README.md")
 }
 
 func insert(dbmap *DbMap, list ...interface{}) {

@@ -59,20 +59,14 @@ DSNs for these three databases.
 
 ## Running the tests ##
 
-The included tests are written against MySQL at the moment. I need to look into
-adding additional drivers to the test suite, but for now you can clone the repo
-and setup an environment variable before running "go test"
+The included tests may be run against MySQL, Postgresql, or sqlite3.
+You must set two environment variables so the test code knows which driver to
+use, and how to connect to your database.
 
 ```sh
-# Set env variable with dsn using mymysql format.  From the mymysql docs, 
-# the format can be of 3 types:
-#
-#    DBNAME/USER/PASSWD
-#    unix:SOCKPATH*DBNAME/USER/PASSWD
-#    tcp:ADDR*DBNAME/USER/PASSWD
-#
-# for example, on my box I use:
+# MySQL example:
 export GORP_TEST_DSN=gomysql_test/gomysql_test/abc123
+export GORP_TEST_DIALECT=mysql
 
 # run the tests
 go test
@@ -80,6 +74,10 @@ go test
 # run the tests and benchmarks
 go test -bench="Bench" -benchtime 10
 ```
+
+Valid `GORP_TEST_DIALECT` values are: "mysql", "postgres", "sqlite3"
+See the `test_all.sh` script for examples of all 3 databases.  This is the script I run
+locally to test the library.
 
 ## Performance ##
 
