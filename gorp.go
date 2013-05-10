@@ -619,12 +619,20 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 // This is particularly useful in unit tests where you want to create
 // and destroy the schema automatically.
 func (m *DbMap) CreateTables() error {
+	return m.CreateTablesOpts(false)
+}
+
+func (m *DbMap) CreateTablesOpts(ifNotExists bool) error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
 
+		create := "create table"
+		if ifNotExists {
+			create += " if not exists"
+		}
 		s := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("create table %s (", m.Dialect.QuoteField(table.TableName)))
+		s.WriteString(fmt.Sprintf("%s %s (", create, m.Dialect.QuoteField(table.TableName)))
 		x := 0
 		for _, col := range table.columns {
 			if !col.Transient {
