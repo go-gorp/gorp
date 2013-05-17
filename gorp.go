@@ -205,7 +205,6 @@ type bindPlan struct {
 
 func (plan bindPlan) createBindInstance(elem reflect.Value, conv TypeConverter) (bindInstance, error) {
 	bi := bindInstance{query: plan.query, autoIncrIdx: plan.autoIncrIdx, versField: plan.versField}
-
 	if plan.versField != "" {
 		bi.existingVersion = elem.FieldByName(plan.versField).Int()
 	}
@@ -273,18 +272,18 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 				}
 				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 
-				f := elem.FieldByName(col.fieldName)
-
-				if col == t.version {
-					f.SetInt(int64(1))
-				}
-
 				if col.isAutoIncr {
 					s2.WriteString(t.dbmap.Dialect.AutoIncrBindValue())
 					plan.autoIncrIdx = y
 				} else {
 					s2.WriteString(t.dbmap.Dialect.BindVar(x))
-					plan.argFields = append(plan.argFields, col.fieldName)
+					if col == t.version {
+						plan.versField = col.fieldName
+						plan.argFields = append(plan.argFields, versFieldConst)
+					} else {
+						plan.argFields = append(plan.argFields, col.fieldName)
+					}
+
 					x++
 				}
 
