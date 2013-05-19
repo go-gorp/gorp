@@ -1120,11 +1120,8 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	// Add results to one of these two slices.
 	var (
 		list       []interface{}
-		sliceValue reflect.Value
-	)
-	if appendToSlice {
 		sliceValue = reflect.Indirect(reflect.ValueOf(i))
-	}
+	)
 
 	for {
 		if !rows.Next() {
