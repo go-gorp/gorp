@@ -205,7 +205,6 @@ type bindPlan struct {
 
 func (plan bindPlan) createBindInstance(elem reflect.Value, conv TypeConverter) (bindInstance, error) {
 	bi := bindInstance{query: plan.query, autoIncrIdx: plan.autoIncrIdx, versField: plan.versField}
-
 	if plan.versField != "" {
 		bi.existingVersion = elem.FieldByName(plan.versField).Int()
 	}
@@ -273,18 +272,18 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 				}
 				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 
-				f := elem.FieldByName(col.fieldName)
-
-				if col == t.version {
-					f.SetInt(int64(1))
-				}
-
 				if col.isAutoIncr {
 					s2.WriteString(t.dbmap.Dialect.AutoIncrBindValue())
 					plan.autoIncrIdx = y
 				} else {
 					s2.WriteString(t.dbmap.Dialect.BindVar(x))
-					plan.argFields = append(plan.argFields, col.fieldName)
+					if col == t.version {
+						plan.versField = col.fieldName
+						plan.argFields = append(plan.argFields, versFieldConst)
+					} else {
+						plan.argFields = append(plan.argFields, col.fieldName)
+					}
+
 					x++
 				}
 
@@ -619,12 +618,20 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 // This is particularly useful in unit tests where you want to create
 // and destroy the schema automatically.
 func (m *DbMap) CreateTables() error {
+	return m.CreateTablesOpts(false)
+}
+
+func (m *DbMap) CreateTablesOpts(ifNotExists bool) error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
 
+		create := "create table"
+		if ifNotExists {
+			create += " if not exists"
+		}
 		s := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("create table %s (", m.Dialect.QuoteField(table.TableName)))
+		s.WriteString(fmt.Sprintf("%s %s (", create, m.Dialect.QuoteField(table.TableName)))
 		x := 0
 		for _, col := range table.columns {
 			if !col.Transient {
