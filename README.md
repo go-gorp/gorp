@@ -152,6 +152,10 @@ Automatically create / drop registered tables.  Great for unit tests:
 // create all registered tables
 dbmap.CreateTables()
 
+// same as above, but uses "if not exists" clause to skip tables that are
+// already defined
+dbmap.CreateTablesIfNotExists()
+
 // drop
 dbmap.DropTables()
 ```
