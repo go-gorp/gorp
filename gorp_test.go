@@ -57,6 +57,11 @@ type WithIgnoredColumn struct {
 	Created  int64
 }
 
+type WithStringPk struct {
+	Id   string
+	Desc string
+}
+
 type CustomStringType string
 
 type TypeConversionExample struct {
@@ -159,13 +164,23 @@ type PersistentUser struct {
 	PassedTraining bool
 }
 
+func TestCreateTablesIfNotExists(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	err := dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestPersistentUser(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.Exec("drop table if exists PersistentUser")
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
-	err := dbmap.CreateTables()
+	err := dbmap.CreateTablesIfNotExists()
 	if err != nil {
 		panic(err)
 	}
@@ -621,6 +636,37 @@ func TestSelectVal(t *testing.T) {
 	}
 }
 
+func TestVersionMultipleRows(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	persons := []*Person{
+		&Person{0, 0, 0, "Bob", "Smith", 0},
+		&Person{0, 0, 0, "Jane", "Smith", 0},
+		&Person{0, 0, 0, "Mike", "Smith", 0},
+	}
+
+	insert(dbmap, persons[0], persons[1], persons[2])
+
+	for x, p := range persons {
+		if p.Version != 1 {
+			t.Errorf("person[%d].Version != 1: %d", x, p.Version)
+		}
+	}
+}
+
+/*
+func TestWithStringPk(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	row := &WithStringPk{"myid", "foo"}
+	err := dbmap.Insert(row)
+	if err == nil {
+		t.Errorf("Expected error when inserting into table w/non Int PK and autoincr set true")
+	}
+}*/
+
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
@@ -730,6 +776,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(WithStringPk{}, "string_pk_test").SetKeys(false, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
 	dbmap.TypeConverter = testTypeConverter{}
 	err := dbmap.CreateTables()

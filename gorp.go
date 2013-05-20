@@ -214,7 +214,11 @@ func (plan bindPlan) createBindInstance(elem reflect.Value, conv TypeConverter) 
 	for i := 0; i < len(plan.argFields); i++ {
 		k := plan.argFields[i]
 		if k == versFieldConst {
-			bi.args = append(bi.args, bi.existingVersion+1)
+			newVer := bi.existingVersion + 1
+			bi.args = append(bi.args, newVer)
+			if bi.existingVersion == 0 {
+				elem.FieldByName(plan.versField).SetInt(int64(newVer))
+			}
 		} else {
 			val := elem.FieldByName(k).Interface()
 			if conv != nil {
