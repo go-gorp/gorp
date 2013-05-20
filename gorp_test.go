@@ -59,7 +59,7 @@ type WithIgnoredColumn struct {
 
 type WithStringPk struct {
 	Id   string
-	Desc string
+	Name string
 }
 
 type CustomStringType string
@@ -655,17 +655,22 @@ func TestVersionMultipleRows(t *testing.T) {
 	}
 }
 
-/*
 func TestWithStringPk(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := newDbMap()
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	dbmap.AddTableWithName(WithStringPk{}, "string_pk_test").SetKeys(true, "Id")
+	_, err := dbmap.Exec("create table string_pk_test (Id varchar(255), Name varchar(255));")
+	if err != nil {
+		t.Errorf("couldn't create string_pk_test: %v", err)
+	}
 	defer dbmap.DropTables()
 
-	row := &WithStringPk{"myid", "foo"}
-	err := dbmap.Insert(row)
+	row := &WithStringPk{"1", "foo"}
+	err = dbmap.Insert(row)
 	if err == nil {
 		t.Errorf("Expected error when inserting into table w/non Int PK and autoincr set true")
 	}
-}*/
+}
 
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
@@ -776,7 +781,6 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
-	dbmap.AddTableWithName(WithStringPk{}, "string_pk_test").SetKeys(false, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
 	dbmap.TypeConverter = testTypeConverter{}
 	err := dbmap.CreateTables()

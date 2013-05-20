@@ -1378,7 +1378,13 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			if err != nil {
 				return err
 			}
-			elem.Field(bi.autoIncrIdx).SetInt(id)
+			f := elem.Field(bi.autoIncrIdx)
+			k := f.Kind()
+			if (k == reflect.Int) || (k == reflect.Int16) || (k == reflect.Int32) || (k == reflect.Int64) {
+				f.SetInt(id)
+			} else {
+				return errors.New(fmt.Sprintf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d", bi.query, bi.autoIncrIdx))
+			}
 		} else {
 			_, err := exec.Exec(bi.query, bi.args...)
 			if err != nil {
