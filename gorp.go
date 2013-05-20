@@ -618,10 +618,17 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 // This is particularly useful in unit tests where you want to create
 // and destroy the schema automatically.
 func (m *DbMap) CreateTables() error {
-	return m.CreateTablesOpts(false)
+	return m.createTables(false)
 }
 
-func (m *DbMap) CreateTablesOpts(ifNotExists bool) error {
+// CreateTablesIfNotExists is similar to CreateTables, but starts
+// each statement with "create table if not exists" so that existing
+// tables do not raise errors
+func (m *DbMap) CreateTablesIfNotExists() error {
+	return m.createTables(true)
+}
+
+func (m *DbMap) createTables(ifNotExists bool) error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
