@@ -207,6 +207,19 @@ func TestPersistentUser(t *testing.T) {
 	if !reflect.DeepEqual(pu, arr[0]) {
 		t.Errorf("%v!=%v", pu, arr[0])
 	}
+
+	// prove we can get the results back in a slice
+	var puArr []*PersistentUser
+	_, err = dbmap.Select(&puArr, "select * from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu, puArr[0]) {
+		t.Errorf("%v!=%v", pu, puArr[0])
+	}
 }
 
 func TestOverrideVersionCol(t *testing.T) {
@@ -410,6 +423,13 @@ func TestHooks(t *testing.T) {
 		t.Errorf("p1.PreUpdate() didn't run: %v", p1)
 	} else if p1.LName != "postupdate" {
 		t.Errorf("p1.PostUpdate() didn't run: %v", p1)
+	}
+
+	var persons []*Person
+	bindVar := dbmap.Dialect.BindVar(0)
+	rawselect(dbmap, &persons, "select * from person_test where id = "+bindVar, p1.Id)
+	if persons[0].LName != "postget" {
+		t.Errorf("p1.PostGet() didn't run after select: %v", p1)
 	}
 
 	del(dbmap, p1)
