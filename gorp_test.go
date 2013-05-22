@@ -1,4 +1,4 @@
-package gorp_test
+package gorp
 
 import (
 	"database/sql"
@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	_ "github.com/bmizerany/pq"
-	. "github.com/coopernurse/gorp"
 	_ "github.com/mattn/go-sqlite3"
 	_ "github.com/ziutek/mymysql/godrv"
 	"log"
@@ -225,7 +224,7 @@ func TestOverrideVersionCol(t *testing.T) {
 	}
 
 	ipv := &InvoicePersonView{1, 2, "memo", "fname", 0}
-	update(dbmap, ipv)
+	_update(dbmap, ipv)
 	if ipv.LegacyVersion != 1 {
 		t.Errorf("LegacyVersion not updated: %d", ipv.LegacyVersion)
 	}
@@ -291,12 +290,12 @@ func TestNullValues(t *testing.T) {
 	defer dbmap.DropTables()
 
 	// insert a row directly
-	rawexec(dbmap, "insert into TableWithNull values (10, null, "+
+	_rawexec(dbmap, "insert into TableWithNull values (10, null, "+
 		"null, null, null, null)")
 
 	// try to load it
 	expected := &TableWithNull{Id: 10}
-	obj := get(dbmap, TableWithNull{}, 10)
+	obj := _get(dbmap, TableWithNull{}, 10)
 	t1 := obj.(*TableWithNull)
 	if !reflect.DeepEqual(expected, t1) {
 		t.Errorf("%v != %v", expected, t1)
@@ -313,9 +312,9 @@ func TestNullValues(t *testing.T) {
 	expected.Bool = t1.Bool
 	t1.Bytes = []byte{1, 30, 31, 33}
 	expected.Bytes = t1.Bytes
-	update(dbmap, t1)
+	_update(dbmap, t1)
 
-	obj = get(dbmap, TableWithNull{}, 10)
+	obj = _get(dbmap, TableWithNull{}, 10)
 	t1 = obj.(*TableWithNull)
 	if t1.Str.String != "hi" {
 		t.Errorf("%s != hi", t1.Str.String)
@@ -342,8 +341,8 @@ func TestColumnProps(t *testing.T) {
 
 	// test transient
 	inv := &Invoice{0, 0, 1, "my invoice", 0, true}
-	insert(dbmap, inv)
-	obj := get(dbmap, Invoice{}, inv.Id)
+	_insert(dbmap, inv)
+	obj := _get(dbmap, Invoice{}, inv.Id)
 	inv = obj.(*Invoice)
 	if inv.Updated != 0 {
 		t.Errorf("Saved transient column 'Updated'")
@@ -369,17 +368,17 @@ func TestRawSelect(t *testing.T) {
 	defer dbmap.DropTables()
 
 	p1 := &Person{0, 0, 0, "bob", "smith", 0}
-	insert(dbmap, p1)
+	_insert(dbmap, p1)
 
 	inv1 := &Invoice{0, 0, 0, "xmas order", p1.Id, true}
-	insert(dbmap, inv1)
+	_insert(dbmap, inv1)
 
 	expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName, 0}
 
 	query := "select i.Id InvoiceId, p.Id PersonId, i.Memo, p.FName " +
 		"from invoice_test i, person_test p " +
 		"where i.PersonId = p.Id"
-	list := rawselect(dbmap, InvoicePersonView{}, query)
+	list := _rawselect(dbmap, InvoicePersonView{}, query)
 	if len(list) != 1 {
 		t.Errorf("len(list) != 1: %d", len(list))
 	} else if !reflect.DeepEqual(expected, list[0]) {
@@ -392,27 +391,27 @@ func TestHooks(t *testing.T) {
 	defer dbmap.DropTables()
 
 	p1 := &Person{0, 0, 0, "bob", "smith", 0}
-	insert(dbmap, p1)
+	_insert(dbmap, p1)
 	if p1.Created == 0 || p1.Updated == 0 {
 		t.Errorf("p1.PreInsert() didn't run: %v", p1)
 	} else if p1.LName != "postinsert" {
 		t.Errorf("p1.PostInsert() didn't run: %v", p1)
 	}
 
-	obj := get(dbmap, Person{}, p1.Id)
+	obj := _get(dbmap, Person{}, p1.Id)
 	p1 = obj.(*Person)
 	if p1.LName != "postget" {
 		t.Errorf("p1.PostGet() didn't run: %v", p1)
 	}
 
-	update(dbmap, p1)
+	_update(dbmap, p1)
 	if p1.FName != "preupdate" {
 		t.Errorf("p1.PreUpdate() didn't run: %v", p1)
 	} else if p1.LName != "postupdate" {
 		t.Errorf("p1.PostUpdate() didn't run: %v", p1)
 	}
 
-	del(dbmap, p1)
+	_del(dbmap, p1)
 	if p1.FName != "predelete" {
 		t.Errorf("p1.PreDelete() didn't run: %v", p1)
 	} else if p1.LName != "postdelete" {
@@ -466,13 +465,13 @@ func TestMultiple(t *testing.T) {
 
 	inv1 := &Invoice{0, 100, 200, "a", 0, false}
 	inv2 := &Invoice{0, 100, 200, "b", 0, true}
-	insert(dbmap, inv1, inv2)
+	_insert(dbmap, inv1, inv2)
 
 	inv1.Memo = "c"
 	inv2.Memo = "d"
-	update(dbmap, inv1, inv2)
+	_update(dbmap, inv1, inv2)
 
-	count := del(dbmap, inv1, inv2)
+	count := _del(dbmap, inv1, inv2)
 	if count != 2 {
 		t.Errorf("%d != 2", count)
 	}
@@ -485,14 +484,14 @@ func TestCrud(t *testing.T) {
 	inv := &Invoice{0, 100, 200, "first order", 0, true}
 
 	// INSERT row
-	insert(dbmap, inv)
+	_insert(dbmap, inv)
 	if inv.Id == 0 {
 		t.Errorf("inv.Id was not set on INSERT")
 		return
 	}
 
 	// SELECT row
-	obj := get(dbmap, Invoice{}, inv.Id)
+	obj := _get(dbmap, Invoice{}, inv.Id)
 	inv2 := obj.(*Invoice)
 	if !reflect.DeepEqual(inv, inv2) {
 		t.Errorf("%v != %v", inv, inv2)
@@ -502,25 +501,25 @@ func TestCrud(t *testing.T) {
 	inv.Memo = "second order"
 	inv.Created = 999
 	inv.Updated = 11111
-	count := update(dbmap, inv)
+	count := _update(dbmap, inv)
 	if count != 1 {
 		t.Errorf("update 1 != %d", count)
 	}
-	obj = get(dbmap, Invoice{}, inv.Id)
+	obj = _get(dbmap, Invoice{}, inv.Id)
 	inv2 = obj.(*Invoice)
 	if !reflect.DeepEqual(inv, inv2) {
 		t.Errorf("%v != %v", inv, inv2)
 	}
 
 	// DELETE row
-	deleted := del(dbmap, inv)
+	deleted := _del(dbmap, inv)
 	if deleted != 1 {
 		t.Errorf("Did not delete row with Id: %d", inv.Id)
 		return
 	}
 
 	// VERIFY deleted
-	obj = get(dbmap, Invoice{}, inv.Id)
+	obj = _get(dbmap, Invoice{}, inv.Id)
 	if obj != nil {
 		t.Errorf("Found invoice with id: %d after Delete()", inv.Id)
 	}
@@ -531,18 +530,18 @@ func TestWithIgnoredColumn(t *testing.T) {
 	defer dbmap.DropTables()
 
 	ic := &WithIgnoredColumn{-1, 0, 1}
-	insert(dbmap, ic)
+	_insert(dbmap, ic)
 	expected := &WithIgnoredColumn{0, 1, 1}
-	ic2 := get(dbmap, WithIgnoredColumn{}, ic.Id).(*WithIgnoredColumn)
+	ic2 := _get(dbmap, WithIgnoredColumn{}, ic.Id).(*WithIgnoredColumn)
 
 	if !reflect.DeepEqual(expected, ic2) {
 		t.Errorf("%v != %v", expected, ic2)
 	}
-	if del(dbmap, ic) != 1 {
+	if _del(dbmap, ic) != 1 {
 		t.Errorf("Did not delete row with Id: %d", ic.Id)
 		return
 	}
-	if get(dbmap, WithIgnoredColumn{}, ic.Id) != nil {
+	if _get(dbmap, WithIgnoredColumn{}, ic.Id) != nil {
 		t.Errorf("Found id: %d after Delete()", ic.Id)
 	}
 }
@@ -553,25 +552,25 @@ func TestTypeConversionExample(t *testing.T) {
 
 	p := Person{FName: "Bob", LName: "Smith"}
 	tc := &TypeConversionExample{-1, p, CustomStringType("hi")}
-	insert(dbmap, tc)
+	_insert(dbmap, tc)
 
 	expected := &TypeConversionExample{1, p, CustomStringType("hi")}
-	tc2 := get(dbmap, TypeConversionExample{}, tc.Id).(*TypeConversionExample)
+	tc2 := _get(dbmap, TypeConversionExample{}, tc.Id).(*TypeConversionExample)
 	if !reflect.DeepEqual(expected, tc2) {
 		t.Errorf("tc2 %v != %v", expected, tc2)
 	}
 
 	tc2.Name = CustomStringType("hi2")
 	tc2.PersonJSON = Person{FName: "Jane", LName: "Doe"}
-	update(dbmap, tc2)
+	_update(dbmap, tc2)
 
 	expected = &TypeConversionExample{1, tc2.PersonJSON, CustomStringType("hi2")}
-	tc3 := get(dbmap, TypeConversionExample{}, tc.Id).(*TypeConversionExample)
+	tc3 := _get(dbmap, TypeConversionExample{}, tc.Id).(*TypeConversionExample)
 	if !reflect.DeepEqual(expected, tc3) {
 		t.Errorf("tc3 %v != %v", expected, tc3)
 	}
 
-	if del(dbmap, tc) != 1 {
+	if _del(dbmap, tc) != 1 {
 		t.Errorf("Did not delete row with Id: %d", tc.Id)
 	}
 
@@ -588,7 +587,7 @@ func TestSelectVal(t *testing.T) {
 		Float64: sql.NullFloat64{32.2, true},
 		Bool:    sql.NullBool{true, true},
 		Bytes:   []byte("hi")}
-	insert(dbmap, &t1)
+	_insert(dbmap, &t1)
 
 	// SelectInt
 	i64 := selectInt(dbmap, "select Int64 from TableWithNull where Str='abc'")
@@ -646,7 +645,7 @@ func TestVersionMultipleRows(t *testing.T) {
 		&Person{0, 0, 0, "Mike", "Smith", 0},
 	}
 
-	insert(dbmap, persons[0], persons[1], persons[2])
+	_insert(dbmap, persons[0], persons[1], persons[2])
 
 	for x, p := range persons {
 		if p.Version != 1 {
@@ -828,14 +827,14 @@ func dialectAndDriver() (Dialect, string) {
 	panic("GORP_TEST_DIALECT env variable is not set or is invalid. Please see README.md")
 }
 
-func insert(dbmap *DbMap, list ...interface{}) {
+func _insert(dbmap *DbMap, list ...interface{}) {
 	err := dbmap.Insert(list...)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func update(dbmap *DbMap, list ...interface{}) int64 {
+func _update(dbmap *DbMap, list ...interface{}) int64 {
 	count, err := dbmap.Update(list...)
 	if err != nil {
 		panic(err)
@@ -843,7 +842,7 @@ func update(dbmap *DbMap, list ...interface{}) int64 {
 	return count
 }
 
-func del(dbmap *DbMap, list ...interface{}) int64 {
+func _del(dbmap *DbMap, list ...interface{}) int64 {
 	count, err := dbmap.Delete(list...)
 	if err != nil {
 		panic(err)
@@ -852,7 +851,7 @@ func del(dbmap *DbMap, list ...interface{}) int64 {
 	return count
 }
 
-func get(dbmap *DbMap, i interface{}, keys ...interface{}) interface{} {
+func _get(dbmap *DbMap, i interface{}, keys ...interface{}) interface{} {
 	obj, err := dbmap.Get(i, keys...)
 	if err != nil {
 		panic(err)
@@ -897,7 +896,7 @@ func selectNullStr(dbmap *DbMap, query string, args ...interface{}) sql.NullStri
 	return s
 }
 
-func rawexec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
+func _rawexec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
 	res, err := dbmap.Exec(query, args...)
 	if err != nil {
 		panic(err)
@@ -905,7 +904,7 @@ func rawexec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
 	return res
 }
 
-func rawselect(dbmap *DbMap, i interface{}, query string, args ...interface{}) []interface{} {
+func _rawselect(dbmap *DbMap, i interface{}, query string, args ...interface{}) []interface{} {
 	list, err := dbmap.Select(i, query, args...)
 	if err != nil {
 		panic(err)
