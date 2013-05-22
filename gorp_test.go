@@ -411,7 +411,8 @@ func TestHooks(t *testing.T) {
 	}
 
 	var persons []*Person
-	rawselect(dbmap, &persons, "select * from person_test where id = ?", p1.Id)
+	bindVar := dbmap.Dialect.BindVar(0)
+	rawselect(dbmap, &persons, "select * from person_test where id = "+bindVar, p1.Id)
 	if persons[0].LName != "postget" {
 		t.Errorf("p1.PostGet() didn't run after select: %v", p1)
 	}
