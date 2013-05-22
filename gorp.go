@@ -590,9 +590,14 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, dbmap: m}
+	tmap.columns, tmap.version = readStructColumns(t)
+	m.tables = append(m.tables, tmap)
 
+	return tmap
+}
+
+func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 	n := t.NumField()
-	tmap.columns = make([]*ColumnMap, 0, n)
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		columnName := f.Tag.Get("db")
@@ -606,14 +611,12 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 			fieldName:  f.Name,
 			gotype:     f.Type,
 		}
-		tmap.columns = append(tmap.columns, cm)
+		cols = append(cols, cm)
 		if cm.fieldName == "Version" {
-			tmap.version = tmap.columns[len(tmap.columns)-1]
+			versionCol = cm
 		}
 	}
-	m.tables = append(m.tables, tmap)
-
-	return tmap
+	return
 }
 
 // CreateTables iterates through TableMaps registered to this DbMap and
