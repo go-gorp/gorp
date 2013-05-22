@@ -600,20 +600,28 @@ func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
-		columnName := f.Tag.Get("db")
-		if columnName == "" {
-			columnName = f.Name
-		}
-
-		cm := &ColumnMap{
-			ColumnName: columnName,
-			Transient:  columnName == "-",
-			fieldName:  f.Name,
-			gotype:     f.Type,
-		}
-		cols = append(cols, cm)
-		if cm.fieldName == "Version" {
-			versionCol = cm
+		if f.Anonymous && f.Type.Kind() == reflect.Struct {
+			// Recursively add nested fields in embedded structs.
+			subcols, subversion := readStructColumns(f.Type)
+			cols = append(cols, subcols...)
+			if subversion != nil {
+				version = subversion
+			}
+		} else {
+			columnName := f.Tag.Get("db")
+			if columnName == "" {
+				columnName = f.Name
+			}
+			cm := &ColumnMap{
+				ColumnName: columnName,
+				Transient:  columnName == "-",
+				fieldName:  f.Name,
+				gotype:     f.Type,
+			}
+			cols = append(cols, cm)
+			if cm.fieldName == "Version" {
+				version = cm
+			}
 		}
 	}
 	return
