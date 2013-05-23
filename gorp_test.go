@@ -606,6 +606,11 @@ func TestWithEmbeddedStruct(t *testing.T) {
 	if !reflect.DeepEqual(expected, es2) {
 		t.Errorf("%v != %v", expected, es2)
 	}
+
+	ess := rawselect(dbmap, WithEmbeddedStruct{}, "select * from embedded_struct_test")
+	if !reflect.DeepEqual(es2, ess[0]) {
+		t.Errorf("%v != %v", es2, ess[0])
+	}
 }
 
 func TestSelectVal(t *testing.T) {
