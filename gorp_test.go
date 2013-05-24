@@ -206,6 +206,36 @@ func TestPersistentUser(t *testing.T) {
 	if !reflect.DeepEqual(pu, arr[0]) {
 		t.Errorf("%v!=%v", pu, arr[0])
 	}
+
+	// prove we can get the results back in a slice
+	var puArr []*PersistentUser
+	_, err = dbmap.Select(&puArr, "select * from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu, puArr[0]) {
+		t.Errorf("%v!=%v", pu, puArr[0])
+	}
+}
+
+// Ensure that the slices containing SQL results are non-nil when the result set is empty.
+func TestReturnsNonNilSlice(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+	noResultsSQL := "select * from invoice_test where id=99999"
+	var r1 []*Invoice
+	_rawselect(dbmap, &r1, noResultsSQL)
+	if r1 == nil {
+		t.Errorf("r1==nil")
+	}
+
+	r2 := _rawselect(dbmap, Invoice{}, noResultsSQL)
+	if r2 == nil {
+		t.Errorf("r2==nil")
+	}
 }
 
 func TestOverrideVersionCol(t *testing.T) {
@@ -409,6 +439,13 @@ func TestHooks(t *testing.T) {
 		t.Errorf("p1.PreUpdate() didn't run: %v", p1)
 	} else if p1.LName != "postupdate" {
 		t.Errorf("p1.PostUpdate() didn't run: %v", p1)
+	}
+
+	var persons []*Person
+	bindVar := dbmap.Dialect.BindVar(0)
+	_rawselect(dbmap, &persons, "select * from person_test where id = "+bindVar, p1.Id)
+	if persons[0].LName != "postget" {
+		t.Errorf("p1.PostGet() didn't run after select: %v", p1)
 	}
 
 	_del(dbmap, p1)
