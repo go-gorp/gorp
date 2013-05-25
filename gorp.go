@@ -1042,7 +1042,7 @@ func hookedselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	// Determine where the results are: written to i, or returned in list
-	if t := toSliceType(i); t == nil {
+	if t, _ := toSliceType(i); t == nil {
 		for _, v := range list {
 			err = runHook("PostGet", reflect.ValueOf(v), hookArg(exec))
 			if err != nil {
@@ -1068,7 +1068,11 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	// get type for i, verifying it's a struct or a pointer-to-slice
 	t, err := toType(i)
 	if err != nil {
-		if t = toSliceType(i); t == nil {
+		var err2 error
+		if t, err2 = toSliceType(i); t == nil {
+			if err2 != nil {
+				return nil, err2
+			}
 			return nil, err
 		}
 		appendToSlice = true
@@ -1221,21 +1225,26 @@ func fieldByName(val reflect.Value, fieldName string) *reflect.Value {
 
 // toSliceType returns the element type of the given object, if the object is a
 // "*[]*Element". If not, returns nil.
-func toSliceType(i interface{}) reflect.Type {
+// err is returned if the user was trying to pass a pointer-to-slice but failed.
+func toSliceType(i interface{}) (reflect.Type, error) {
 	t := reflect.TypeOf(i)
 	if t.Kind() != reflect.Ptr {
-		return nil
+		// If it's a slice, return a more helpful error message
+		if t.Kind() == reflect.Slice {
+			return nil, fmt.Errorf("gorp: Cannot SELECT into a non-pointer slice: %v", t)
+		}
+		return nil, nil
 	}
 	if t = t.Elem(); t.Kind() != reflect.Slice {
-		return nil
+		return nil, nil
 	}
 	if t = t.Elem(); t.Kind() != reflect.Ptr {
-		return nil
+		return nil, nil
 	}
 	if t = t.Elem(); t.Kind() != reflect.Struct {
-		return nil
+		return nil, nil
 	}
-	return t
+	return t, nil
 }
 
 func toType(i interface{}) (reflect.Type, error) {
