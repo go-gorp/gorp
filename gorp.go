@@ -920,6 +920,7 @@ func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error
 	if err != nil {
 		return nil, err
 	}
+	defer stmt.Close()
 	return stmt.Exec(args...)
 }
 
