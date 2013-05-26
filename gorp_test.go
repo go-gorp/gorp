@@ -207,6 +207,15 @@ func TestUIntPrimaryKey(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	if p1.Id != 1 {
+		t.Errorf("%d != 1", p1.Id)
+	}
+	if p2.Id != 1 {
+		t.Errorf("%d != 1", p2.Id)
+	}
+	if p3.Id != 1 {
+		t.Errorf("%d != 1", p3.Id)
+	}
 }
 
 func TestPersistentUser(t *testing.T) {
