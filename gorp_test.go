@@ -708,6 +708,38 @@ func TestWithStringPk(t *testing.T) {
 	}
 }
 
+func TestInvoicePersonView(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	// Create some rows
+	p1 := &Person{0, 0, 0, "bob", "smith", 0}
+	dbmap.Insert(p1)
+
+	// notice how we can wire up p1.Id to the invoice easily
+	inv1 := &Invoice{0, 0, 0, "xmas order", p1.Id, false}
+	dbmap.Insert(inv1)
+
+	// Run your query
+	query := "select i.Id InvoiceId, p.Id PersonId, i.Memo, p.FName " +
+		"from invoice_test i, person_test p " +
+		"where i.PersonId = p.Id"
+
+	// pass a slice of pointers to Select()
+	// this avoids the need to type assert after the query is run
+	var list []*InvoicePersonView
+	_, err := dbmap.Select(&list, query)
+	if err != nil {
+		panic(err)
+	}
+
+	// this should test true
+	expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName, 0}
+	if !reflect.DeepEqual(list[0], expected) {
+		t.Errorf("%v != %v", list[0], expected)
+	}
+}
+
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()

@@ -41,6 +41,7 @@ DSNs for these three databases.
 * Select by primary key(s)
 * Optional trace sql logging
 * Bind arbitrary SQL queries to a struct
+* Bind slice pointers to SELECT query results without type assertions
 * Optional optimistic locking using a version column (for update/deletes)
 
 ## TODO ##
@@ -57,33 +58,15 @@ DSNs for these three databases.
         "github.com/coopernurse/gorp"
     )
 
-## Running the tests ##
+## API Documentation ##
 
-The included tests may be run against MySQL, Postgresql, or sqlite3.
-You must set two environment variables so the test code knows which driver to
-use, and how to connect to your database.
+Full godoc output from the latest code in master is available here:
 
-```sh
-# MySQL example:
-export GORP_TEST_DSN=gomysql_test/gomysql_test/abc123
-export GORP_TEST_DIALECT=mysql
-
-# run the tests
-go test
-
-# run the tests and benchmarks
-go test -bench="Bench" -benchtime 10
-```
-
-Valid `GORP_TEST_DIALECT` values are: "mysql", "postgres", "sqlite3"
-See the `test_all.sh` script for examples of all 3 databases.  This is the script I run
-locally to test the library.
-
-## Performance ##
-
-gorp uses reflection to construct SQL queries and bind parameters.  See the BenchmarkNativeCrud vs BenchmarkGorpCrud in gorp_test.go for a simple perf test.  On my MacBook Pro gorp is about 2-3% slower than hand written SQL. 
+http://godoc.org/github.com/coopernurse/gorp
 
 ## Examples ##
+
+### Mapping structs to tables ###
 
 First define some types:
 
@@ -146,7 +129,11 @@ t2 := dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 t3 := dbmap.AddTableWithName(Product{}, "product_test").SetKeys(true, "Id")
 ```
 
-Automatically create / drop registered tables.  Great for unit tests:
+### Create/Drop Tables ###
+
+Automatically create / drop registered tables.  This is useful for unit tests
+but is entirely optional.  You can of course use gorp with tables created manually,
+or with a separate migration tool (like goose: https://bitbucket.org/liamstask/goose).
 
 ```go
 // create all registered tables
@@ -160,7 +147,11 @@ dbmap.CreateTablesIfNotExists()
 dbmap.DropTables()
 ```
 
-Optionally you can pass in a log.Logger to trace all SQL statements:
+### SQL Logging ###
+
+Optionally you can pass in a log.Logger to trace all SQL statements.
+I recommend enabling this initially while you're getting the feel for what
+gorp is doing on your behalf.
 
 ```go
 // Will log all SQL statements + args as they are run
@@ -171,7 +162,7 @@ dbmap.TraceOn("[gorp]", log.New(os.Stdout, "myapp:", log.Lmicroseconds))
 dbmap.TraceOff()
 ```
 
-Then save some data:
+### Insert ###
 
 ```go
 // Must declare as pointers so optional callback hooks
@@ -187,9 +178,38 @@ err := dbmap.Insert(inv1, inv2)
 fmt.Printf("inv1.Id=%d  inv2.Id=%d\n", inv1.Id, inv2.Id)
 ```
 
-You can execute raw SQL if you wish.  Particularly good for batch operations.
+### Update ###
 
-    res, err := dbmap.Exec("delete from invoice_test where PersonId=?", 10)
+Continuing the above example, use the `Update` method to modify an Invoice:
+
+```go
+// count is the # of rows updated, which should be 1 in this example
+count, err := dbmap.Update(inv1)
+```
+
+### Delete ###
+
+If you have primary key(s) defined for a struct, you can use the `Delete`
+method to remove rows:
+
+```go
+count, err := dbmap.Delete(inv1)
+```
+
+### Select by Key ###
+
+Use the `Get` method to fetch a single row by primary key.  It returns
+nil if now row is found.
+
+```go
+// fetch Invoice with Id=99
+obj, err := dbmap.Get(Invoice{}, 99)
+inv := obj.(*Invoice)
+```
+
+### Ad Hoc SQL ###
+
+#### SELECT ####
 
 Want to do joins?  Just write the SQL and the struct. gorp will bind them:
 
@@ -219,7 +239,11 @@ dbmap.Insert(inv1)
 query := "select i.Id InvoiceId, p.Id PersonId, i.Memo, p.FName " +
 	"from invoice_test i, person_test p " +
 	"where i.PersonId = p.Id"
-list, err := dbmap.Select(InvoicePersonView{}, query)
+
+// pass a slice of pointers to Select()
+// this avoids the need to type assert after the query is run
+var list []*InvoicePersonView
+_, err := dbmap.Select(&list, query)
 
 // this should test true
 expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName}
@@ -228,7 +252,30 @@ if reflect.DeepEqual(list[0], expected) {
 }
 ```
 
-You can also batch operations into a transaction:
+#### SELECT string or int64 ####
+
+gorp provides a few convenience methods for selecting a single string or int64.
+
+```go
+// select single int64 from db:
+i64, err := dbmap.SelectInt("select count(*) from foo where blah=?", blahVal)
+
+// select single string from db:
+s, err := dbmap.SelectStr("select name from foo where blah=?", blahVal)
+
+```
+
+#### UPDATE / DELETE ####
+
+You can execute raw SQL if you wish.  Particularly good for batch operations.
+
+```go
+res, err := dbmap.Exec("delete from invoice_test where PersonId=?", 10)
+```
+
+### Transactions ###
+
+You can batch operations into a transaction:
 
 ```go
 func InsertInv(dbmap *DbMap, inv *Invoice, per *Person) error {
@@ -246,6 +293,8 @@ func InsertInv(dbmap *DbMap, inv *Invoice, per *Person) error {
     return trans.Commit()
 }
 ```
+
+### Hooks ###
 
 Use hooks to update data before/after saving to the db. Good for timestamps:
 
@@ -290,7 +339,12 @@ Full list of hooks that you can implement:
     
     func (p *MyStruct) PostUpdate(s gorp.SqlExecutor) error
     
-Optimistic locking (similar to JPA)
+### Optimistic Locking ###
+
+gorp provides a simple optimistic locking feature, similar to Java's JPA, that
+will raise an error if you try to update/delete a row whose `version` column
+has a value different than the one in memory.  This provides a safe way to do
+"select then update" style operations without explicit read and write locks.
 
 ```go
 // Version is an auto-incremented number, managed by gorp
@@ -338,6 +392,34 @@ if ok {
 }
 ```
 
+## Running the tests ##
+
+The included tests may be run against MySQL, Postgresql, or sqlite3.
+You must set two environment variables so the test code knows which driver to
+use, and how to connect to your database.
+
+```sh
+# MySQL example:
+export GORP_TEST_DSN=gomysql_test/gomysql_test/abc123
+export GORP_TEST_DIALECT=mysql
+
+# run the tests
+go test
+
+# run the tests and benchmarks
+go test -bench="Bench" -benchtime 10
+```
+
+Valid `GORP_TEST_DIALECT` values are: "mysql", "postgres", "sqlite3"
+See the `test_all.sh` script for examples of all 3 databases.  This is the script I run
+locally to test the library.
+
+## Performance ##
+
+gorp uses reflection to construct SQL queries and bind parameters.  See the BenchmarkNativeCrud vs BenchmarkGorpCrud in gorp_test.go for a simple perf test.  On my MacBook Pro gorp is about 2-3% slower than hand written SQL. 
+
 ## Contributors
 
 * matthias-margush - column aliasing via tags
+* Rob Figueiredo - @robfig
+* Quinn Slack - @sqs
