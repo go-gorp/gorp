@@ -69,6 +69,21 @@ type TypeConversionExample struct {
 	Name       CustomStringType
 }
 
+type PersonUInt32 struct {
+	Id   uint32
+	Name string
+}
+
+type PersonUInt64 struct {
+	Id   uint64
+	Name string
+}
+
+type PersonUInt16 struct {
+	Id   uint16
+	Name string
+}
+
 type testTypeConverter struct{}
 
 func (me testTypeConverter) ToDb(val interface{}) (interface{}, error) {
@@ -168,6 +183,27 @@ func TestCreateTablesIfNotExists(t *testing.T) {
 	defer dbmap.DropTables()
 
 	err := dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestUIntPrimaryKey(t *testing.T) {
+	dbmap := newDbMap()
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	dbmap.AddTable(PersonUInt64{}).SetKeys(true, "Id")
+	dbmap.AddTable(PersonUInt32{}).SetKeys(true, "Id")
+	dbmap.AddTable(PersonUInt16{}).SetKeys(true, "Id")
+	err := dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		panic(err)
+	}
+	defer dbmap.DropTables()
+
+	p1 := &PersonUInt64{0, "name1"}
+	p2 := &PersonUInt32{0, "name2"}
+	p3 := &PersonUInt16{0, "name3"}
+	err = dbmap.Insert(p1, p2, p3)
 	if err != nil {
 		t.Error(err)
 	}

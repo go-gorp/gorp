@@ -1441,6 +1441,8 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			k := f.Kind()
 			if (k == reflect.Int) || (k == reflect.Int16) || (k == reflect.Int32) || (k == reflect.Int64) {
 				f.SetInt(id)
+			} else if (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
+				f.SetUint(uint64(id))
 			} else {
 				return errors.New(fmt.Sprintf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d", bi.query, bi.autoIncrIdx))
 			}

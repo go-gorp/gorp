@@ -63,7 +63,7 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 	switch val.Kind() {
 	case reflect.Bool:
 		return "integer"
-	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return "integer"
 	case reflect.Float64, reflect.Float32:
 		return "real"
@@ -133,12 +133,12 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 	switch val.Kind() {
 	case reflect.Bool:
 		return "boolean"
-	case reflect.Int, reflect.Int16, reflect.Int32:
+	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Uint16, reflect.Uint32:
 		if isAutoIncr {
 			return "serial"
 		}
 		return "integer"
-	case reflect.Int64:
+	case reflect.Int64, reflect.Uint64:
 		if isAutoIncr {
 			return "bigserial"
 		}
@@ -229,9 +229,9 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 	switch val.Kind() {
 	case reflect.Bool:
 		return "boolean"
-	case reflect.Int, reflect.Int16, reflect.Int32:
+	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Uint16, reflect.Uint32:
 		return "int"
-	case reflect.Int64:
+	case reflect.Int64, reflect.Uint64:
 		return "bigint"
 	case reflect.Float64, reflect.Float32:
 		return "double"
