@@ -148,6 +148,11 @@ func (t *TableMap) ResetSql() {
 //
 // Automatically calls ResetSql() to ensure SQL statements are regenerated.
 func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
+	if isAutoIncr && len(fieldNames) > 1 {
+		panic(fmt.Sprintf(
+			"Multi-column primary keys cannot auto-increment. (Saw %v columns)",
+			len(fieldNames)))
+	}
 	t.keys = make([]*ColumnMap, 0)
 	for _, name := range fieldNames {
 		colmap := t.ColMap(name)
