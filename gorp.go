@@ -147,10 +147,13 @@ func (t *TableMap) ResetSql() {
 // will be used after INSERT to bind the generated id to the Go struct.
 //
 // Automatically calls ResetSql() to ensure SQL statements are regenerated.
+//
+// Panics if isAutoIncr is true, and fieldNames length != 1
+//
 func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
-	if isAutoIncr && len(fieldNames) > 1 {
+	if isAutoIncr && len(fieldNames) != 1 {
 		panic(fmt.Sprintf(
-			"Multi-column primary keys cannot auto-increment. (Saw %v columns)",
+			"gorp: SetKeys: fieldNames length must be 1 if key is auto-increment. (Saw %v fieldNames)",
 			len(fieldNames)))
 	}
 	t.keys = make([]*ColumnMap, 0)
