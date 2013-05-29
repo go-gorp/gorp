@@ -84,6 +84,16 @@ type PersonUInt16 struct {
 	Name string
 }
 
+type WithEmbeddedStruct struct {
+	Id int64
+	Names
+}
+
+type Names struct {
+	FirstName string
+	LastName  string
+}
+
 type testTypeConverter struct{}
 
 func (me testTypeConverter) ToDb(val interface{}) (interface{}, error) {
@@ -658,6 +668,32 @@ func TestTypeConversionExample(t *testing.T) {
 
 }
 
+func TestWithEmbeddedStruct(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	es := &WithEmbeddedStruct{-1, Names{FirstName: "Alice", LastName: "Smith"}}
+	_insert(dbmap, es)
+	expected := &WithEmbeddedStruct{1, Names{FirstName: "Alice", LastName: "Smith"}}
+	es2 := _get(dbmap, WithEmbeddedStruct{}, es.Id).(*WithEmbeddedStruct)
+	if !reflect.DeepEqual(expected, es2) {
+		t.Errorf("%v != %v", expected, es2)
+	}
+
+	es2.FirstName = "Bob"
+	expected.FirstName = "Bob"
+	_update(dbmap, es2)
+	es2 = _get(dbmap, WithEmbeddedStruct{}, es.Id).(*WithEmbeddedStruct)
+	if !reflect.DeepEqual(expected, es2) {
+		t.Errorf("%v != %v", expected, es2)
+	}
+
+	ess := _rawselect(dbmap, WithEmbeddedStruct{}, "select * from embedded_struct_test")
+	if !reflect.DeepEqual(es2, ess[0]) {
+		t.Errorf("%v != %v", es2, ess[0])
+	}
+}
+
 func TestSelectVal(t *testing.T) {
 	dbmap := initDbMapNulls()
 	defer dbmap.DropTables()
@@ -895,6 +931,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(WithEmbeddedStruct{}, "embedded_struct_test").SetKeys(true, "Id")
 	dbmap.TypeConverter = testTypeConverter{}
 	err := dbmap.CreateTables()
 	if err != nil {

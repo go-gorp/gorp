@@ -598,30 +598,41 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, dbmap: m}
-
-	n := t.NumField()
-	tmap.columns = make([]*ColumnMap, 0, n)
-	for i := 0; i < n; i++ {
-		f := t.Field(i)
-		columnName := f.Tag.Get("db")
-		if columnName == "" {
-			columnName = f.Name
-		}
-
-		cm := &ColumnMap{
-			ColumnName: columnName,
-			Transient:  columnName == "-",
-			fieldName:  f.Name,
-			gotype:     f.Type,
-		}
-		tmap.columns = append(tmap.columns, cm)
-		if cm.fieldName == "Version" {
-			tmap.version = tmap.columns[len(tmap.columns)-1]
-		}
-	}
+	tmap.columns, tmap.version = readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 
 	return tmap
+}
+
+func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
+	n := t.NumField()
+	for i := 0; i < n; i++ {
+		f := t.Field(i)
+		if f.Anonymous && f.Type.Kind() == reflect.Struct {
+			// Recursively add nested fields in embedded structs.
+			subcols, subversion := readStructColumns(f.Type)
+			cols = append(cols, subcols...)
+			if subversion != nil {
+				version = subversion
+			}
+		} else {
+			columnName := f.Tag.Get("db")
+			if columnName == "" {
+				columnName = f.Name
+			}
+			cm := &ColumnMap{
+				ColumnName: columnName,
+				Transient:  columnName == "-",
+				fieldName:  f.Name,
+				gotype:     f.Type,
+			}
+			cols = append(cols, cm)
+			if cm.fieldName == "Version" {
+				version = cm
+			}
+		}
+	}
+	return
 }
 
 // CreateTables iterates through TableMaps registered to this DbMap and
@@ -1122,22 +1133,20 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		tableMapped = true
 	}
 
-	colToFieldOffset := make([]int, len(cols))
-
-	numField := t.NumField()
+	colToFieldIndex := make([][]int, len(cols))
 
 	// Loop over column names and find field in i to bind to
 	// based on column name. all returned columns must match
 	// a field in the i struct
 	for x := range cols {
-		colToFieldOffset[x] = -1
 		colName := strings.ToLower(cols[x])
-		for y := 0; y < numField; y++ {
-			field := t.Field(y)
-			fieldName := field.Tag.Get("db")
+
+		field, found := t.FieldByNameFunc(func(fieldName string) bool {
+			field, _ := t.FieldByName(fieldName)
+			fieldName = field.Tag.Get("db")
 
 			if fieldName == "-" {
-				continue
+				return false
 			} else if fieldName == "" {
 				fieldName = field.Name
 			}
@@ -1147,14 +1156,13 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 					fieldName = colMap.ColumnName
 				}
 			}
-			fieldName = strings.ToLower(fieldName)
 
-			if fieldName == colName {
-				colToFieldOffset[x] = y
-				break
-			}
+			return colName == strings.ToLower(fieldName)
+		})
+		if found {
+			colToFieldIndex[x] = field.Index
 		}
-		if colToFieldOffset[x] == -1 {
+		if colToFieldIndex[x] == nil {
 			e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
 				colName, t.Name(), query)
 			return nil, errors.New(e)
@@ -1184,7 +1192,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		custScan := make([]CustomScanner, 0)
 
 		for x := range cols {
-			f := v.Elem().Field(colToFieldOffset[x])
+			f := v.Elem().FieldByIndex(colToFieldIndex[x])
 			target := f.Addr().Interface()
 			if conv != nil {
 				scanner, ok := conv.FromDb(target)
