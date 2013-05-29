@@ -700,10 +700,25 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 // DropTables iterates through TableMaps registered to this DbMap and
 // executes "drop table" statements against the database for each.
 func (m *DbMap) DropTables() error {
+	return m.dropTables(false)
+}
+
+// DropTablesIfExists is the same as DropTables, but uses the "if exists" clause to
+// avoid errors for tables that do not exist.
+func (m *DbMap) DropTablesIfExists() error {
+	return m.dropTables(true)
+}
+
+func (m *DbMap) dropTables(addIfExists bool) error {
+	ifExists := ""
+	if addIfExists {
+		ifExists = " if exists"
+	}
+
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
-		_, e := m.Exec(fmt.Sprintf("drop table %s;", m.Dialect.QuoteField(table.TableName)))
+		_, e := m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuoteField(table.TableName)))
 		if e != nil {
 			err = e
 		}

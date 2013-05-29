@@ -228,7 +228,7 @@ func TestPersistentUser(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	defer dbmap.DropTables()
+	defer dbmap.DropTablesIfExists()
 	pu := &PersistentUser{43, "33r", false}
 	err = dbmap.Insert(pu)
 	if err != nil {
