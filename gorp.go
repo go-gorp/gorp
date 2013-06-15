@@ -440,7 +440,7 @@ func (t *TableMap) bindGet() bindPlan {
 			}
 		}
 		s.WriteString(" from ")
-		s.WriteString(t.TableName)
+		s.WriteString(t.dbmap.Dialect.QuoteField(t.TableName))
 		s.WriteString(" where ")
 		for x := range t.keys {
 			col := t.keys[x]
