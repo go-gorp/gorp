@@ -542,9 +542,17 @@ type SqlExecutor interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Select(i interface{}, query string,
 		args ...interface{}) ([]interface{}, error)
+	SelectInt(query string, args ...interface{}) (int64, error)
+	SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error)
+	SelectStr(query string, args ...interface{}) (string, error)
+	SelectNullStr(query string, args ...interface{}) (sql.NullString, error)
 	query(query string, args ...interface{}) (*sql.Rows, error)
 	queryRow(query string, args ...interface{}) *sql.Row
 }
+
+// Compile-time check that DbMap and Transaction implement the SqlExecutor
+// interface.
+var _, _ SqlExecutor = &DbMap{}, &Transaction{}
 
 // TraceOn turns on SQL statement logging for this DbMap.  After this is
 // called, all SQL statements will be sent to the logger.  If prefix is
