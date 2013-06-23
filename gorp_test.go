@@ -1,6 +1,7 @@
 package gorp
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -819,6 +820,35 @@ func TestInvoicePersonView(t *testing.T) {
 	if !reflect.DeepEqual(list[0], expected) {
 		t.Errorf("%v != %v", list[0], expected)
 	}
+}
+
+func TestQuoteTableNames(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	quotedTableName := dbmap.Dialect.QuoteField("person_test")
+
+	// Use a buffer to hold the log to check generated queries
+	logBuffer := &bytes.Buffer{}
+	dbmap.TraceOn("", log.New(logBuffer, "gorptest:", log.Lmicroseconds))
+
+	// Create some rows
+	p1 := &Person{0, 0, 0, "bob", "smith", 0}
+	errorTemplate := "Expected quoted table name %v in query but didn't find it"
+
+	// Check if Insert quotes the table name
+	id := dbmap.Insert(p1)
+	if !bytes.Contains(logBuffer.Bytes(), []byte(quotedTableName)) {
+		t.Errorf(errorTemplate, quotedTableName)
+	}
+	logBuffer.Reset()
+
+	// Check if Get quotes the table name
+	dbmap.Get(Person{}, id)
+	if !bytes.Contains(logBuffer.Bytes(), []byte(quotedTableName)) {
+		t.Errorf(errorTemplate, quotedTableName)
+	}
+	logBuffer.Reset()
 }
 
 func BenchmarkNativeCrud(b *testing.B) {
