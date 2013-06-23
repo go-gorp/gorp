@@ -32,6 +32,7 @@ DSNs for these three databases.
 ## Features ##
 
 * Bind struct fields to table columns via API or tag
+* Support for embedded structs
 * Support for transactions
 * Forward engineer db schema from structs (great for unit tests)
 * Pre/post insert/update/delete hooks
@@ -43,10 +44,6 @@ DSNs for these three databases.
 * Bind arbitrary SQL queries to a struct
 * Bind slice pointers to SELECT query results without type assertions
 * Optional optimistic locking using a version column (for update/deletes)
-
-## TODO ##
-
-* Support embedded structs
 
 ## Installation ##
 
@@ -128,6 +125,27 @@ t1 := dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 t2 := dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 t3 := dbmap.AddTableWithName(Product{}, "product_test").SetKeys(true, "Id")
 ```
+
+### Struct Embedding ###
+
+gorp supports embedding structs.  For example:
+
+```go
+type Names struct {
+    FirstName string
+    LastName  string
+}
+
+type WithEmbeddedStruct struct {
+    Id int64
+    Names
+}
+
+es := &WithEmbeddedStruct{-1, Names{FirstName: "Alice", LastName: "Smith"}}
+err := dbmap.Insert(es)
+```
+
+See the `TestWithEmbeddedStruct` function in `gorp_test.go` for a full example.
 
 ### Create/Drop Tables ###
 
