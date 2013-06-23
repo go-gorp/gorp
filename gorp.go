@@ -550,6 +550,10 @@ type SqlExecutor interface {
 	queryRow(query string, args ...interface{}) *sql.Row
 }
 
+// Compile-time check that DbMap and Transaction implement the SqlExecutor
+// interface.
+var _, _ SqlExecutor = &DbMap{}, &Transaction{}
+
 // TraceOn turns on SQL statement logging for this DbMap.  After this is
 // called, all SQL statements will be sent to the logger.  If prefix is
 // a non-empty string, it will be written to the front of all logged
