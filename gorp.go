@@ -745,6 +745,22 @@ func (m *DbMap) dropTables(addIfExists bool) error {
 	return err
 }
 
+// TruncateTables iterates through TableMaps registered to this DbMap and
+// executes "truncate table" statements against the database for each, or in the case of
+// sqlite, a "delete from" with no "where" clause, which uses the truncate optimization
+// (http://www.sqlite.org/lang_delete.html)
+func (m *DbMap) TruncateTables() error {
+	var err error
+	for i := range m.tables {
+		table := m.tables[i]
+		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuoteField(table.TableName)))
+		if e != nil {
+			err = e
+		}
+	}
+	return err
+}
+
 // Insert runs a SQL INSERT statement for each element in list.  List
 // items must be pointers.
 //
