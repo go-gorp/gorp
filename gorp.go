@@ -544,6 +544,8 @@ type SqlExecutor interface {
 		args ...interface{}) ([]interface{}, error)
 	SelectInt(query string, args ...interface{}) (int64, error)
 	SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error)
+	SelectFloat(query string, args ...interface{}) (float64, error)
+	SelectNullFloat(query string, args ...interface{}) (sql.NullFloat64, error)
 	SelectStr(query string, args ...interface{}) (string, error)
 	SelectNullStr(query string, args ...interface{}) (sql.NullString, error)
 	query(query string, args ...interface{}) (*sql.Rows, error)
@@ -851,6 +853,16 @@ func (m *DbMap) SelectNullInt(query string, args ...interface{}) (sql.NullInt64,
 	return SelectNullInt(m, query, args...)
 }
 
+// SelectFloat is a convenience wrapper around the gorp.SelectFlot function
+func (m *DbMap) SelectFloat(query string, args ...interface{}) (float64, error) {
+	return SelectFloat(m, query, args...)
+}
+
+// SelectNullFloat is a convenience wrapper around the gorp.SelectNullFloat function
+func (m *DbMap) SelectNullFloat(query string, args ...interface{}) (sql.NullFloat64, error) {
+	return SelectNullFloat(m, query, args...)
+}
+
 // SelectStr is a convenience wrapper around the gorp.SelectStr function
 func (m *DbMap) SelectStr(query string, args ...interface{}) (string, error) {
 	return SelectStr(m, query, args...)
@@ -976,6 +988,16 @@ func (t *Transaction) SelectNullInt(query string, args ...interface{}) (sql.Null
 	return SelectNullInt(t, query, args...)
 }
 
+// SelectFloat is a convenience wrapper around the gorp.SelectFloat function
+func (t *Transaction) SelectFloat(query string, args ...interface{}) (float64, error) {
+	return SelectFloat(t, query, args...)
+}
+
+// SelectNullFloat is a convenience wrapper around the gorp.SelectNullFloat function
+func (t *Transaction) SelectNullFloat(query string, args ...interface{}) (sql.NullFloat64, error) {
+	return SelectNullFloat(t, query, args...)
+}
+
 // SelectStr is a convenience wrapper around the gorp.SelectStr function
 func (t *Transaction) SelectStr(query string, args ...interface{}) (string, error) {
 	return SelectStr(t, query, args...)
@@ -1025,6 +1047,30 @@ func SelectInt(e SqlExecutor, query string, args ...interface{}) (int64, error) 
 // found, the empty sql.NullInt64 value is returned.
 func SelectNullInt(e SqlExecutor, query string, args ...interface{}) (sql.NullInt64, error) {
 	var h sql.NullInt64
+	err := selectVal(e, &h, query, args...)
+	if err != nil {
+		return h, err
+	}
+	return h, nil
+}
+
+// SelectFloat executes the given query, which should be a SELECT statement for a single
+// float column, and returns the value of the first row returned. If no rows are
+// found, zero is returned.
+func SelectFloat(e SqlExecutor, query string, args ...interface{}) (float64, error) {
+	var h float64
+	err := selectVal(e, &h, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	return h, nil
+}
+
+// SelectNullFloat executes the given query, which should be a SELECT statement for a single
+// float column, and returns the value of the first row returned. If no rows are
+// found, the empty sql.NullInt64 value is returned.
+func SelectNullFloat(e SqlExecutor, query string, args ...interface{}) (sql.NullFloat64, error) {
+	var h sql.NullFloat64
 	err := selectVal(e, &h, query, args...)
 	if err != nil {
 		return h, err
