@@ -16,11 +16,11 @@ func connectDb() *sql.DB {
 
 // This fails on my machine with:
 //
-// panic: Received #1461 error from MySQL server: 
-// "Can't create more than max_prepared_stmt_count statements 
+// panic: Received #1461 error from MySQL server:
+// "Can't create more than max_prepared_stmt_count statements
 // (current value: 16382)"
 //
-// Cause: stmt.Exec() is opening a new db connection for each call 
+// Cause: stmt.Exec() is opening a new db connection for each call
 // because each connection is still considered in use
 //
 func _TestPrepareExec(t *testing.T) {
