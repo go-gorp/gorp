@@ -733,6 +733,31 @@ func TestSelectVal(t *testing.T) {
 		t.Errorf("nullint %v != 78, true", n)
 	}
 
+	// SelectFloat
+	f64 := selectFloat(dbmap, "select Float64 from TableWithNull where Str='abc'")
+	if f64 != 32.2 {
+		t.Errorf("float64 %d != 32.2", f64)
+	}
+	f64 = selectFloat(dbmap, "select min(Float64) from TableWithNull")
+	if f64 != 32.2 {
+		t.Errorf("float64 min %d != 32.2", f64)
+	}
+	f64 = selectFloat(dbmap, "select count(*) from TableWithNull where Str="+bindVar, "asdfasdf")
+	if f64 != 0 {
+		t.Errorf("float64 no rows %d != 0", f64)
+	}
+
+	// SelectNullFloat
+	nf := selectNullFloat(dbmap, "select Float64 from TableWithNull where Str='notfound'")
+	if !reflect.DeepEqual(nf, sql.NullFloat64{0, false}) {
+		t.Errorf("nullfloat %v != 0,false", nf)
+	}
+
+	nf = selectNullFloat(dbmap, "select Float64 from TableWithNull where Str='abc'")
+	if !reflect.DeepEqual(nf, sql.NullFloat64{32.2, true}) {
+		t.Errorf("nullfloat %v != 32.2, true", nf)
+	}
+
 	// SelectStr
 	s := selectStr(dbmap, "select Str from TableWithNull where Int64="+bindVar, 78)
 	if s != "abc" {
@@ -1061,6 +1086,24 @@ func selectNullInt(dbmap *DbMap, query string, args ...interface{}) sql.NullInt6
 	}
 
 	return i64
+}
+
+func selectFloat(dbmap *DbMap, query string, args ...interface{}) float64 {
+	f64, err := SelectFloat(dbmap, query, args...)
+	if err != nil {
+		panic(err)
+	}
+
+	return f64
+}
+
+func selectNullFloat(dbmap *DbMap, query string, args ...interface{}) sql.NullFloat64 {
+	f64, err := SelectNullFloat(dbmap, query, args...)
+	if err != nil {
+		panic(err)
+	}
+
+	return f64
 }
 
 func selectStr(dbmap *DbMap, query string, args ...interface{}) string {
