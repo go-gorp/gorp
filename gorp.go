@@ -783,7 +783,7 @@ func (m *DbMap) Insert(list ...interface{}) error {
 // The hook functions PreUpdate() and/or PostUpdate() will be executed
 // before/after the UPDATE statement if the interface defines them.
 //
-// Returns number of rows updated
+// Returns the number of rows updated.
 //
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
@@ -797,7 +797,7 @@ func (m *DbMap) Update(list ...interface{}) (int64, error) {
 // The hook functions PreDelete() and/or PostDelete() will be executed
 // before/after the DELETE statement if the interface defines them.
 //
-// Returns number of rows deleted.
+// Returns the number of rows deleted.
 //
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
