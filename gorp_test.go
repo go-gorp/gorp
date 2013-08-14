@@ -8,7 +8,7 @@ import (
 	"fmt"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-	_ "github.com/ziutek/mymysql/godrv"
+	// _ "github.com/ziutek/mymysql/godrv"
 	"log"
 	"os"
 	"reflect"
@@ -93,6 +93,11 @@ type WithEmbeddedStruct struct {
 type Names struct {
 	FirstName string
 	LastName  string
+}
+
+type Dates struct {
+	Start time.Time
+	End time.Time
 }
 
 type testTypeConverter struct{}
@@ -197,6 +202,50 @@ func TestCreateTablesIfNotExists(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+func TestDatesTypes(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	dbmap.AddTable(Dates{})
+	err := dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Insert some data
+	d1 := &Dates{time.Now(), time.Now()}
+	dbmap.Insert(d1)
+
+	arr, err := dbmap.Select(Dates{}, "select * from dates")
+	if err != nil {
+		panic(err)
+	}
+	if !reflect.DeepEqual(d1, arr[0]) {
+		t.Errorf("%v!=%v", d1, arr[0])
+	}
+
+	d2 := &Dates{time.Now(), time.Now()}
+	dbmap.Insert(d2)
+
+	arr, err = dbmap.Select(Dates{}, "select * from dates order by \"start\"")
+	if err != nil {
+		panic(err)
+	}
+	if !reflect.DeepEqual(d1, arr[0]) {
+		t.Errorf("%v!=%v", d1, arr[0])
+	}
+	if !reflect.DeepEqual(d2, arr[1]) {
+		t.Errorf("%v!=%v", d2, arr[1])
+	}
+
+	err = dbmap.TruncateTables()
+	if err != nil {
+		t.Error(err)
+	}
+	
+
 }
 
 func TestTruncateTables(t *testing.T) {
