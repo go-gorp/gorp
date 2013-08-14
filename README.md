@@ -1,3 +1,14 @@
+This is a fork of github.com/coopernurse/gorp
+
+
+This fork adds time.Time to the Postgres Dialect to create Postgres timestamp fields natively
+
+Please use the original source. 
+
+Be warned, I'll delete this fork when the original code supports time.Time.
+
+Regards, Gwitmond.
+
 # Go Relational Persistence #
 
 I hesitate to call gorp an ORM.  Go doesn't really have objects, at least 
