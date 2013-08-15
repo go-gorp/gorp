@@ -1358,7 +1358,7 @@ func toType(i interface{}) (reflect.Type, error) {
 	}
 
 	if t.Kind() != reflect.Struct {
-		return nil, errors.New(fmt.Sprintf("gorp: Cannot SELECT into non-struct type: %v", reflect.TypeOf(i)))
+		return nil, fmt.Errorf("gorp: Cannot SELECT into non-struct type: %v", reflect.TypeOf(i))
 	}
 	return t, nil
 }
@@ -1546,7 +1546,7 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			} else if (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
 				f.SetUint(uint64(id))
 			} else {
-				return errors.New(fmt.Sprintf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d", bi.query, bi.autoIncrIdx))
+				return fmt.Errorf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d", bi.query, bi.autoIncrIdx)
 			}
 		} else {
 			_, err := exec.Exec(bi.query, bi.args...)
