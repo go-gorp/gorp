@@ -486,6 +486,7 @@ type ColumnMap struct {
 	gotype     reflect.Type
 	isPK       bool
 	isAutoIncr bool
+	isNotNull  bool
 }
 
 // Rename allows you to specify the column name in the table
@@ -508,6 +509,13 @@ func (c *ColumnMap) SetTransient(b bool) *ColumnMap {
 // column, if b is true.
 func (c *ColumnMap) SetUnique(b bool) *ColumnMap {
 	c.Unique = b
+	return c
+}
+
+// SetNotNull adds "not null" to the create table statements for this
+// column, if nn is true.
+func (c *ColumnMap) SetNotNull(nn bool) *ColumnMap {
+	c.isNotNull = nn
 	return c
 }
 
@@ -681,11 +689,11 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
 				s.WriteString(fmt.Sprintf("%s %s", m.Dialect.QuoteField(col.ColumnName), stype))
 
-				if col.isPK {
+				if col.isPK || col.isNotNull {
 					s.WriteString(" not null")
-					if len(table.keys) == 1 {
-						s.WriteString(" primary key")
-					}
+				}
+				if col.isPK && len(table.keys) == 1 {
+					s.WriteString(" primary key")
 				}
 				if col.Unique {
 					s.WriteString(" unique")
