@@ -487,6 +487,12 @@ type ColumnMap struct {
 	isPK       bool
 	isAutoIncr bool
 	isNotNull  bool
+
+	// Passed unquoted to create table statements.
+	// Not used elsewhere
+	defaultStr    string
+	referencesStr string
+	typeStr       string
 }
 
 // Rename allows you to specify the column name in the table
@@ -616,25 +622,29 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, dbmap: m}
-	tmap.columns, tmap.version = readStructColumns(t)
+	tmap.columns, tmap.version, tmap.keys = readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 
 	return tmap
 }
 
-func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
+func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap, keys []*ColumnMap) {
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		if f.Anonymous && f.Type.Kind() == reflect.Struct {
 			// Recursively add nested fields in embedded structs.
-			subcols, subversion := readStructColumns(f.Type)
+			subcols, subversion, subkeys := readStructColumns(f.Type)
 			cols = append(cols, subcols...)
 			if subversion != nil {
 				version = subversion
 			}
+			if subkeys != nil {
+				keys = append(keys, subkeys...)
+			}
 		} else {
-			columnName := f.Tag.Get("db")
+			dbinfo := strings.Split(f.Tag.Get("db"), ",")
+			columnName := dbinfo[0]
 			if columnName == "" {
 				columnName = f.Name
 			}
@@ -644,6 +654,29 @@ func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 				fieldName:  f.Name,
 				gotype:     f.Type,
 			}
+			for j := 1; j < len(dbinfo); j++ {
+				switch dbinfo[j] {
+				case "ai":
+					cm.isAutoIncr = true
+				case "nn":
+					cm.isNotNull = true
+				case "pk":
+					cm.isPK = true
+					keys = append(keys, cm)
+				case "un":
+					cm.Unique = true
+				}
+			}
+			if cdef := f.Tag.Get("dbdefault"); cdef != "" {
+				cm.defaultStr = cdef
+			}
+			if rdef := f.Tag.Get("dbrefs"); rdef != "" {
+				cm.referencesStr = rdef
+			}
+			if tdef := f.Tag.Get("dbtype"); tdef != "" {
+				cm.typeStr = tdef
+			}
+
 			cols = append(cols, cm)
 			if cm.fieldName == "Version" {
 				version = cm
@@ -686,7 +719,10 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 				if x > 0 {
 					s.WriteString(", ")
 				}
-				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
+				stype := col.typeStr
+				if stype == "" {
+					stype = m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
+				}
 				s.WriteString(fmt.Sprintf("%s %s", m.Dialect.QuoteField(col.ColumnName), stype))
 
 				if col.isPK || col.isNotNull {
@@ -697,6 +733,12 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 				}
 				if col.Unique {
 					s.WriteString(" unique")
+				}
+				if col.defaultStr != "" {
+					s.WriteString(" default " + col.defaultStr)
+				}
+				if col.referencesStr != "" {
+					s.WriteString(" references " + col.referencesStr)
 				}
 				if col.isAutoIncr {
 					s.WriteString(fmt.Sprintf(" %s", m.Dialect.AutoIncrStr()))
