@@ -1,5 +1,7 @@
 # Go Relational Persistence #
 
+[![build status](https://secure.travis-ci.org/coopernurse/gorp.png)](http://travis-ci.org/coopernurse/gorp)
+
 I hesitate to call gorp an ORM.  Go doesn't really have objects, at least 
 not in the classic Smalltalk/Java sense.  There goes the "O".  gorp doesn't 
 know anything about the relationships between your structs (at least not 
