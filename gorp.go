@@ -891,6 +891,7 @@ func (m *DbMap) SelectNullStr(query string, args ...interface{}) (sql.NullString
 
 // Begin starts a gorp Transaction
 func (m *DbMap) Begin() (*Transaction, error) {
+	m.trace("begin;")
 	tx, err := m.Db.Begin()
 	if err != nil {
 		return nil, err
@@ -1026,11 +1027,13 @@ func (t *Transaction) SelectNullStr(query string, args ...interface{}) (sql.Null
 
 // Commit commits the underlying database transaction.
 func (t *Transaction) Commit() error {
+	t.dbmap.trace("commit;")
 	return t.tx.Commit()
 }
 
 // Rollback rolls back the underlying database transaction.
 func (t *Transaction) Rollback() error {
+	t.dbmap.trace("rollback;")
 	return t.tx.Rollback()
 }
 
