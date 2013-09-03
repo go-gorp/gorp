@@ -159,8 +159,8 @@ func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
 	t.keys = make([]*ColumnMap, 0)
 	for _, name := range fieldNames {
 		colmap := t.ColMap(name)
+		colmap.IsAutoIncr = isAutoIncr
 		colmap.isPK = true
-		colmap.isAutoIncr = isAutoIncr
 		t.keys = append(t.keys, colmap)
 	}
 	t.ResetSql()
@@ -284,7 +284,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 				}
 				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 
-				if col.isAutoIncr {
+				if col.IsAutoIncr {
 					s2.WriteString(t.dbmap.Dialect.AutoIncrBindValue())
 					plan.autoIncrIdx = y
 				} else {
@@ -482,10 +482,12 @@ type ColumnMap struct {
 	// Not used elsewhere
 	MaxSize int
 
-	fieldName  string
-	gotype     reflect.Type
-	isPK       bool
-	isAutoIncr bool
+	// If true, this column is marked as an auto-incrementing field
+	IsAutoIncr bool
+
+	fieldName string
+	gotype    reflect.Type
+	isPK      bool
 }
 
 // Rename allows you to specify the column name in the table
@@ -678,7 +680,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 				if x > 0 {
 					s.WriteString(", ")
 				}
-				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
+				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.IsAutoIncr)
 				s.WriteString(fmt.Sprintf("%s %s", m.Dialect.QuoteField(col.ColumnName), stype))
 
 				if col.isPK {
@@ -690,7 +692,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 				if col.Unique {
 					s.WriteString(" unique")
 				}
-				if col.isAutoIncr {
+				if col.IsAutoIncr {
 					s.WriteString(fmt.Sprintf(" %s", m.Dialect.AutoIncrStr()))
 				}
 
