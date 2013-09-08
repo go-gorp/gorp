@@ -173,7 +173,7 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 	case "NullableBytes":
 		return "bytea"
 	case "Time", "NullTime":
-		return "timestamp"
+		return "timestamp with time zone"
 	}
 
 	if maxsize < 1 {
