@@ -1034,6 +1034,36 @@ func (t *Transaction) Rollback() error {
 	return t.tx.Rollback()
 }
 
+// Savepoint creates a savepoint with the given name. The name is interpolated
+// directly into the SQL SAVEPOINT statement, so you must sanitize it if it is
+// derived from user input.
+func (t *Transaction) Savepoint(name string) error {
+	query := "savepoint " + t.dbmap.Dialect.QuoteField(name)
+	t.dbmap.trace(query, nil)
+	_, err := t.tx.Exec(query)
+	return err
+}
+
+// RollbackToSavepoint rolls back to the savepoint with the given name. The
+// name is interpolated directly into the SQL SAVEPOINT statement, so you must
+// sanitize it if it is derived from user input.
+func (t *Transaction) RollbackToSavepoint(savepoint string) error {
+	query := "rollback to savepoint " + t.dbmap.Dialect.QuoteField(savepoint)
+	t.dbmap.trace(query, nil)
+	_, err := t.tx.Exec(query)
+	return err
+}
+
+// ReleaseSavepint releases the savepoint with the given name. The name is
+// interpolated directly into the SQL SAVEPOINT statement, so you must sanitize
+// it if it is derived from user input.
+func (t *Transaction) ReleaseSavepoint(savepoint string) error {
+	query := "release savepoint " + t.dbmap.Dialect.QuoteField(savepoint)
+	t.dbmap.trace(query, nil)
+	_, err := t.tx.Exec(query)
+	return err
+}
+
 func (t *Transaction) queryRow(query string, args ...interface{}) *sql.Row {
 	t.dbmap.trace(query, args)
 	return t.tx.QueryRow(query, args...)
