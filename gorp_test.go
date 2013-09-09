@@ -305,6 +305,45 @@ func TestPersistentUser(t *testing.T) {
 	if !reflect.DeepEqual(pu, puArr[0]) {
 		t.Errorf("%v!=%v", pu, puArr[0])
 	}
+
+	// prove we can get the results back in a string slice
+	var idArr []*string
+	_, err = dbmap.Select(&idArr, "select Id from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(idArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu.Id, *idArr[0]) {
+		t.Errorf("%v!=%v", pu.Id, *idArr[0])
+	}
+
+	// prove we can get the results back in an int slice
+	var keyArr []*int32
+	_, err = dbmap.Select(&keyArr, "select mykey from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(keyArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu.Key, *keyArr[0]) {
+		t.Errorf("%v!=%v", pu.Key, *keyArr[0])
+	}
+
+	// prove we can get the results back in a bool slice
+	var passedArr []*bool
+	_, err = dbmap.Select(&passedArr, "select PassedTraining from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(passedArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu.PassedTraining, *passedArr[0]) {
+		t.Errorf("%v!=%v", pu.PassedTraining, *passedArr[0])
+	}
 }
 
 // Ensure that the slices containing SQL results are non-nil when the result set is empty.
