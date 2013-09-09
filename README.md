@@ -63,6 +63,18 @@ Full godoc output from the latest code in master is available here:
 
 http://godoc.org/github.com/coopernurse/gorp
 
+## Known Issues ##
+
+### time.Time and time zones
+
+gorp will pass `time.Time` fields through to the `database/sql` driver, but note that 
+the behavior of this type varies across database drivers.
+
+MySQL users should be especially cautious.  See: https://github.com/ziutek/mymysql/pull/77
+
+To avoid any potential issues with timezone/DST, consider using an integer field for time
+data and storing UNIX time.  Obviously for legacy schemas this is not usually possible.
+
 ## Examples ##
 
 ### Mapping structs to tables ###
