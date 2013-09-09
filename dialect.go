@@ -173,7 +173,7 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 	}
 
 	if maxsize < 1 {
-		maxsize = 255
+		return fmt.Sprintf("varchar")
 	}
 	return fmt.Sprintf("varchar(%d)", maxsize)
 }
