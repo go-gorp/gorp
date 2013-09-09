@@ -893,6 +893,30 @@ func TestWithStringPk(t *testing.T) {
 	}
 }
 
+type WithTime struct {
+	Id   int64
+	Time time.Time
+}
+
+func TestWithTime(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	t1, err := time.Parse("2006-01-02 15:04:05 -0700 MST",
+		"2013-08-09 21:30:43 +0800 CST")
+	if err != nil {
+		panic(err)
+	}
+	w1 := WithTime{1, t1}
+	_insert(dbmap, &w1)
+
+	obj := _get(dbmap, WithTime{}, w1.Id)
+	w2 := obj.(*WithTime)
+	if w1.Time.UnixNano() != w2.Time.UnixNano() {
+		t.Errorf("%v != %v", w1, w2)
+	}
+}
+
 func TestInvoicePersonView(t *testing.T) {
 	dbmap := initDbMap()
 	defer dbmap.DropTables()
@@ -1065,6 +1089,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStruct{}, "embedded_struct_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(WithTime{}, "time_test").SetKeys(true, "Id")
 	dbmap.TypeConverter = testTypeConverter{}
 	err := dbmap.CreateTables()
 	if err != nil {
