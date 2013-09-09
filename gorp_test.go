@@ -582,6 +582,54 @@ func TestTransaction(t *testing.T) {
 	}
 }
 
+func TestSavepoint(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	inv1 := &Invoice{0, 100, 200, "unpaid", 0, false}
+
+	trans, err := dbmap.Begin()
+	if err != nil {
+		panic(err)
+	}
+	trans.Insert(inv1)
+
+	var checkMemo = func(want string) {
+		memo, err := trans.SelectStr("select memo from invoice_test")
+		if err != nil {
+			panic(err)
+		}
+		if memo != want {
+			t.Errorf("%q != %q", want, memo)
+		}
+	}
+	checkMemo("unpaid")
+
+	err = trans.Savepoint("foo")
+	if err != nil {
+		panic(err)
+	}
+	checkMemo("unpaid")
+
+	inv1.Memo = "paid"
+	_, err = trans.Update(inv1)
+	if err != nil {
+		panic(err)
+	}
+	checkMemo("paid")
+
+	err = trans.RollbackToSavepoint("foo")
+	if err != nil {
+		panic(err)
+	}
+	checkMemo("unpaid")
+
+	err = trans.Rollback()
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestMultiple(t *testing.T) {
 	dbmap := initDbMap()
 	defer dbmap.DropTables()
