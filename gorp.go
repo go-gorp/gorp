@@ -1169,8 +1169,9 @@ func hookedselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	args ...interface{}) ([]interface{}, error) {
 	appendToSlice := false // Write results to i directly?
+	intoStruct := true     // Selecting into a struct?
 
-	// get type for i, verifying it's a struct or a pointer-to-slice
+	// get type for i, verifying it's a supported destination
 	t, err := toType(i)
 	if err != nil {
 		var err2 error
@@ -1181,6 +1182,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 			return nil, err
 		}
 		appendToSlice = true
+		intoStruct = t.Kind() == reflect.Struct
 	}
 
 	// Run the query
@@ -1196,47 +1198,14 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		return nil, err
 	}
 
-	// check if type t is a mapped table - if so we'll
-	// check the table for column aliasing below
-	tableMapped := false
-	table := tableOrNil(m, t)
-	if table != nil {
-		tableMapped = true
+	if !intoStruct && len(cols) > 1 {
+		return nil, fmt.Errorf("gorp: select into non-struct slice requires 1 column, got %d", len(cols))
 	}
 
-	colToFieldIndex := make([][]int, len(cols))
-
-	// Loop over column names and find field in i to bind to
-	// based on column name. all returned columns must match
-	// a field in the i struct
-	for x := range cols {
-		colName := strings.ToLower(cols[x])
-
-		field, found := t.FieldByNameFunc(func(fieldName string) bool {
-			field, _ := t.FieldByName(fieldName)
-			fieldName = field.Tag.Get("db")
-
-			if fieldName == "-" {
-				return false
-			} else if fieldName == "" {
-				fieldName = field.Name
-			}
-			if tableMapped {
-				colMap := colMapOrNil(table, fieldName)
-				if colMap != nil {
-					fieldName = colMap.ColumnName
-				}
-			}
-
-			return colName == strings.ToLower(fieldName)
-		})
-		if found {
-			colToFieldIndex[x] = field.Index
-		}
-		if colToFieldIndex[x] == nil {
-			e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
-				colName, t.Name(), query)
-			return nil, errors.New(e)
+	var colToFieldIndex [][]int
+	if intoStruct {
+		if colToFieldIndex, err = columnToFieldIndex(m, t, cols); err != nil {
+			return nil, err
 		}
 	}
 
@@ -1263,7 +1232,10 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		custScan := make([]CustomScanner, 0)
 
 		for x := range cols {
-			f := v.Elem().FieldByIndex(colToFieldIndex[x])
+			f := v.Elem()
+			if intoStruct {
+				f = f.FieldByIndex(colToFieldIndex[x])
+			}
 			target := f.Addr().Interface()
 			if conv != nil {
 				scanner, ok := conv.FromDb(target)
@@ -1299,6 +1271,51 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	return list, nil
+}
+
+func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error) {
+	colToFieldIndex := make([][]int, len(cols))
+
+	// check if type t is a mapped table - if so we'll
+	// check the table for column aliasing below
+	tableMapped := false
+	table := tableOrNil(m, t)
+	if table != nil {
+		tableMapped = true
+	}
+
+	// Loop over column names and find field in i to bind to
+	// based on column name. all returned columns must match
+	// a field in the i struct
+	for x := range cols {
+		colName := strings.ToLower(cols[x])
+
+		field, found := t.FieldByNameFunc(func(fieldName string) bool {
+			field, _ := t.FieldByName(fieldName)
+			fieldName = field.Tag.Get("db")
+
+			if fieldName == "-" {
+				return false
+			} else if fieldName == "" {
+				fieldName = field.Name
+			}
+			if tableMapped {
+				colMap := colMapOrNil(table, fieldName)
+				if colMap != nil {
+					fieldName = colMap.ColumnName
+				}
+			}
+
+			return colName == strings.ToLower(fieldName)
+		})
+		if found {
+			colToFieldIndex[x] = field.Index
+		}
+		if colToFieldIndex[x] == nil {
+			return nil, fmt.Errorf("gorp: No field %s in type %s", colName, t.Name())
+		}
+	}
+	return colToFieldIndex, nil
 }
 
 func fieldByName(val reflect.Value, fieldName string) *reflect.Value {
@@ -1340,11 +1357,8 @@ func toSliceType(i interface{}) (reflect.Type, error) {
 	if t = t.Elem(); t.Kind() != reflect.Slice {
 		return nil, nil
 	}
-	if t = t.Elem(); t.Kind() != reflect.Ptr {
-		return nil, nil
-	}
-	if t = t.Elem(); t.Kind() != reflect.Struct {
-		return nil, nil
+	for t = t.Elem(); t.Kind() == reflect.Ptr; {
+		t = t.Elem()
 	}
 	return t, nil
 }
@@ -1358,7 +1372,7 @@ func toType(i interface{}) (reflect.Type, error) {
 	}
 
 	if t.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("gorp: Cannot SELECT into non-struct type: %v", reflect.TypeOf(i))
+		return nil, fmt.Errorf("gorp: Cannot SELECT into this type: %v", reflect.TypeOf(i))
 	}
 	return t, nil
 }
