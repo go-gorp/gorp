@@ -1202,49 +1202,10 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		return nil, fmt.Errorf("gorp: select into non-struct slice requires 1 column, got %d", len(cols))
 	}
 
-	// check if type t is a mapped table - if so we'll
-	// check the table for column aliasing below
-	tableMapped := false
-	table := tableOrNil(m, t)
-	if table != nil {
-		tableMapped = true
-	}
-
-	colToFieldIndex := make([][]int, len(cols))
-
+	var colToFieldIndex [][]int
 	if intoStruct {
-		// Loop over column names and find field in i to bind to
-		// based on column name. all returned columns must match
-		// a field in the i struct
-		for x := range cols {
-			colName := strings.ToLower(cols[x])
-
-			field, found := t.FieldByNameFunc(func(fieldName string) bool {
-				field, _ := t.FieldByName(fieldName)
-				fieldName = field.Tag.Get("db")
-
-				if fieldName == "-" {
-					return false
-				} else if fieldName == "" {
-					fieldName = field.Name
-				}
-				if tableMapped {
-					colMap := colMapOrNil(table, fieldName)
-					if colMap != nil {
-						fieldName = colMap.ColumnName
-					}
-				}
-
-				return colName == strings.ToLower(fieldName)
-			})
-			if found {
-				colToFieldIndex[x] = field.Index
-			}
-			if colToFieldIndex[x] == nil {
-				e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
-					colName, t.Name(), query)
-				return nil, errors.New(e)
-			}
+		if colToFieldIndex, err = columnToFieldIndex(m, t, cols); err != nil {
+			return nil, err
 		}
 	}
 
@@ -1310,6 +1271,51 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	return list, nil
+}
+
+func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error) {
+	colToFieldIndex := make([][]int, len(cols))
+
+	// check if type t is a mapped table - if so we'll
+	// check the table for column aliasing below
+	tableMapped := false
+	table := tableOrNil(m, t)
+	if table != nil {
+		tableMapped = true
+	}
+
+	// Loop over column names and find field in i to bind to
+	// based on column name. all returned columns must match
+	// a field in the i struct
+	for x := range cols {
+		colName := strings.ToLower(cols[x])
+
+		field, found := t.FieldByNameFunc(func(fieldName string) bool {
+			field, _ := t.FieldByName(fieldName)
+			fieldName = field.Tag.Get("db")
+
+			if fieldName == "-" {
+				return false
+			} else if fieldName == "" {
+				fieldName = field.Name
+			}
+			if tableMapped {
+				colMap := colMapOrNil(table, fieldName)
+				if colMap != nil {
+					fieldName = colMap.ColumnName
+				}
+			}
+
+			return colName == strings.ToLower(fieldName)
+		})
+		if found {
+			colToFieldIndex[x] = field.Index
+		}
+		if colToFieldIndex[x] == nil {
+			return nil, fmt.Errorf("gorp: No field %s in type %s", colName, t.Name())
+		}
+	}
+	return colToFieldIndex, nil
 }
 
 func fieldByName(val reflect.Value, fieldName string) *reflect.Value {
