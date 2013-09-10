@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
@@ -1226,6 +1227,24 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		intoStruct = t.Kind() == reflect.Struct
 	}
 
+	// If the caller supplied a single struct/map argument, assume a "named
+	// parameter" query.  Extract the named arguments from the struct/map, create
+	// the flat arg slice, and rewrite the query to use the dialect's placeholder.
+	if len(args) == 1 {
+		arg := reflect.ValueOf(args[0])
+		for arg.Kind() == reflect.Ptr {
+			arg = arg.Elem()
+		}
+		switch {
+		case arg.Kind() == reflect.Map && arg.Type().Key().Kind() == reflect.String:
+			query, args = expandNamedQuery(m, query, func(key string) reflect.Value {
+				return arg.MapIndex(reflect.ValueOf(key))
+			})
+		case arg.Kind() == reflect.Struct:
+			query, args = expandNamedQuery(m, query, arg.FieldByName)
+		}
+	}
+
 	// Run the query
 	rows, err := exec.query(query, args...)
 	if err != nil {
@@ -1312,6 +1331,29 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	return list, nil
+}
+
+var keyRegexp = regexp.MustCompile(`:[[:word:]]+`)
+
+// expandNamedQuery accepts a query with placeholders of the form ":key", and a
+// single arg of Kind Struct or Map[string].  It returns the query with the
+// dialect's placeholders, and a slice of args ready for positional insertion
+// into the query.
+func expandNamedQuery(m *DbMap, query string, keyGetter func(key string) reflect.Value) (string, []interface{}) {
+	var (
+		n    int
+		args []interface{}
+	)
+	return keyRegexp.ReplaceAllStringFunc(query, func(key string) string {
+		val := keyGetter(key[1:])
+		if !val.IsValid() {
+			return key
+		}
+		args = append(args, val.Interface())
+		newVar := m.Dialect.BindVar(n)
+		n++
+		return newVar
+	}), args
 }
 
 func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error) {
