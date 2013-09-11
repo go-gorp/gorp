@@ -1016,6 +1016,16 @@ func TestSelectVal(t *testing.T) {
 	if !reflect.DeepEqual(ns, sql.NullString{"", false}) {
 		t.Errorf("nullstr no rows %v != '',false", ns)
 	}
+
+	// SelectInt/Str with named parameters
+	i64 = selectInt(dbmap, "select Int64 from TableWithNull where Str=:abc", map[string]string{"abc": "abc"})
+	if i64 != 78 {
+		t.Errorf("int64 %d != 78", i64)
+	}
+	ns = selectNullStr(dbmap, "select Str from TableWithNull where Int64=:num", map[string]int{"num": 78})
+	if !reflect.DeepEqual(ns, sql.NullString{"abc", true}) {
+		t.Errorf("nullstr %v != abc,true", ns)
+	}
 }
 
 func TestVersionMultipleRows(t *testing.T) {
