@@ -1162,6 +1162,14 @@ func SelectNullStr(e SqlExecutor, query string, args ...interface{}) (sql.NullSt
 }
 
 func selectVal(e SqlExecutor, holder interface{}, query string, args ...interface{}) error {
+	if len(args) == 1 {
+		switch m := e.(type) {
+		case *DbMap:
+			query, args = maybeExpandNamedQuery(m, query, args)
+		case *Transaction:
+			query, args = maybeExpandNamedQuery(m.dbmap, query, args)
+		}
+	}
 	rows, err := e.query(query, args...)
 	if err != nil {
 		return err
@@ -1231,18 +1239,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	// parameter" query.  Extract the named arguments from the struct/map, create
 	// the flat arg slice, and rewrite the query to use the dialect's placeholder.
 	if len(args) == 1 {
-		arg := reflect.ValueOf(args[0])
-		for arg.Kind() == reflect.Ptr {
-			arg = arg.Elem()
-		}
-		switch {
-		case arg.Kind() == reflect.Map && arg.Type().Key().Kind() == reflect.String:
-			query, args = expandNamedQuery(m, query, func(key string) reflect.Value {
-				return arg.MapIndex(reflect.ValueOf(key))
-			})
-		case arg.Kind() == reflect.Struct:
-			query, args = expandNamedQuery(m, query, arg.FieldByName)
-		}
+		query, args = maybeExpandNamedQuery(m, query, args)
 	}
 
 	// Run the query
@@ -1331,6 +1328,27 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	return list, nil
+}
+
+// maybeExpandNamedQuery checks the given arg to see if it's eligible to be used
+// as input to a named query.  If so, it rewrites the query to use
+// dialect-dependent bindvars and instantiates the corresponding slice of
+// parameters by extracting data from the map / struct.
+// If not, returns the input values unchanged.
+func maybeExpandNamedQuery(m *DbMap, query string, args []interface{}) (string, []interface{}) {
+	arg := reflect.ValueOf(args[0])
+	for arg.Kind() == reflect.Ptr {
+		arg = arg.Elem()
+	}
+	switch {
+	case arg.Kind() == reflect.Map && arg.Type().Key().Kind() == reflect.String:
+		return expandNamedQuery(m, query, func(key string) reflect.Value {
+			return arg.MapIndex(reflect.ValueOf(key))
+		})
+	case arg.Kind() == reflect.Struct:
+		return expandNamedQuery(m, query, arg.FieldByName)
+	}
+	return query, args
 }
 
 var keyRegexp = regexp.MustCompile(`:[[:word:]]+`)
