@@ -1218,8 +1218,11 @@ func hookedselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 
 func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	args ...interface{}) ([]interface{}, error) {
-	appendToSlice := false // Write results to i directly?
-	intoStruct := true     // Selecting into a struct?
+	var (
+		appendToSlice   = false // Write results to i directly?
+		intoStruct      = true  // Selecting into a struct?
+		pointerElements = true  // Are the slice elements pointers (vs values)?
+	)
 
 	// get type for i, verifying it's a supported destination
 	t, err := toType(i)
@@ -1230,6 +1233,10 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 				return nil, err2
 			}
 			return nil, err
+		}
+		pointerElements = t.Kind() == reflect.Ptr
+		if pointerElements {
+			t = t.Elem()
 		}
 		appendToSlice = true
 		intoStruct = t.Kind() == reflect.Struct
@@ -1317,6 +1324,9 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		}
 
 		if appendToSlice {
+			if !pointerElements {
+				v = v.Elem()
+			}
 			sliceValue.Set(reflect.Append(sliceValue, v))
 		} else {
 			list = append(list, v.Interface())
@@ -1444,7 +1454,7 @@ func fieldByName(val reflect.Value, fieldName string) *reflect.Value {
 }
 
 // toSliceType returns the element type of the given object, if the object is a
-// "*[]*Element". If not, returns nil.
+// "*[]*Element" or "*[]Element". If not, returns nil.
 // err is returned if the user was trying to pass a pointer-to-slice but failed.
 func toSliceType(i interface{}) (reflect.Type, error) {
 	t := reflect.TypeOf(i)
@@ -1458,10 +1468,7 @@ func toSliceType(i interface{}) (reflect.Type, error) {
 	if t = t.Elem(); t.Kind() != reflect.Slice {
 		return nil, nil
 	}
-	for t = t.Elem(); t.Kind() == reflect.Ptr; {
-		t = t.Elem()
-	}
-	return t, nil
+	return t.Elem(), nil
 }
 
 func toType(i interface{}) (reflect.Type, error) {
