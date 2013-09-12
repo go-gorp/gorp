@@ -306,6 +306,19 @@ func TestPersistentUser(t *testing.T) {
 		t.Errorf("%v!=%v", pu, puArr[0])
 	}
 
+	// prove we can get the results back in a non-pointer slice
+	var puValues []PersistentUser
+	_, err = dbmap.Select(&puValues, "select * from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(puValues) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(*pu, puValues[0]) {
+		t.Errorf("%v!=%v", *pu, puValues[0])
+	}
+
 	// prove we can get the results back in a string slice
 	var idArr []*string
 	_, err = dbmap.Select(&idArr, "select Id from PersistentUser")
@@ -343,6 +356,19 @@ func TestPersistentUser(t *testing.T) {
 	}
 	if !reflect.DeepEqual(pu.PassedTraining, *passedArr[0]) {
 		t.Errorf("%v!=%v", pu.PassedTraining, *passedArr[0])
+	}
+
+	// prove we can get the results back in a non-pointer slice
+	var stringArr []string
+	_, err = dbmap.Select(&stringArr, "select Id from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(stringArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu.Id, stringArr[0]) {
+		t.Errorf("%v!=%v", pu.Id, stringArr[0])
 	}
 }
 
