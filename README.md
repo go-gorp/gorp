@@ -44,7 +44,8 @@ DSNs for these three databases.
 * Select by primary key(s)
 * Optional trace sql logging
 * Bind arbitrary SQL queries to a struct
-* Bind slice pointers to SELECT query results without type assertions
+* Bind slice to SELECT query results without type assertions
+* Use positional or named bind parameters in custom SELECT queries
 * Optional optimistic locking using a version column (for update/deletes)
 
 ## Installation ##
@@ -289,12 +290,24 @@ if reflect.DeepEqual(list[0], expected) {
 gorp provides a few convenience methods for selecting a single string or int64.
 
 ```go
-// select single int64 from db:
+// select single int64 from db (use $1 instead of ? for postgresql)
 i64, err := dbmap.SelectInt("select count(*) from foo where blah=?", blahVal)
 
 // select single string from db:
 s, err := dbmap.SelectStr("select name from foo where blah=?", blahVal)
 
+```
+
+#### Named bind parameters ####
+
+You may use a map or struct to bind parameters by name.  This is currently
+only supported in SELECT queries.
+
+```go
+_, err := dbm.Select(&dest, "select * from Foo where name = :name and age = :age", map[string]interface{}{
+  "name": "Rob", 
+  "age": 31,
+})
 ```
 
 #### UPDATE / DELETE ####
