@@ -305,6 +305,193 @@ func TestPersistentUser(t *testing.T) {
 	if !reflect.DeepEqual(pu, puArr[0]) {
 		t.Errorf("%v!=%v", pu, puArr[0])
 	}
+
+	// prove we can get the results back in a non-pointer slice
+	var puValues []PersistentUser
+	_, err = dbmap.Select(&puValues, "select * from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(puValues) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(*pu, puValues[0]) {
+		t.Errorf("%v!=%v", *pu, puValues[0])
+	}
+
+	// prove we can get the results back in a string slice
+	var idArr []*string
+	_, err = dbmap.Select(&idArr, "select Id from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(idArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu.Id, *idArr[0]) {
+		t.Errorf("%v!=%v", pu.Id, *idArr[0])
+	}
+
+	// prove we can get the results back in an int slice
+	var keyArr []*int32
+	_, err = dbmap.Select(&keyArr, "select mykey from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(keyArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu.Key, *keyArr[0]) {
+		t.Errorf("%v!=%v", pu.Key, *keyArr[0])
+	}
+
+	// prove we can get the results back in a bool slice
+	var passedArr []*bool
+	_, err = dbmap.Select(&passedArr, "select PassedTraining from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(passedArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu.PassedTraining, *passedArr[0]) {
+		t.Errorf("%v!=%v", pu.PassedTraining, *passedArr[0])
+	}
+
+	// prove we can get the results back in a non-pointer slice
+	var stringArr []string
+	_, err = dbmap.Select(&stringArr, "select Id from PersistentUser")
+	if err != nil {
+		panic(err)
+	}
+	if len(stringArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu.Id, stringArr[0]) {
+		t.Errorf("%v!=%v", pu.Id, stringArr[0])
+	}
+}
+
+func TestNamedQueryMap(t *testing.T) {
+	dbmap := newDbMap()
+	dbmap.Exec("drop table if exists PersistentUser")
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
+	table.ColMap("Key").Rename("mykey")
+	err := dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		panic(err)
+	}
+	defer dbmap.DropTablesIfExists()
+	pu := &PersistentUser{43, "33r", false}
+	pu2 := &PersistentUser{500, "abc", false}
+	err = dbmap.Insert(pu, pu2)
+	if err != nil {
+		panic(err)
+	}
+
+	// Test simple case
+	var puArr []*PersistentUser
+	_, err = dbmap.Select(&puArr, "select * from PersistentUser where mykey = :Key", map[string]interface{}{
+		"Key": 43,
+	})
+	if err != nil {
+		t.Errorf("Failed to select: %s", err)
+		t.FailNow()
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu, puArr[0]) {
+		t.Errorf("%v!=%v", pu, puArr[0])
+	}
+
+	// Test more specific map value type is ok
+	puArr = nil
+	_, err = dbmap.Select(&puArr, "select * from PersistentUser where mykey = :Key", map[string]int{
+		"Key": 43,
+	})
+	if err != nil {
+		t.Errorf("Failed to select: %s", err)
+		t.FailNow()
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+
+	// Test multiple parameters set.
+	puArr = nil
+	_, err = dbmap.Select(&puArr, `
+select * from PersistentUser
+ where mykey = :Key
+   and PassedTraining = :PassedTraining
+   and Id = :Id`, map[string]interface{}{
+		"Key":            43,
+		"PassedTraining": false,
+		"Id":             "33r",
+	})
+	if err != nil {
+		t.Errorf("Failed to select: %s", err)
+		t.FailNow()
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+
+	// Test colon within a non-key string
+	// Test having extra, unused properties in the map.
+	puArr = nil
+	_, err = dbmap.Select(&puArr, `
+select * from PersistentUser
+ where mykey = :Key
+   and Id != 'abc:def'`, map[string]interface{}{
+		"Key":            43,
+		"PassedTraining": false,
+	})
+	if err != nil {
+		t.Errorf("Failed to select: %s", err)
+		t.FailNow()
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+}
+
+func TestNamedQueryStruct(t *testing.T) {
+	dbmap := newDbMap()
+	dbmap.Exec("drop table if exists PersistentUser")
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
+	table.ColMap("Key").Rename("mykey")
+	err := dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		panic(err)
+	}
+	defer dbmap.DropTablesIfExists()
+	pu := &PersistentUser{43, "33r", false}
+	pu2 := &PersistentUser{500, "abc", false}
+	err = dbmap.Insert(pu, pu2)
+	if err != nil {
+		panic(err)
+	}
+
+	// Test select self
+	var puArr []*PersistentUser
+	_, err = dbmap.Select(&puArr, `
+select * from PersistentUser
+ where mykey = :Key
+   and PassedTraining = :PassedTraining
+   and Id = :Id`, pu)
+	if err != nil {
+		t.Errorf("Failed to select: %s", err)
+		t.FailNow()
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu, puArr[0]) {
+		t.Errorf("%v!=%v", pu, puArr[0])
+	}
 }
 
 // Ensure that the slices containing SQL results are non-nil when the result set is empty.
@@ -582,6 +769,54 @@ func TestTransaction(t *testing.T) {
 	}
 }
 
+func TestSavepoint(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	inv1 := &Invoice{0, 100, 200, "unpaid", 0, false}
+
+	trans, err := dbmap.Begin()
+	if err != nil {
+		panic(err)
+	}
+	trans.Insert(inv1)
+
+	var checkMemo = func(want string) {
+		memo, err := trans.SelectStr("select memo from invoice_test")
+		if err != nil {
+			panic(err)
+		}
+		if memo != want {
+			t.Errorf("%q != %q", want, memo)
+		}
+	}
+	checkMemo("unpaid")
+
+	err = trans.Savepoint("foo")
+	if err != nil {
+		panic(err)
+	}
+	checkMemo("unpaid")
+
+	inv1.Memo = "paid"
+	_, err = trans.Update(inv1)
+	if err != nil {
+		panic(err)
+	}
+	checkMemo("paid")
+
+	err = trans.RollbackToSavepoint("foo")
+	if err != nil {
+		panic(err)
+	}
+	checkMemo("unpaid")
+
+	err = trans.Rollback()
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestMultiple(t *testing.T) {
 	dbmap := initDbMap()
 	defer dbmap.DropTables()
@@ -807,6 +1042,16 @@ func TestSelectVal(t *testing.T) {
 	if !reflect.DeepEqual(ns, sql.NullString{"", false}) {
 		t.Errorf("nullstr no rows %v != '',false", ns)
 	}
+
+	// SelectInt/Str with named parameters
+	i64 = selectInt(dbmap, "select Int64 from TableWithNull where Str=:abc", map[string]string{"abc": "abc"})
+	if i64 != 78 {
+		t.Errorf("int64 %d != 78", i64)
+	}
+	ns = selectNullStr(dbmap, "select Str from TableWithNull where Int64=:num", map[string]int{"num": 78})
+	if !reflect.DeepEqual(ns, sql.NullString{"abc", true}) {
+		t.Errorf("nullstr %v != abc,true", ns)
+	}
 }
 
 func TestVersionMultipleRows(t *testing.T) {
@@ -842,6 +1087,34 @@ func TestWithStringPk(t *testing.T) {
 	err = dbmap.Insert(row)
 	if err == nil {
 		t.Errorf("Expected error when inserting into table w/non Int PK and autoincr set true")
+	}
+}
+
+type WithTime struct {
+	Id   int64
+	Time time.Time
+}
+
+// TODO: re-enable this test when this is merged:
+// https://github.com/ziutek/mymysql/pull/77
+//
+// This test currently fails w/MySQL b/c tz info is lost
+func testWithTime(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	t1, err := time.Parse("2006-01-02 15:04:05 -0700 MST",
+		"2013-08-09 21:30:43 +0800 CST")
+	if err != nil {
+		panic(err)
+	}
+	w1 := WithTime{1, t1}
+	_insert(dbmap, &w1)
+
+	obj := _get(dbmap, WithTime{}, w1.Id)
+	w2 := obj.(*WithTime)
+	if w1.Time.UnixNano() != w2.Time.UnixNano() {
+		t.Errorf("%v != %v", w1, w2)
 	}
 }
 
@@ -1017,6 +1290,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStruct{}, "embedded_struct_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(WithTime{}, "time_test").SetKeys(true, "Id")
 	dbmap.TypeConverter = testTypeConverter{}
 	err := dbmap.CreateTables()
 	if err != nil {

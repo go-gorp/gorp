@@ -85,6 +85,8 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 		return "integer"
 	case "NullableBytes":
 		return "blob"
+	case "Time":
+		return "datetime"
 	}
 
 	if maxsize < 1 {
@@ -170,6 +172,8 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 		return "smallint"
 	case "NullableBytes":
 		return "bytea"
+	case "Time", "NullTime":
+		return "timestamp with time zone"
 	}
 
 	if maxsize < 1 {
@@ -218,7 +222,7 @@ func (d PostgresDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, para
 		return id, err
 	}
 
-	return 0, errors.New("No serial value returned for insert: " + insertSql)
+	return 0, errors.New("No serial value returned for insert: " + insertSql + " Encountered error: " + rows.Err().Error())
 }
 
 func (d PostgresDialect) QuoteField(f string) string {
@@ -264,6 +268,8 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 		return "tinyint"
 	case "NullableBytes":
 		return "mediumblob"
+	case "Time":
+		return "datetime"
 	}
 
 	if maxsize < 1 {

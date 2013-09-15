@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
@@ -486,6 +487,7 @@ type ColumnMap struct {
 	gotype     reflect.Type
 	isPK       bool
 	isAutoIncr bool
+	isNotNull  bool
 }
 
 // Rename allows you to specify the column name in the table
@@ -508,6 +510,13 @@ func (c *ColumnMap) SetTransient(b bool) *ColumnMap {
 // column, if b is true.
 func (c *ColumnMap) SetUnique(b bool) *ColumnMap {
 	c.Unique = b
+	return c
+}
+
+// SetNotNull adds "not null" to the create table statements for this
+// column, if nn is true.
+func (c *ColumnMap) SetNotNull(nn bool) *ColumnMap {
+	c.isNotNull = nn
 	return c
 }
 
@@ -681,11 +690,11 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 				stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
 				s.WriteString(fmt.Sprintf("%s %s", m.Dialect.QuoteField(col.ColumnName), stype))
 
-				if col.isPK {
+				if col.isPK || col.isNotNull {
 					s.WriteString(" not null")
-					if len(table.keys) == 1 {
-						s.WriteString(" primary key")
-					}
+				}
+				if col.isPK && len(table.keys) == 1 {
+					s.WriteString(" primary key")
 				}
 				if col.Unique {
 					s.WriteString(" unique")
@@ -891,6 +900,7 @@ func (m *DbMap) SelectNullStr(query string, args ...interface{}) (sql.NullString
 
 // Begin starts a gorp Transaction
 func (m *DbMap) Begin() (*Transaction, error) {
+	m.trace("begin;")
 	tx, err := m.Db.Begin()
 	if err != nil {
 		return nil, err
@@ -1026,12 +1036,44 @@ func (t *Transaction) SelectNullStr(query string, args ...interface{}) (sql.Null
 
 // Commit commits the underlying database transaction.
 func (t *Transaction) Commit() error {
+	t.dbmap.trace("commit;")
 	return t.tx.Commit()
 }
 
 // Rollback rolls back the underlying database transaction.
 func (t *Transaction) Rollback() error {
+	t.dbmap.trace("rollback;")
 	return t.tx.Rollback()
+}
+
+// Savepoint creates a savepoint with the given name. The name is interpolated
+// directly into the SQL SAVEPOINT statement, so you must sanitize it if it is
+// derived from user input.
+func (t *Transaction) Savepoint(name string) error {
+	query := "savepoint " + t.dbmap.Dialect.QuoteField(name)
+	t.dbmap.trace(query, nil)
+	_, err := t.tx.Exec(query)
+	return err
+}
+
+// RollbackToSavepoint rolls back to the savepoint with the given name. The
+// name is interpolated directly into the SQL SAVEPOINT statement, so you must
+// sanitize it if it is derived from user input.
+func (t *Transaction) RollbackToSavepoint(savepoint string) error {
+	query := "rollback to savepoint " + t.dbmap.Dialect.QuoteField(savepoint)
+	t.dbmap.trace(query, nil)
+	_, err := t.tx.Exec(query)
+	return err
+}
+
+// ReleaseSavepint releases the savepoint with the given name. The name is
+// interpolated directly into the SQL SAVEPOINT statement, so you must sanitize
+// it if it is derived from user input.
+func (t *Transaction) ReleaseSavepoint(savepoint string) error {
+	query := "release savepoint " + t.dbmap.Dialect.QuoteField(savepoint)
+	t.dbmap.trace(query, nil)
+	_, err := t.tx.Exec(query)
+	return err
 }
 
 func (t *Transaction) queryRow(query string, args ...interface{}) *sql.Row {
@@ -1120,6 +1162,14 @@ func SelectNullStr(e SqlExecutor, query string, args ...interface{}) (sql.NullSt
 }
 
 func selectVal(e SqlExecutor, holder interface{}, query string, args ...interface{}) error {
+	if len(args) == 1 {
+		switch m := e.(type) {
+		case *DbMap:
+			query, args = maybeExpandNamedQuery(m, query, args)
+		case *Transaction:
+			query, args = maybeExpandNamedQuery(m.dbmap, query, args)
+		}
+	}
 	rows, err := e.query(query, args...)
 	if err != nil {
 		return err
@@ -1168,9 +1218,13 @@ func hookedselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 
 func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	args ...interface{}) ([]interface{}, error) {
-	appendToSlice := false // Write results to i directly?
+	var (
+		appendToSlice   = false // Write results to i directly?
+		intoStruct      = true  // Selecting into a struct?
+		pointerElements = true  // Are the slice elements pointers (vs values)?
+	)
 
-	// get type for i, verifying it's a struct or a pointer-to-slice
+	// get type for i, verifying it's a supported destination
 	t, err := toType(i)
 	if err != nil {
 		var err2 error
@@ -1180,7 +1234,19 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 			}
 			return nil, err
 		}
+		pointerElements = t.Kind() == reflect.Ptr
+		if pointerElements {
+			t = t.Elem()
+		}
 		appendToSlice = true
+		intoStruct = t.Kind() == reflect.Struct
+	}
+
+	// If the caller supplied a single struct/map argument, assume a "named
+	// parameter" query.  Extract the named arguments from the struct/map, create
+	// the flat arg slice, and rewrite the query to use the dialect's placeholder.
+	if len(args) == 1 {
+		query, args = maybeExpandNamedQuery(m, query, args)
 	}
 
 	// Run the query
@@ -1196,6 +1262,131 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		return nil, err
 	}
 
+	if !intoStruct && len(cols) > 1 {
+		return nil, fmt.Errorf("gorp: select into non-struct slice requires 1 column, got %d", len(cols))
+	}
+
+	var colToFieldIndex [][]int
+	if intoStruct {
+		if colToFieldIndex, err = columnToFieldIndex(m, t, cols); err != nil {
+			return nil, err
+		}
+	}
+
+	conv := m.TypeConverter
+
+	// Add results to one of these two slices.
+	var (
+		list       = make([]interface{}, 0)
+		sliceValue = reflect.Indirect(reflect.ValueOf(i))
+	)
+
+	for {
+		if !rows.Next() {
+			// if error occured return rawselect
+			if rows.Err() != nil {
+				return nil, rows.Err()
+			}
+			// time to exit from outer "for" loop
+			break
+		}
+		v := reflect.New(t)
+		dest := make([]interface{}, len(cols))
+
+		custScan := make([]CustomScanner, 0)
+
+		for x := range cols {
+			f := v.Elem()
+			if intoStruct {
+				f = f.FieldByIndex(colToFieldIndex[x])
+			}
+			target := f.Addr().Interface()
+			if conv != nil {
+				scanner, ok := conv.FromDb(target)
+				if ok {
+					target = scanner.Holder
+					custScan = append(custScan, scanner)
+				}
+			}
+			dest[x] = target
+		}
+
+		err = rows.Scan(dest...)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, c := range custScan {
+			err = c.Bind()
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if appendToSlice {
+			if !pointerElements {
+				v = v.Elem()
+			}
+			sliceValue.Set(reflect.Append(sliceValue, v))
+		} else {
+			list = append(list, v.Interface())
+		}
+	}
+
+	if appendToSlice && sliceValue.IsNil() {
+		sliceValue.Set(reflect.MakeSlice(sliceValue.Type(), 0, 0))
+	}
+
+	return list, nil
+}
+
+// maybeExpandNamedQuery checks the given arg to see if it's eligible to be used
+// as input to a named query.  If so, it rewrites the query to use
+// dialect-dependent bindvars and instantiates the corresponding slice of
+// parameters by extracting data from the map / struct.
+// If not, returns the input values unchanged.
+func maybeExpandNamedQuery(m *DbMap, query string, args []interface{}) (string, []interface{}) {
+	arg := reflect.ValueOf(args[0])
+	for arg.Kind() == reflect.Ptr {
+		arg = arg.Elem()
+	}
+	switch {
+	case arg.Kind() == reflect.Map && arg.Type().Key().Kind() == reflect.String:
+		return expandNamedQuery(m, query, func(key string) reflect.Value {
+			return arg.MapIndex(reflect.ValueOf(key))
+		})
+	case arg.Kind() == reflect.Struct:
+		return expandNamedQuery(m, query, arg.FieldByName)
+	}
+	return query, args
+}
+
+var keyRegexp = regexp.MustCompile(`:[[:word:]]+`)
+
+// expandNamedQuery accepts a query with placeholders of the form ":key", and a
+// single arg of Kind Struct or Map[string].  It returns the query with the
+// dialect's placeholders, and a slice of args ready for positional insertion
+// into the query.
+func expandNamedQuery(m *DbMap, query string, keyGetter func(key string) reflect.Value) (string, []interface{}) {
+	var (
+		n    int
+		args []interface{}
+	)
+	return keyRegexp.ReplaceAllStringFunc(query, func(key string) string {
+		val := keyGetter(key[1:])
+		if !val.IsValid() {
+			return key
+		}
+		args = append(args, val.Interface())
+		newVar := m.Dialect.BindVar(n)
+		n++
+		return newVar
+	}), args
+}
+
+func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error) {
+	colToFieldIndex := make([][]int, len(cols))
+
 	// check if type t is a mapped table - if so we'll
 	// check the table for column aliasing below
 	tableMapped := false
@@ -1203,8 +1394,6 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	if table != nil {
 		tableMapped = true
 	}
-
-	colToFieldIndex := make([][]int, len(cols))
 
 	// Loop over column names and find field in i to bind to
 	// based on column name. all returned columns must match
@@ -1234,71 +1423,10 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 			colToFieldIndex[x] = field.Index
 		}
 		if colToFieldIndex[x] == nil {
-			e := fmt.Sprintf("gorp: No field %s in type %s (query: %s)",
-				colName, t.Name(), query)
-			return nil, errors.New(e)
+			return nil, fmt.Errorf("gorp: No field %s in type %s", colName, t.Name())
 		}
 	}
-
-	conv := m.TypeConverter
-
-	// Add results to one of these two slices.
-	var (
-		list       = make([]interface{}, 0)
-		sliceValue = reflect.Indirect(reflect.ValueOf(i))
-	)
-
-	for {
-		if !rows.Next() {
-			// if error occured return rawselect
-			if rows.Err() != nil {
-				return nil, rows.Err()
-			}
-			// time to exit from outer "for" loop
-			break
-		}
-		v := reflect.New(t)
-		dest := make([]interface{}, len(cols))
-
-		custScan := make([]CustomScanner, 0)
-
-		for x := range cols {
-			f := v.Elem().FieldByIndex(colToFieldIndex[x])
-			target := f.Addr().Interface()
-			if conv != nil {
-				scanner, ok := conv.FromDb(target)
-				if ok {
-					target = scanner.Holder
-					custScan = append(custScan, scanner)
-				}
-			}
-			dest[x] = target
-		}
-
-		err = rows.Scan(dest...)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, c := range custScan {
-			err = c.Bind()
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if appendToSlice {
-			sliceValue.Set(reflect.Append(sliceValue, v))
-		} else {
-			list = append(list, v.Interface())
-		}
-	}
-
-	if appendToSlice && sliceValue.IsNil() {
-		sliceValue.Set(reflect.MakeSlice(sliceValue.Type(), 0, 0))
-	}
-
-	return list, nil
+	return colToFieldIndex, nil
 }
 
 func fieldByName(val reflect.Value, fieldName string) *reflect.Value {
@@ -1326,7 +1454,7 @@ func fieldByName(val reflect.Value, fieldName string) *reflect.Value {
 }
 
 // toSliceType returns the element type of the given object, if the object is a
-// "*[]*Element". If not, returns nil.
+// "*[]*Element" or "*[]Element". If not, returns nil.
 // err is returned if the user was trying to pass a pointer-to-slice but failed.
 func toSliceType(i interface{}) (reflect.Type, error) {
 	t := reflect.TypeOf(i)
@@ -1340,13 +1468,7 @@ func toSliceType(i interface{}) (reflect.Type, error) {
 	if t = t.Elem(); t.Kind() != reflect.Slice {
 		return nil, nil
 	}
-	if t = t.Elem(); t.Kind() != reflect.Ptr {
-		return nil, nil
-	}
-	if t = t.Elem(); t.Kind() != reflect.Struct {
-		return nil, nil
-	}
-	return t, nil
+	return t.Elem(), nil
 }
 
 func toType(i interface{}) (reflect.Type, error) {
@@ -1358,7 +1480,7 @@ func toType(i interface{}) (reflect.Type, error) {
 	}
 
 	if t.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("gorp: Cannot SELECT into non-struct type: %v", reflect.TypeOf(i))
+		return nil, fmt.Errorf("gorp: Cannot SELECT into this type: %v", reflect.TypeOf(i))
 	}
 	return t, nil
 }
