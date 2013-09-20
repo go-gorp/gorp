@@ -1134,6 +1134,9 @@ func TestWithTimeSelect(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	if len(caseIds) != 1 {
+		t.Errorf("%d != 1", len(caseIds))
+	}
 	if caseIds[0] != w1.Id {
 		t.Errorf("%d != %d", caseIds[0], w1.Id)
 	}
