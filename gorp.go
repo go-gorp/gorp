@@ -1355,7 +1355,8 @@ func maybeExpandNamedQuery(m *DbMap, query string, args []interface{}) (string, 
 		return expandNamedQuery(m, query, func(key string) reflect.Value {
 			return arg.MapIndex(reflect.ValueOf(key))
 		})
-	case arg.Kind() == reflect.Struct:
+		// #84 - ignore time.Time structs here - there may be a cleaner way to do this
+	case arg.Kind() == reflect.Struct && !(arg.Type().PkgPath() == "time" && arg.Type().Name() == "Time"):
 		return expandNamedQuery(m, query, arg.FieldByName)
 	}
 	return query, args
