@@ -1118,6 +1118,27 @@ func testWithTime(t *testing.T) {
 	}
 }
 
+func TestWithTimeSelect(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	halfhourago := time.Now().UTC().Add(-30 * time.Minute)
+
+	w1 := WithTime{1, halfhourago.Add(time.Minute * -1)}
+	w2 := WithTime{2, halfhourago}
+	_insert(dbmap, &w1, &w2)
+
+	var caseIds []int64
+	_, err := dbmap.Select(&caseIds, "SELECT id FROM time_test WHERE Time < "+dbmap.Dialect.BindVar(0), halfhourago)
+
+	if err != nil {
+		t.Error(err)
+	}
+	if caseIds[0] != w1.Id {
+		t.Errorf("%d != %d", caseIds[0], w1.Id)
+	}
+}
+
 func TestInvoicePersonView(t *testing.T) {
 	dbmap := initDbMap()
 	defer dbmap.DropTables()
