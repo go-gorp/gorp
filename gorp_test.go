@@ -1203,6 +1203,64 @@ func TestQuoteTableNames(t *testing.T) {
 	logBuffer.Reset()
 }
 
+func TestSelectSingleVal(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	p1 := &Person{0, 0, 0, "bob", "smith", 0}
+	_insert(dbmap, p1)
+
+	obj := _get(dbmap, Person{}, p1.Id)
+	p1 = obj.(*Person)
+
+	params := map[string]interface{}{
+		"Id": p1.Id,
+	}
+
+	var p2 Person
+	err := dbmap.SelectOne(&p2, "select * from person_test where Id=:Id", params)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !reflect.DeepEqual(p1, &p2) {
+		t.Errorf("%v != %v", p1, &p2)
+	}
+
+	// verify SelectOne allows non-struct holders
+	var s string
+	err = dbmap.SelectOne(&s, "select FName from person_test where Id=:Id", params)
+	if err != nil {
+		t.Error(err)
+	}
+	if s != "bob" {
+		t.Error("Expected bob but got: " + s)
+	}
+
+	// verify SelectOne requires pointer receiver
+	err = dbmap.SelectOne(s, "select FName from person_test where Id=:Id", params)
+	if err == nil {
+		t.Error("SelectOne should have returned error for non-pointer holder")
+	}
+
+	// verify that pointer is set to zero val if not found
+	err = dbmap.SelectOne(&p2, "select * from person_test where Id=:Id", map[string]interface{}{
+		"Id": -2222,
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	if p2.Id != 0 {
+		t.Errorf("p2.Id != 0: %d", p2.Id)
+	}
+
+	_insert(dbmap, &Person{0, 0, 0, "bob", "smith", 0})
+	err = dbmap.SelectOne(&p2, "select * from person_test where Fname='bob'")
+	if err == nil {
+		t.Error("Expected nil when two rows found")
+	}
+}
+
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
