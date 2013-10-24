@@ -533,8 +533,9 @@ func (c *ColumnMap) SetMaxSize(size int) *ColumnMap {
 // of that transaction.  Transactions should be terminated with
 // a call to Commit() or Rollback()
 type Transaction struct {
-	dbmap *DbMap
-	tx    *sql.Tx
+	dbmap  *DbMap
+	tx     *sql.Tx
+	closed bool
 }
 
 // SqlExecutor exposes gorp operations that can be run from Pre/Post
@@ -910,7 +911,7 @@ func (m *DbMap) Begin() (*Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Transaction{m, tx}, nil
+	return &Transaction{m, tx, false}, nil
 }
 
 func (m *DbMap) tableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
@@ -1046,14 +1047,24 @@ func (t *Transaction) SelectOne(holder interface{}, query string, args ...interf
 
 // Commit commits the underlying database transaction.
 func (t *Transaction) Commit() error {
-	t.dbmap.trace("commit;")
-	return t.tx.Commit()
+	if !t.closed {
+		t.closed = true
+		t.dbmap.trace("commit;")
+		return t.tx.Commit()
+	}
+
+	return sql.ErrTxDone
 }
 
 // Rollback rolls back the underlying database transaction.
 func (t *Transaction) Rollback() error {
-	t.dbmap.trace("rollback;")
-	return t.tx.Rollback()
+	if !t.closed {
+		t.closed = true
+		t.dbmap.trace("rollback;")
+		return t.tx.Rollback()
+	}
+
+	return sql.ErrTxDone
 }
 
 // Savepoint creates a savepoint with the given name. The name is interpolated
