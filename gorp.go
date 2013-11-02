@@ -898,6 +898,7 @@ func (m *DbMap) SelectNullStr(query string, args ...interface{}) (sql.NullString
 	return SelectNullStr(m, query, args...)
 }
 
+// SelectOne is a convenience wrapper around the gorp.SelectOne function
 func (m *DbMap) SelectOne(holder interface{}, query string, args ...interface{}) error {
 	return SelectOne(m, m, holder, query, args...)
 }
