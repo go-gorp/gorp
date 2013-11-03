@@ -533,8 +533,9 @@ func (c *ColumnMap) SetMaxSize(size int) *ColumnMap {
 // of that transaction.  Transactions should be terminated with
 // a call to Commit() or Rollback()
 type Transaction struct {
-	dbmap *DbMap
-	tx    *sql.Tx
+	dbmap  *DbMap
+	tx     *sql.Tx
+	closed bool
 }
 
 // SqlExecutor exposes gorp operations that can be run from Pre/Post
@@ -898,6 +899,11 @@ func (m *DbMap) SelectNullStr(query string, args ...interface{}) (sql.NullString
 	return SelectNullStr(m, query, args...)
 }
 
+// SelectOne is a convenience wrapper around the gorp.SelectOne function
+func (m *DbMap) SelectOne(holder interface{}, query string, args ...interface{}) error {
+	return SelectOne(m, m, holder, query, args...)
+}
+
 // Begin starts a gorp Transaction
 func (m *DbMap) Begin() (*Transaction, error) {
 	m.trace("begin;")
@@ -905,7 +911,7 @@ func (m *DbMap) Begin() (*Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Transaction{m, tx}, nil
+	return &Transaction{m, tx, false}, nil
 }
 
 func (m *DbMap) tableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
@@ -1034,16 +1040,31 @@ func (t *Transaction) SelectNullStr(query string, args ...interface{}) (sql.Null
 	return SelectNullStr(t, query, args...)
 }
 
+// SelectOne is a convenience wrapper around the gorp.SelectOne function.
+func (t *Transaction) SelectOne(holder interface{}, query string, args ...interface{}) error {
+	return SelectOne(t.dbmap, t, holder, query, args...)
+}
+
 // Commit commits the underlying database transaction.
 func (t *Transaction) Commit() error {
-	t.dbmap.trace("commit;")
-	return t.tx.Commit()
+	if !t.closed {
+		t.closed = true
+		t.dbmap.trace("commit;")
+		return t.tx.Commit()
+	}
+
+	return sql.ErrTxDone
 }
 
 // Rollback rolls back the underlying database transaction.
 func (t *Transaction) Rollback() error {
-	t.dbmap.trace("rollback;")
-	return t.tx.Rollback()
+	if !t.closed {
+		t.closed = true
+		t.dbmap.trace("rollback;")
+		return t.tx.Rollback()
+	}
+
+	return sql.ErrTxDone
 }
 
 // Savepoint creates a savepoint with the given name. The name is interpolated
@@ -1159,6 +1180,49 @@ func SelectNullStr(e SqlExecutor, query string, args ...interface{}) (sql.NullSt
 		return h, err
 	}
 	return h, nil
+}
+
+// SelectOne executes the given query (which should be a SELECT statement)
+// and binds the result to holder, which must be a pointer.
+//
+// If no row is found, holder will point at the zero value
+//
+// If more than one row is found, an error will be returned.
+//
+func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args ...interface{}) error {
+	t := reflect.TypeOf(holder)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	} else {
+		return fmt.Errorf("gorp: SelectOne holder must be a pointer, but got: %t", holder)
+	}
+
+	if t.Kind() == reflect.Struct {
+		list, err := hookedselect(m, e, holder, query, args...)
+		if err != nil {
+			return err
+		}
+
+		dest := reflect.ValueOf(holder)
+
+		if list != nil && len(list) > 0 {
+			// check for multiple rows
+			if len(list) > 1 {
+				return fmt.Errorf("gorp: multiple rows returned for: %s - %v", query, args)
+			}
+
+			// only one row found
+			src := reflect.ValueOf(list[0])
+			dest.Elem().Set(src.Elem())
+		} else {
+			// not found - set pointer to zero val
+			dest.Elem().Set(reflect.Zero(t))
+		}
+
+		return nil
+	}
+
+	return selectVal(e, holder, query, args...)
 }
 
 func selectVal(e SqlExecutor, holder interface{}, query string, args ...interface{}) error {

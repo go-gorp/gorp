@@ -15,24 +15,6 @@ I hope that gorp saves you time, minimizes the drudgery of getting data
 in and out of your database, and helps your code focus on algorithms, 
 not infrastructure.
 
-## Database Drivers ##
-
-gorp uses the Go 1 `database/sql` package.  A full list of compliant drivers is available here:
-
-http://code.google.com/p/go-wiki/wiki/SQLDrivers
-
-Sadly, SQL databases differ on various issues. gorp provides a Dialect interface that should be
-implemented per database vendor.  Dialects are provided for:
-
-* MySQL
-* PostgreSQL
-* sqlite3
-
-Each of these three databases pass the test suite.  See `gorp_test.go` for example 
-DSNs for these three databases.
-
-## Features ##
-
 * Bind struct fields to table columns via API or tag
 * Support for embedded structs
 * Support for transactions
@@ -64,17 +46,125 @@ Full godoc output from the latest code in master is available here:
 
 http://godoc.org/github.com/coopernurse/gorp
 
-## Known Issues ##
+## Quickstart
 
-### time.Time and time zones
+```go
+package main
 
-gorp will pass `time.Time` fields through to the `database/sql` driver, but note that 
-the behavior of this type varies across database drivers.
+import (
+    "database/sql"
+    "github.com/coopernurse/gorp"
+    _ "github.com/mattn/go-sqlite3"
+    "log"
+    "time"
+)
 
-MySQL users should be especially cautious.  See: https://github.com/ziutek/mymysql/pull/77
+func main() {
+    // initialize the DbMap
+    dbmap := initDb()
+    defer dbmap.Db.Close()
 
-To avoid any potential issues with timezone/DST, consider using an integer field for time
-data and storing UNIX time.  Obviously for legacy schemas this is not usually possible.
+    // delete any existing rows
+    err := dbmap.TruncateTables()
+    checkErr(err, "TruncateTables failed")
+
+    // create two posts
+    p1 := newPost("Go 1.1 released!", "Lorem ipsum lorem ipsum")
+    p2 := newPost("Go 1.2 released!", "Lorem ipsum lorem ipsum")
+
+    // insert rows - auto increment PKs will be set properly after the insert
+    err = dbmap.Insert(&p1, &p2)
+    checkErr(err, "Insert failed")
+
+    // use convenience SelectInt
+    count, err := dbmap.SelectInt("select count(*) from posts")
+    checkErr(err, "select count(*) failed")
+    log.Println("Rows after inserting:", count)
+
+    // update a row
+    p2.Title = "Go 1.2 is better than ever"
+    count, err = dbmap.Update(&p2)
+    checkErr(err, "Update failed")
+    log.Println("Rows updated:", count)
+
+    // fetch one row - note use of "post_id" instead of "Id" since column is aliased
+    //
+    // Postgres users should use $1 instead of ? placeholders
+    // See 'Known Issues' below
+    //
+    err = dbmap.SelectOne(&p2, "select * from posts where post_id=?", p2.Id)
+    checkErr(err, "SelectOne failed")
+    log.Println("p2 row:", p2)
+
+    // fetch all rows
+    var posts []Post
+    _, err = dbmap.Select(&posts, "select * from posts order by post_id")
+    checkErr(err, "Select failed")
+    log.Println("All rows:")
+    for x, p := range posts {
+        log.Printf("    %d: %v\n", x, p)
+    }
+
+    // delete row by PK
+    count, err = dbmap.Delete(&p1)
+    checkErr(err, "Delete failed")
+    log.Println("Rows deleted:", count)
+
+    // delete row manually via Exec
+    _, err = dbmap.Exec("delete from posts where post_id=?", p2.Id)
+    checkErr(err, "Exec failed")
+
+    // confirm count is zero
+    count, err = dbmap.SelectInt("select count(*) from posts")
+    checkErr(err, "select count(*) failed")
+    log.Println("Row count - should be zero:", count)
+
+    log.Println("Done!")
+}
+
+type Post struct {
+    // db tag lets you specify the column name if it differs from the struct field
+    Id      int64 `db:"post_id"`
+    Created int64
+    Title   string
+    Body    string
+}
+
+func newPost(title, body string) Post {
+    return Post{
+        Created: time.Now().UnixNano(),
+        Title:   title,
+        Body:    body,
+    }
+}
+
+func initDb() *gorp.DbMap {
+    // connect to db using standard Go database/sql API
+    // use whatever database/sql driver you wish
+    db, err := sql.Open("sqlite3", "/tmp/post_db.bin")
+    checkErr(err, "sql.Open failed")
+
+    // construct a gorp DbMap
+    dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
+
+    // add a table, setting the table name to 'posts' and
+    // specifying that the Id property is an auto incrementing PK
+    dbmap.AddTableWithName(Post{}, "posts").SetKeys(true, "Id")
+
+    // create the table. in a production system you'd generally
+    // use a migration tool, or create the tables via scripts
+    err = dbmap.CreateTablesIfNotExists()
+    checkErr(err, "Create tables failed")
+
+    return dbmap
+}
+
+func checkErr(err error, msg string) {
+    if err != nil {
+        log.Fatalln(msg, err)
+    }
+}
+```
 
 ## Examples ##
 
@@ -244,6 +334,23 @@ inv := obj.(*Invoice)
 
 #### SELECT ####
 
+`Select()` and `SelectOne()` provide a simple way to bind arbitrary queries to a slice
+or a single struct.
+
+```go
+// Select a slice - first return value is not needed when a slice pointer is passed to Select()
+var posts []Post
+_, err := dbmap.Select(&posts, "select * from post order by id")
+
+// You can also use primitive types
+var ids []string
+_, err := dbmap.Select(&ids, "select id from post")
+
+// Select a single row. Will return an error if more than one row is found
+var post Post
+err := dbmap.SelectOne(&post, "select * from post where id=?", id)
+```
+
 Want to do joins?  Just write the SQL and the struct. gorp will bind them:
 
 ```go
@@ -273,13 +380,12 @@ query := "select i.Id InvoiceId, p.Id PersonId, i.Memo, p.FName " +
 	"from invoice_test i, person_test p " +
 	"where i.PersonId = p.Id"
 
-// pass a slice of pointers to Select()
-// this avoids the need to type assert after the query is run
-var list []*InvoicePersonView
+// pass a slice to Select()
+var list []InvoicePersonView
 _, err := dbmap.Select(&list, query)
 
 // this should test true
-expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName}
+expected := InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName}
 if reflect.DeepEqual(list[0], expected) {
     fmt.Println("Woot! My join worked!")
 }
@@ -436,6 +542,59 @@ if ok {
     fmt.Printf("Unknown db err: %v\n", err)
 }
 ```
+
+## Database Drivers ##
+
+gorp uses the Go 1 `database/sql` package.  A full list of compliant drivers is available here:
+
+http://code.google.com/p/go-wiki/wiki/SQLDrivers
+
+Sadly, SQL databases differ on various issues. gorp provides a Dialect interface that should be
+implemented per database vendor.  Dialects are provided for:
+
+* MySQL
+* PostgreSQL
+* sqlite3
+
+Each of these three databases pass the test suite.  See `gorp_test.go` for example 
+DSNs for these three databases.
+
+## Known Issues ##
+
+### SQL placeholder portability ###
+
+Different databases use different strings to indicate variable placeholders in 
+prepared SQL statements.  Unlike some database abstraction layers (such as JDBC),
+Go's `database/sql` does not standardize this.
+
+SQL generated by gorp in the `Insert`, `Update`, `Delete`, and `Get` methods delegates
+to a Dialect implementation for each database, and will generate portable SQL.
+
+Raw SQL strings passed to `Exec`, `Select`, `SelectOne`, `SelectInt`, etc will not be
+parsed.  Consequently you may have portability issues if you write a query like this:
+
+```go
+// works on MySQL and Sqlite3, but not with Postgresql
+err := dbmap.SelectOne(&val, "select * from foo where id = ?", 30)
+```
+
+In `Select` and `SelectOne` you can use named parameters to work around this.
+The following is portable:
+
+```go
+err := dbmap.SelectOne(&val, "select * from foo where id = :id", 
+   map[string]interface{} { "id": 30})
+```
+
+### time.Time and time zones ###
+
+gorp will pass `time.Time` fields through to the `database/sql` driver, but note that 
+the behavior of this type varies across database drivers.
+
+MySQL users should be especially cautious.  See: https://github.com/ziutek/mymysql/pull/77
+
+To avoid any potential issues with timezone/DST, consider using an integer field for time
+data and storing UNIX time.
 
 ## Running the tests ##
 
