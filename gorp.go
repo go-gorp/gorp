@@ -631,7 +631,18 @@ func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 		if f.Anonymous && f.Type.Kind() == reflect.Struct {
 			// Recursively add nested fields in embedded structs.
 			subcols, subversion := readStructColumns(f.Type)
-			cols = append(cols, subcols...)
+			// Don't append nested fields that exist in the base type.
+			for _, subcol := range subcols {
+				shouldAppend := true
+				for _, col := range cols {
+					if !subcol.Transient && subcol.ColumnName == col.ColumnName {
+						shouldAppend = false
+					}
+				}
+				if shouldAppend {
+					cols = append(cols, subcol)
+				}
+			}
 			if subversion != nil {
 				version = subversion
 			}
@@ -646,7 +657,18 @@ func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 				fieldName:  f.Name,
 				gotype:     f.Type,
 			}
-			cols = append(cols, cm)
+			// Check for nested fields of the same name and override
+			// them.
+			shouldAppend := true
+			for index, col := range cols {
+				if !col.Transient && col.ColumnName == cm.ColumnName {
+					cols[index] = cm
+					shouldAppend = false
+				}
+			}
+			if shouldAppend {
+				cols = append(cols, cm)
+			}
 			if cm.fieldName == "Version" {
 				version = cm
 			}
