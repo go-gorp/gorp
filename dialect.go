@@ -182,6 +182,8 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 
 	if maxsize < 1 {
 		maxsize = 255
+	}else if maxsize >= 4096{
+	      return "text"
 	}
 	return fmt.Sprintf("varchar(%d)", maxsize)
 }
