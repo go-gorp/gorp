@@ -16,7 +16,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"regexp"
 	"strings"
@@ -113,7 +112,7 @@ type DbMap struct {
 	TypeConverter TypeConverter
 
 	tables    []*TableMap
-	logger    *log.Logger
+	logger    GorpLogger
 	logPrefix string
 }
 
@@ -595,6 +594,10 @@ type SqlExecutor interface {
 // interface.
 var _, _ SqlExecutor = &DbMap{}, &Transaction{}
 
+type GorpLogger interface {
+	Printf(format string, v ...interface{})
+}
+
 // TraceOn turns on SQL statement logging for this DbMap.  After this is
 // called, all SQL statements will be sent to the logger.  If prefix is
 // a non-empty string, it will be written to the front of all logged
@@ -602,7 +605,11 @@ var _, _ SqlExecutor = &DbMap{}, &Transaction{}
 //
 // Use TraceOn if you want to spy on the SQL statements that gorp
 // generates.
-func (m *DbMap) TraceOn(prefix string, logger *log.Logger) {
+//
+// Note that the base log.Logger type satisfies GorpLogger, but adapters can
+// easily be written for other logging packages (e.g., the golang-sanctioned
+// glog framework).
+func (m *DbMap) TraceOn(prefix string, logger GorpLogger) {
 	m.logger = logger
 	if prefix == "" {
 		m.logPrefix = prefix
