@@ -674,12 +674,14 @@ func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 		if f.Anonymous && f.Type.Kind() == reflect.Struct {
 			// Recursively add nested fields in embedded structs.
 			subcols, subversion := readStructColumns(f.Type)
-			// Don't append nested fields that exist in the base type.
+			// Don't append nested fields that have the same field
+			// name as an already-mapped field.
 			for _, subcol := range subcols {
 				shouldAppend := true
 				for _, col := range cols {
-					if !subcol.Transient && subcol.ColumnName == col.ColumnName {
+					if !subcol.Transient && subcol.fieldName == col.fieldName {
 						shouldAppend = false
+						break
 					}
 				}
 				if shouldAppend {
@@ -700,13 +702,14 @@ func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 				fieldName:  f.Name,
 				gotype:     f.Type,
 			}
-			// Check for nested fields of the same name and override
-			// them.
+			// Check for nested fields of the same field name and
+			// override them.
 			shouldAppend := true
 			for index, col := range cols {
-				if !col.Transient && col.ColumnName == cm.ColumnName {
+				if !col.Transient && col.fieldName == cm.fieldName {
 					cols[index] = cm
 					shouldAppend = false
+					break
 				}
 			}
 			if shouldAppend {
