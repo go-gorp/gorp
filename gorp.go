@@ -193,15 +193,6 @@ func colMapOrNil(t *TableMap, field string) *ColumnMap {
     return nil
 }
 
-func colNameOrNil(t *TableMap, name string) *ColumnMap {
-    for _, col :=  range t.columns {
-        if col.ColumnName == name {
-            return col
-        }
-    }
-    return nil
-}
-
 // IdxMap returns the IndexMap pointer matching the given index name.
 func (t *TableMap) IdxMap(field string) *IndexMap {
     for _, idx := range t.indexes {
@@ -225,7 +216,7 @@ func (t *TableMap) AddIndex(name string, idxtype string, columns []string) *Inde
         }
     }
     for _, icol := range columns {
-        if res := colNameOrNil(t, icol); res == nil {
+        if res := t.ColMap(icol); res == nil {
             e := fmt.Sprintf("No ColumnName in table %s to create index on", t.TableName)
             panic(e)
         }
