@@ -205,15 +205,16 @@ func (t *TableMap) SetVersionCol(field string) *ColumnMap {
 }
 
 type bindPlan struct {
-	query       string
-	argFields   []string
-	keyFields   []string
-	versField   string
-	autoIncrIdx int
+	query             string
+	argFields         []string
+	keyFields         []string
+	versField         string
+	autoIncrIdx       int
+	autoIncrFieldName string
 }
 
 func (plan bindPlan) createBindInstance(elem reflect.Value, conv TypeConverter) (bindInstance, error) {
-	bi := bindInstance{query: plan.query, autoIncrIdx: plan.autoIncrIdx, versField: plan.versField}
+	bi := bindInstance{query: plan.query, autoIncrIdx: plan.autoIncrIdx, autoIncrFieldName: plan.autoIncrFieldName, versField: plan.versField}
 	if plan.versField != "" {
 		bi.existingVersion = elem.FieldByName(plan.versField).Int()
 	}
@@ -256,12 +257,13 @@ func (plan bindPlan) createBindInstance(elem reflect.Value, conv TypeConverter) 
 }
 
 type bindInstance struct {
-	query           string
-	args            []interface{}
-	keys            []interface{}
-	existingVersion int64
-	versField       string
-	autoIncrIdx     int
+	query             string
+	args              []interface{}
+	keys              []interface{}
+	existingVersion   int64
+	versField         string
+	autoIncrIdx       int
+	autoIncrFieldName string
 }
 
 func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
@@ -288,6 +290,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 				if col.isAutoIncr {
 					s2.WriteString(t.dbmap.Dialect.AutoIncrBindValue())
 					plan.autoIncrIdx = y
+					plan.autoIncrFieldName = col.fieldName
 				} else {
 					s2.WriteString(t.dbmap.Dialect.BindVar(x))
 					if col == t.version {
@@ -1726,14 +1729,14 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			if err != nil {
 				return err
 			}
-			f := elem.Field(bi.autoIncrIdx)
+			f := elem.FieldByName(bi.autoIncrFieldName)
 			k := f.Kind()
 			if (k == reflect.Int) || (k == reflect.Int16) || (k == reflect.Int32) || (k == reflect.Int64) {
 				f.SetInt(id)
 			} else if (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
 				f.SetUint(uint64(id))
 			} else {
-				return fmt.Errorf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d", bi.query, bi.autoIncrIdx)
+				return fmt.Errorf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d autoIncrFieldName=%s", bi.query, bi.autoIncrIdx, bi.autoIncrFieldName)
 			}
 		} else {
 			_, err := exec.Exec(bi.query, bi.args...)
