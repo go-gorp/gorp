@@ -29,6 +29,12 @@ type Dialect interface {
 	// table attributes
 	CreateTableSuffix() string
 
+	// string to append to "create index" statement for vendor specific
+	// index type
+	CreateIndexSuffix() string
+
+	DropIndexSuffix() string
+
 	// string to truncate tables
 	TruncateClause() string
 
@@ -114,6 +120,16 @@ func (d SqliteDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 func (d SqliteDialect) CreateTableSuffix() string {
 	return d.suffix
 }
+
+// Returns index suffix
+func (d SqliteDialect) CreateIndexSuffix() string {
+	return ""
+}
+
+func (d SqliteDialect) DropIndexSuffix() string {
+	return ""
+}
+
 
 // With sqlite, there technically isn't a TRUNCATE statement,
 // but a DELETE FROM uses a truncate optimization:
@@ -202,6 +218,15 @@ func (d PostgresDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 // Returns suffix
 func (d PostgresDialect) CreateTableSuffix() string {
 	return d.suffix
+}
+
+// Returns index suffix
+func (d PostgresDialect) CreateIndexSuffix() string {
+	return "using"
+}
+
+func (d PostgresDialect) DropIndexSuffix() string {
+	return ""
 }
 
 func (d PostgresDialect) TruncateClause() string {
@@ -300,6 +325,15 @@ func (m MySQLDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 // Returns engine=%s charset=%s  based on values stored on struct
 func (m MySQLDialect) CreateTableSuffix() string {
 	return fmt.Sprintf(" engine=%s charset=%s", m.Engine, m.Encoding)
+}
+
+// Returns index suffix
+func (m MySQLDialect) CreateIndexSuffix() string {
+	return "using"
+}
+
+func (m MySQLDialect) DropIndexSuffix() string {
+	return "on"
 }
 
 func (m MySQLDialect) TruncateClause() string {
