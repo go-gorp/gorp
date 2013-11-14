@@ -90,6 +90,11 @@ type WithEmbeddedStruct struct {
 	Names
 }
 
+type WithEmbeddedAutoincr struct {
+	WithEmbeddedStruct
+	MiddleName string
+}
+
 type Names struct {
 	FirstName string
 	LastName  string
@@ -960,6 +965,21 @@ func TestWithEmbeddedStruct(t *testing.T) {
 	}
 }
 
+func TestWithEmbeddedAutoincr(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+
+	esa := &WithEmbeddedAutoincr{
+		WithEmbeddedStruct: WithEmbeddedStruct{Names: Names{FirstName: "Alice", LastName: "Smith"}},
+		MiddleName: "Rose",
+	}
+	_insert(dbmap, esa)
+	var expectedAutoincrId int64 = 1
+	if esa.Id != expectedAutoincrId {
+		t.Errorf("%v != %v", expectedAutoincrId, esa.Id)
+	}
+}
+
 func TestSelectVal(t *testing.T) {
 	dbmap := initDbMapNulls()
 	defer dropAndClose(dbmap)
@@ -1410,6 +1430,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStruct{}, "embedded_struct_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(WithEmbeddedAutoincr{}, "embedded_autoincr_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithTime{}, "time_test").SetKeys(true, "Id")
 	dbmap.TypeConverter = testTypeConverter{}
 	err := dbmap.CreateTables()
