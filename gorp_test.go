@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -1087,6 +1088,25 @@ func TestWithStringPk(t *testing.T) {
 	err = dbmap.Insert(row)
 	if err == nil {
 		t.Errorf("Expected error when inserting into table w/non Int PK and autoincr set true")
+	}
+}
+
+// TestSqlExecutorInterfaceSelects ensures that all DbMap methods starting with Select...
+// are also exposed in the SqlExecutor interface. Select...  functions can always
+// run on Pre/Post hooks.
+func TestSqlExecutorInterfaceSelects(t *testing.T) {
+	dbMapType := reflect.TypeOf(&DbMap{})
+	sqlExecutorType := reflect.TypeOf((*SqlExecutor)(nil)).Elem()
+	numDbMapMethods := dbMapType.NumMethod()
+	for i := 0; i < numDbMapMethods; i += 1 {
+		dbMapMethod := dbMapType.Method(i)
+		if !strings.HasPrefix(dbMapMethod.Name, "Select") {
+			continue
+		}
+		if _, found := sqlExecutorType.MethodByName(dbMapMethod.Name); !found {
+			t.Errorf("Method %s is defined on DbMap but not implemented in SqlExecutor",
+				dbMapMethod.Name)
+		}
 	}
 }
 
