@@ -1290,8 +1290,8 @@ func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args .
 			src := reflect.ValueOf(list[0])
 			dest.Elem().Set(src.Elem())
 		} else {
-			// not found - set pointer to zero val
-			dest.Elem().Set(reflect.Zero(t))
+			// No rows found, return a proper error.
+			return sql.ErrNoRows
 		}
 
 		return nil

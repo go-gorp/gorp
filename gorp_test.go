@@ -1391,15 +1391,12 @@ func TestSelectSingleVal(t *testing.T) {
 		t.Error("SelectOne should have returned error for non-pointer holder")
 	}
 
-	// verify that pointer is set to zero val if not found
+	// verify that the error is set to sql.ErrNoRows if not found
 	err = dbmap.SelectOne(&p2, "select * from person_test where Id=:Id", map[string]interface{}{
 		"Id": -2222,
 	})
-	if err != nil {
-		t.Error(err)
-	}
-	if p2.Id != 0 {
-		t.Errorf("p2.Id != 0: %d", p2.Id)
+	if err == nil || err != sql.ErrNoRows {
+		t.Error("SelectOne should have returned an sql.ErrNoRows")
 	}
 
 	_insert(dbmap, &Person{0, 0, 0, "bob", "smith", 0})
