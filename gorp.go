@@ -561,6 +561,7 @@ type SqlExecutor interface {
 	SelectNullFloat(query string, args ...interface{}) (sql.NullFloat64, error)
 	SelectStr(query string, args ...interface{}) (string, error)
 	SelectNullStr(query string, args ...interface{}) (sql.NullString, error)
+	SelectOne(holder interface{}, query string, args ...interface{}) error
 	query(query string, args ...interface{}) (*sql.Rows, error)
 	queryRow(query string, args ...interface{}) *sql.Row
 }
