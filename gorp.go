@@ -732,6 +732,20 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 	return err
 }
 
+// DropTable drops an individual table.  Will throw an error
+// if the table does not exist.
+func (m *DbMap) DropTable(table interface{}) error {
+	t := reflect.TypeOf(table)
+  return m.dropTable(t, false)
+}
+
+// DropTable drops an individual table.  Will NOT throw an error
+// if the table does not exist.
+func (m *DbMap) DropTableIfExists(table interface{}) error {
+	t := reflect.TypeOf(table)
+  return m.dropTable(t, true)
+}
+
 // DropTables iterates through TableMaps registered to this DbMap and
 // executes "drop table" statements against the database for each.
 func (m *DbMap) DropTables() error {
@@ -744,21 +758,34 @@ func (m *DbMap) DropTablesIfExists() error {
 	return m.dropTables(true)
 }
 
-func (m *DbMap) dropTables(addIfExists bool) error {
+// Goes through all the registered tables, dropping them one by one.
+// If an error is encountered, then it is returned and the rest of
+// the tables are not dropped.
+func (m *DbMap) dropTables(addIfExists bool) (err error) {
+	for _, table := range m.tables {
+		err = m.dropTableImpl(table, addIfExists)
+		if err != nil { return }
+	}
+	return err
+}
+
+// Implementation of dropping a single table.
+func (m *DbMap) dropTable(t reflect.Type, addIfExists bool) error {
+  table := tableOrNil(m, t)
+  if table == nil {
+    return errors.New(fmt.Sprintf("table %s was not registered!", table.TableName))
+  }
+
+  return m.dropTableImpl(table, addIfExists)
+}
+
+func (m *DbMap) dropTableImpl(table *TableMap, addIfExists bool) (err error) {
 	ifExists := ""
 	if addIfExists {
 		ifExists = " if exists"
 	}
-
-	var err error
-	for i := range m.tables {
-		table := m.tables[i]
-		_, e := m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuoteField(table.TableName)))
-		if e != nil {
-			err = e
-		}
-	}
-	return err
+  _, err = m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuoteField(table.TableName)))
+  return err
 }
 
 // TruncateTables iterates through TableMaps registered to this DbMap and
