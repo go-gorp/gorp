@@ -1356,6 +1356,30 @@ func TestSelectSingleVal(t *testing.T) {
 	}
 }
 
+func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
+	_, driver := dialectAndDriver()
+	// this test only applies to MySQL
+	if os.Getenv("GORP_TEST_DIALECT") != "mysql" {
+		return
+	}
+
+	// The expected behaviour is to catch a panic.
+	// Here is the deferred function which will check if a panic has indeed occurred :
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Error("db.CreateTables() should panic if db is initialized with an incorrect MySQLDialect")
+		}
+	}()
+
+	// invalid MySQLDialect : does not contain Engine or Encoding specification
+	dialect := MySQLDialect{}
+	db := &DbMap{Db: connect(driver), Dialect: dialect}
+	db.AddTableWithName(Invoice{}, "invoice")
+	// the following call should panic :
+	db.CreateTables()
+}
+
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
