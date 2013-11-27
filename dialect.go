@@ -142,6 +142,11 @@ func (d SqliteDialect) QuoteField(f string) string {
 	return `"` + f + `"`
 }
 
+// sqlite does not have schemas like PostgreSQL does, so just escape it like normal
+func (d SqliteDialect) QuotedTableForQuery(schema string, table string) string {
+	return d.QuoteField(table)
+}
+
 ///////////////////////////////////////////////////////
 // PostgreSQL //
 ////////////////
@@ -350,4 +355,9 @@ func (m MySQLDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params 
 
 func (d MySQLDialect) QuoteField(f string) string {
 	return "`" + f + "`"
+}
+
+// MySQL does not have schemas like PostgreSQL does, so just escape it like normal
+func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
+	return d.QuoteField(table)
 }
