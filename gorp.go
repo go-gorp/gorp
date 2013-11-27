@@ -122,6 +122,7 @@ type DbMap struct {
 type TableMap struct {
 	// Name of database table.
 	TableName  string
+	SchemaName string
 	gotype     reflect.Type
 	columns    []*ColumnMap
 	keys       []*ColumnMap
@@ -273,7 +274,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 
 		s := bytes.Buffer{}
 		s2 := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("insert into %s (", t.dbmap.Dialect.QuoteField(t.TableName)))
+		s.WriteString(fmt.Sprintf("insert into %s (", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
 
 		x := 0
 		first := true
@@ -326,7 +327,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 	if plan.query == "" {
 
 		s := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("update %s set ", t.dbmap.Dialect.QuoteField(t.TableName)))
+		s.WriteString(fmt.Sprintf("update %s set ", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
 		x := 0
 
 		for y := range t.columns {
@@ -384,7 +385,7 @@ func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 	if plan.query == "" {
 
 		s := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("delete from %s", t.dbmap.Dialect.QuoteField(t.TableName)))
+		s.WriteString(fmt.Sprintf("delete from %s", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
 
 		for y := range t.columns {
 			col := t.columns[y]
@@ -444,7 +445,7 @@ func (t *TableMap) bindGet() bindPlan {
 			}
 		}
 		s.WriteString(" from ")
-		s.WriteString(t.dbmap.Dialect.QuoteField(t.TableName))
+		s.WriteString(t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName))
 		s.WriteString(" where ")
 		for x := range t.keys {
 			col := t.keys[x]
@@ -606,6 +607,12 @@ func (m *DbMap) AddTable(i interface{}) *TableMap {
 // AddTableWithName has the same behavior as AddTable, but sets
 // table.TableName to name.
 func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
+	return m.AddTableWithNameAndSchema(i, "", name)
+}
+
+// AddTableWithNameAndSchema has the same behavior as AddTable, but sets
+// table.TableName to name.
+func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name string) *TableMap {
 	t := reflect.TypeOf(i)
 	if name == "" {
 		name = t.Name()
@@ -621,7 +628,7 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 		}
 	}
 
-	tmap := &TableMap{gotype: t, TableName: name, dbmap: m}
+	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
 	tmap.columns, tmap.version = readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 
@@ -680,12 +687,23 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 	for i := range m.tables {
 		table := m.tables[i]
 
+		s := bytes.Buffer{}
+
+		if (strings.TrimSpace(table.SchemaName) != "") {
+			schemaCreate := "create schema"
+			if ifNotExists {
+				schemaCreate += " if not exists"
+			}
+
+			s.WriteString(fmt.Sprintf("%s %s;", schemaCreate, table.SchemaName))
+		}
+
 		create := "create table"
 		if ifNotExists {
 			create += " if not exists"
 		}
-		s := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("%s %s (", create, m.Dialect.QuoteField(table.TableName)))
+		
+		s.WriteString(fmt.Sprintf("%s %s (", create, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		x := 0
 		for _, col := range table.columns {
 			if !col.Transient {
@@ -753,7 +771,7 @@ func (m *DbMap) dropTables(addIfExists bool) error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
-		_, e := m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuoteField(table.TableName)))
+		_, e := m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		if e != nil {
 			err = e
 		}
@@ -769,7 +787,7 @@ func (m *DbMap) TruncateTables() error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
-		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuoteField(table.TableName)))
+		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		if e != nil {
 			err = e
 		}
