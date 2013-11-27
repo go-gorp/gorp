@@ -44,6 +44,13 @@ type Dialect interface {
 	// Handles quoting of a field name to ensure that it doesn't raise any
 	// SQL parsing exceptions by using a reserved word as a field name.
 	QuoteField(field string) string
+
+	// Handles building up of a schema.database string that is compatible with
+	// the given dialect
+	//
+	// schema - The schema that <table> lives in
+	// table - The table name
+	QuotedTableForQuery(schema string, table string) string
 }
 
 func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
@@ -133,6 +140,11 @@ func (d SqliteDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params
 
 func (d SqliteDialect) QuoteField(f string) string {
 	return `"` + f + `"`
+}
+
+// sqlite does not have schemas like PostgreSQL does, so just escape it like normal
+func (d SqliteDialect) QuotedTableForQuery(schema string, table string) string {
+	return d.QuoteField(table)
 }
 
 ///////////////////////////////////////////////////////
@@ -233,6 +245,14 @@ func (d PostgresDialect) QuoteField(f string) string {
 	return `"` + strings.ToLower(f) + `"`
 }
 
+func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string {
+	if (strings.TrimSpace(schema) == "") {
+		return d.QuoteField(table)
+	}
+
+	return schema + "." + d.QuoteField(table)
+}
+
 ///////////////////////////////////////////////////////
 // MySQL //
 ///////////
@@ -317,4 +337,9 @@ func (m MySQLDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params 
 
 func (d MySQLDialect) QuoteField(f string) string {
 	return "`" + f + "`"
+}
+
+// MySQL does not have schemas like PostgreSQL does, so just escape it like normal
+func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
+	return d.QuoteField(table)
 }
