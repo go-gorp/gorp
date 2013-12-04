@@ -321,7 +321,6 @@ func TestSetUniqueTogether(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Error(err)
 }
 
 func TestPersistentUser(t *testing.T) {
