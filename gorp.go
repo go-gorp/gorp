@@ -121,16 +121,17 @@ type DbMap struct {
 // Use dbmap.AddTable() or dbmap.AddTableWithName() to create these
 type TableMap struct {
 	// Name of database table.
-	TableName  string
-	gotype     reflect.Type
-	columns    []*ColumnMap
-	keys       []*ColumnMap
-	version    *ColumnMap
-	insertPlan bindPlan
-	updatePlan bindPlan
-	deletePlan bindPlan
-	getPlan    bindPlan
-	dbmap      *DbMap
+	TableName      string
+	gotype         reflect.Type
+	columns        []*ColumnMap
+	keys           []*ColumnMap
+	uniqueTogether [][]string
+	version        *ColumnMap
+	insertPlan     bindPlan
+	updatePlan     bindPlan
+	deletePlan     bindPlan
+	getPlan        bindPlan
+	dbmap          *DbMap
 }
 
 // ResetSql removes cached insert/update/select/delete SQL strings
@@ -164,6 +165,30 @@ func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
 		colmap.isAutoIncr = isAutoIncr
 		t.keys = append(t.keys, colmap)
 	}
+	t.ResetSql()
+
+	return t
+}
+
+// SetUniqueTogether lets you specify uniqueness constraints across multiple
+// columns on the table. Each call adds an additional constraint for the
+// specified columns.
+//
+// Automatically calls ResetSql() to ensure SQL statements are regenerated.
+//
+// Panics if fieldNames length < 2.
+//
+func (t *TableMap) SetUniqueTogether(fieldNames ...string) *TableMap {
+	if len(fieldNames) < 2 {
+		panic(fmt.Sprintf(
+			"gorp: SetUniqueTogether: must provide at least two fieldNames to set uniqueness constraint."))
+	}
+
+	columns := make([]string, 0)
+	for _, name := range fieldNames {
+		columns = append(columns, name)
+	}
+	t.uniqueTogether = append(t.uniqueTogether, columns)
 	t.ResetSql()
 
 	return t
@@ -720,6 +745,18 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 				s.WriteString(m.Dialect.QuoteField(table.keys[x].ColumnName))
 			}
 			s.WriteString(")")
+		}
+		if len(table.uniqueTogether) > 0 {
+			for _, columns := range table.uniqueTogether {
+				s.WriteString(", unique (")
+				for i, column := range columns {
+					if i > 0 {
+						s.WriteString(", ")
+					}
+					s.WriteString(m.Dialect.QuoteField(column))
+				}
+				s.WriteString(")")
+			}
 		}
 		s.WriteString(") ")
 		s.WriteString(m.Dialect.CreateTableSuffix())
