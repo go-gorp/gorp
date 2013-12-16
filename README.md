@@ -272,9 +272,13 @@ dbmap.DropTables()
 
 ### SQL Logging ###
 
-Optionally you can pass in a log.Logger to trace all SQL statements.
+Optionally you can pass in a logger to trace all SQL statements.
 I recommend enabling this initially while you're getting the feel for what
 gorp is doing on your behalf.
+
+Gorp defines a `GorpLogger` interface that Go's built in `log.Logger` satisfies.
+However, you can write your own `GorpLogger` implementation, or use a package such 
+as `glog` if you want more control over how statements are logged.
 
 ```go
 // Will log all SQL statements + args as they are run
@@ -346,7 +350,8 @@ _, err := dbmap.Select(&posts, "select * from post order by id")
 var ids []string
 _, err := dbmap.Select(&ids, "select id from post")
 
-// Select a single row. Will return an error if more than one row is found
+// Select a single row.
+// Returns an error if no row found, or if more than one row is found
 var post Post
 err := dbmap.SelectOne(&post, "select * from post where id=?", id)
 ```
