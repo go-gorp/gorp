@@ -350,7 +350,8 @@ _, err := dbmap.Select(&posts, "select * from post order by id")
 var ids []string
 _, err := dbmap.Select(&ids, "select id from post")
 
-// Select a single row. Will return an error if more than one row is found
+// Select a single row.
+// Returns an error if no row found, or if more than one row is found
 var post Post
 err := dbmap.SelectOne(&post, "select * from post where id=?", id)
 ```
