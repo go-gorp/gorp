@@ -1220,7 +1220,7 @@ func TestWithTimeSelect(t *testing.T) {
 	halfhourago := time.Now().UTC().Add(-30 * time.Minute)
 
 	w1 := WithTime{1, halfhourago.Add(time.Minute * -1)}
-	w2 := WithTime{2, halfhourago}
+	w2 := WithTime{2, halfhourago.Add(time.Second)}
 	_insert(dbmap, &w1, &w2)
 
 	var caseIds []int64
