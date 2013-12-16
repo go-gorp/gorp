@@ -299,6 +299,22 @@ func (m MySQLDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 
 // Returns engine=%s charset=%s  based on values stored on struct
 func (m MySQLDialect) CreateTableSuffix() string {
+	if m.Engine == "" || m.Encoding == "" {
+		msg := "gorp - undefined"
+
+		if m.Engine == "" {
+			msg += " MySQLDialect.Engine"
+		}
+		if m.Engine == "" && m.Encoding == "" {
+			msg += ","
+		}
+		if m.Encoding == "" {
+			msg += " MySQLDialect.Encoding"
+		}
+		msg += ". Check that your MySQLDialect was correctly initialized when declared."
+		panic(msg)
+	}
+
 	return fmt.Sprintf(" engine=%s charset=%s", m.Engine, m.Encoding)
 }
 
