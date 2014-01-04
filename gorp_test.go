@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	_ "github.com/ziutek/mymysql/godrv"
@@ -1591,6 +1592,8 @@ func dialectAndDriver() (Dialect, string) {
 	switch os.Getenv("GORP_TEST_DIALECT") {
 	case "mysql":
 		return MySQLDialect{"InnoDB", "UTF8"}, "mymysql"
+	case "gomysql":
+		return MySQLDialect{"InnoDB", "UTF8"}, "mysql"
 	case "postgres":
 		return PostgresDialect{}, "postgres"
 	case "sqlite":
