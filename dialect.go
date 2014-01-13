@@ -79,11 +79,11 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 	}
 
 	switch val.Name() {
-	case "NullableInt64":
+	case "NullableInt64", "NullInt64":
 		return "integer"
-	case "NullableFloat64":
+	case "NullableFloat64", "NullFloat64":
 		return "real"
-	case "NullableBool":
+	case "NullableBool", "NullBool":
 		return "integer"
 	case "NullableBytes":
 		return "blob"
@@ -168,11 +168,11 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 	}
 
 	switch val.Name() {
-	case "NullableInt64":
+	case "NullableInt64", "NullInt64":
 		return "bigint"
-	case "NullableFloat64":
-		return "double"
-	case "NullableBool":
+	case "NullableFloat64", "NullFloat64":
+		return "real"
+	case "NullableBool", "NullBool":
 		return "smallint"
 	case "NullableBytes":
 		return "bytea"
@@ -266,11 +266,11 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 	}
 
 	switch val.Name() {
-	case "NullableInt64":
+	case "NullableInt64", "NullInt64":
 		return "bigint"
-	case "NullableFloat64":
+	case "NullableFloat64", "NullFloat64":
 		return "double"
-	case "NullableBool":
+	case "NullableBool", "NullBool":
 		return "tinyint"
 	case "NullableBytes":
 		return "mediumblob"
