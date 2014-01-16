@@ -68,7 +68,7 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "integer"
-	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return "integer"
 	case reflect.Float64, reflect.Float32:
 		return "real"
@@ -149,7 +149,7 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "boolean"
-	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Uint16, reflect.Uint32:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint8, reflect.Uint16, reflect.Uint32:
 		if isAutoIncr {
 			return "serial"
 		}
@@ -253,10 +253,22 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 		return m.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "boolean"
-	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Uint16, reflect.Uint32:
+	case reflect.Int8:
+		return "tinyint"
+	case reflect.Uint8:
+		return "tinyint unsigned"
+	case reflect.Int16:
+		return "smallint"
+	case reflect.Uint16:
+		return "smallint unsigned"
+	case reflect.Int, reflect.Int32:
 		return "int"
-	case reflect.Int64, reflect.Uint64:
+	case reflect.Uint, reflect.Uint32:
+		return "int unsigned"
+	case reflect.Int64:
 		return "bigint"
+	case reflect.Uint64:
+		return "bigint unsigned"
 	case reflect.Float64, reflect.Float32:
 		return "double"
 	case reflect.Slice:
