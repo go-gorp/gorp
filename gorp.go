@@ -346,7 +346,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
-func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
+func (t *TableMap) bindUpdate(elem reflect.Value, colSelector func(cm *ColumnMap) bool) (bindInstance, error) {
 	plan := t.updatePlan
 	if plan.query == "" {
 
@@ -356,7 +356,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 
 		for y := range t.columns {
 			col := t.columns[y]
-			if !col.isPK && !col.Transient {
+			if !col.isPK && !col.Transient && colSelector(col) {
 				if x > 0 {
 					s.WriteString(", ")
 				}
@@ -576,6 +576,7 @@ type SqlExecutor interface {
 	Get(i interface{}, keys ...interface{}) (interface{}, error)
 	Insert(list ...interface{}) error
 	Update(list ...interface{}) (int64, error)
+	UpdateWithSelector(f func(cm *ColumnMap) bool, list ...interface{}) (int64, error)
 	Delete(list ...interface{}) (int64, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Select(i interface{}, query string,
@@ -918,7 +919,39 @@ func (m *DbMap) Insert(list ...interface{}) error {
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
 func (m *DbMap) Update(list ...interface{}) (int64, error) {
-	return update(m, m, list...)
+	f := func(cm *ColumnMap) bool {
+		return true
+	}
+	return update(m, m, f, list...)
+}
+
+/******************************************************************
+Same as Update above.  Additionally, uses a column map selector to only update certain
+columns during an update operation
+An example of how to use :
+
+	type Person struct {
+		FirstName     string `db:"first_name"`
+		LastName     string `db:"last_name"`
+		Email     	  string `db:"email"`
+		Phone     	  string `db:"phone"`
+	}
+
+	coll = []string{"first_name", "last_name"}
+	f := func(cm *gorp.ColumnMap) bool{
+		for _, a := range coll {
+			if a == cm.ColumnName {
+				return true;
+			}
+		}
+		return false
+	}
+
+    count, err := trans.UpdateWithSelector(f, &person)
+
+*****************************************************************/
+func (m *DbMap) UpdateWithSelector(f func(cm *ColumnMap) bool, list ...interface{}) (int64, error) {
+	return update(m, m, f, list...)
 }
 
 // Delete runs a SQL DELETE statement for each element in list.  List
@@ -1101,7 +1134,14 @@ func (t *Transaction) Insert(list ...interface{}) error {
 
 // Update had the same behavior as DbMap.Update(), but runs in a transaction.
 func (t *Transaction) Update(list ...interface{}) (int64, error) {
-	return update(t.dbmap, t, list...)
+	f := func(cm *ColumnMap) bool {
+		return true
+	}
+	return update(t.dbmap, t, f, list...)
+}
+
+func (t *Transaction) UpdateWithSelector(f func(cm *ColumnMap) bool, list ...interface{}) (int64, error) {
+	return update(t.dbmap, t, f, list...)
 }
 
 // Delete has the same behavior as DbMap.Delete(), but runs in a transaction.
@@ -1773,7 +1813,7 @@ func delete(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 	return count, nil
 }
 
-func update(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
+func update(m *DbMap, exec SqlExecutor, colSelector func(cm *ColumnMap) bool, list ...interface{}) (int64, error) {
 	hookarg := hookArg(exec)
 	count := int64(0)
 	for _, ptr := range list {
@@ -1788,7 +1828,7 @@ func update(m *DbMap, exec SqlExecutor, list ...interface{}) (int64, error) {
 			return -1, err
 		}
 
-		bi, err := table.bindUpdate(elem)
+		bi, err := table.bindUpdate(elem, colSelector)
 		if err != nil {
 			return -1, err
 		}
