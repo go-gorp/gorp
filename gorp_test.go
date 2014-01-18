@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	_ "github.com/ziutek/mymysql/godrv"
@@ -24,6 +25,11 @@ type Invoice struct {
 	Memo     string
 	PersonId int64
 	IsPaid   bool
+}
+
+type OverriddenInvoice struct {
+	Invoice
+	Id string
 }
 
 type Person struct {
@@ -1537,6 +1543,7 @@ func initDbMap() *DbMap {
 	dbmap := newDbMap()
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(OverriddenInvoice{}, "invoice_override_test").SetKeys(false, "Id")
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
@@ -1591,6 +1598,8 @@ func dialectAndDriver() (Dialect, string) {
 	switch os.Getenv("GORP_TEST_DIALECT") {
 	case "mysql":
 		return MySQLDialect{"InnoDB", "UTF8"}, "mymysql"
+	case "gomysql":
+		return MySQLDialect{"InnoDB", "UTF8"}, "mysql"
 	case "postgres":
 		return PostgresDialect{}, "postgres"
 	case "sqlite":

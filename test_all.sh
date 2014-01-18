@@ -9,6 +9,10 @@ export GORP_TEST_DSN=gorptest/gorptest/gorptest
 export GORP_TEST_DIALECT=mysql
 go test $GOBUILDFLAG .
 
+export GORP_TEST_DSN=gorptest:gorptest@/gorptest
+export GORP_TEST_DIALECT=gomysql
+go test $GOBUILDFLAG .
+
 export GORP_TEST_DSN="user=gorptest password=gorptest dbname=gorptest sslmode=disable"
 export GORP_TEST_DIALECT=postgres
 go test $GOBUILDFLAG .

@@ -44,6 +44,13 @@ type Dialect interface {
 	// Handles quoting of a field name to ensure that it doesn't raise any
 	// SQL parsing exceptions by using a reserved word as a field name.
 	QuoteField(field string) string
+
+	// Handles building up of a schema.database string that is compatible with
+	// the given dialect
+	//
+	// schema - The schema that <table> lives in
+	// table - The table name
+	QuotedTableForQuery(schema string, table string) string
 }
 
 func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
@@ -135,6 +142,11 @@ func (d SqliteDialect) QuoteField(f string) string {
 	return `"` + f + `"`
 }
 
+// sqlite does not have schemas like PostgreSQL does, so just escape it like normal
+func (d SqliteDialect) QuotedTableForQuery(schema string, table string) string {
+	return d.QuoteField(table)
+}
+
 ///////////////////////////////////////////////////////
 // PostgreSQL //
 ////////////////
@@ -180,10 +192,12 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 		return "timestamp with time zone"
 	}
 
-	if maxsize < 1 {
-		maxsize = 255
+	if maxsize > 0 {
+		return fmt.Sprintf("varchar(%d)", maxsize)
+	} else {
+		return "text"
 	}
-	return fmt.Sprintf("varchar(%d)", maxsize)
+
 }
 
 // Returns empty string
@@ -231,6 +245,14 @@ func (d PostgresDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, para
 
 func (d PostgresDialect) QuoteField(f string) string {
 	return `"` + strings.ToLower(f) + `"`
+}
+
+func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string {
+	if (strings.TrimSpace(schema) == "") {
+		return d.QuoteField(table)
+	}
+
+	return schema + "." + d.QuoteField(table)
 }
 
 ///////////////////////////////////////////////////////
@@ -333,4 +355,9 @@ func (m MySQLDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params 
 
 func (d MySQLDialect) QuoteField(f string) string {
 	return "`" + f + "`"
+}
+
+// MySQL does not have schemas like PostgreSQL does, so just escape it like normal
+func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
+	return d.QuoteField(table)
 }

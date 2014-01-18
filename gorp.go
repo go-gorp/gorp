@@ -121,6 +121,7 @@ type DbMap struct {
 type TableMap struct {
 	// Name of database table.
 	TableName      string
+	SchemaName     string
 	gotype         reflect.Type
 	columns        []*ColumnMap
 	keys           []*ColumnMap
@@ -297,7 +298,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 
 		s := bytes.Buffer{}
 		s2 := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("insert into %s (", t.dbmap.Dialect.QuoteField(t.TableName)))
+		s.WriteString(fmt.Sprintf("insert into %s (", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
 
 		x := 0
 		first := true
@@ -350,7 +351,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 	if plan.query == "" {
 
 		s := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("update %s set ", t.dbmap.Dialect.QuoteField(t.TableName)))
+		s.WriteString(fmt.Sprintf("update %s set ", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
 		x := 0
 
 		for y := range t.columns {
@@ -408,7 +409,7 @@ func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 	if plan.query == "" {
 
 		s := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("delete from %s", t.dbmap.Dialect.QuoteField(t.TableName)))
+		s.WriteString(fmt.Sprintf("delete from %s", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
 
 		for y := range t.columns {
 			col := t.columns[y]
@@ -468,7 +469,7 @@ func (t *TableMap) bindGet() bindPlan {
 			}
 		}
 		s.WriteString(" from ")
-		s.WriteString(t.dbmap.Dialect.QuoteField(t.TableName))
+		s.WriteString(t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName))
 		s.WriteString(" where ")
 		for x := range t.keys {
 			col := t.keys[x]
@@ -638,6 +639,12 @@ func (m *DbMap) AddTable(i interface{}) *TableMap {
 // AddTableWithName has the same behavior as AddTable, but sets
 // table.TableName to name.
 func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
+	return m.AddTableWithNameAndSchema(i, "", name)
+}
+
+// AddTableWithNameAndSchema has the same behavior as AddTable, but sets
+// table.TableName to name.
+func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name string) *TableMap {
 	t := reflect.TypeOf(i)
 	if name == "" {
 		name = t.Name()
@@ -653,7 +660,7 @@ func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
 		}
 	}
 
-	tmap := &TableMap{gotype: t, TableName: name, dbmap: m}
+	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
 	tmap.columns, tmap.version = readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 
@@ -667,7 +674,20 @@ func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 		if f.Anonymous && f.Type.Kind() == reflect.Struct {
 			// Recursively add nested fields in embedded structs.
 			subcols, subversion := readStructColumns(f.Type)
-			cols = append(cols, subcols...)
+			// Don't append nested fields that have the same field
+			// name as an already-mapped field.
+			for _, subcol := range subcols {
+				shouldAppend := true
+				for _, col := range cols {
+					if !subcol.Transient && subcol.fieldName == col.fieldName {
+						shouldAppend = false
+						break
+					}
+				}
+				if shouldAppend {
+					cols = append(cols, subcol)
+				}
+			}
 			if subversion != nil {
 				version = subversion
 			}
@@ -682,7 +702,19 @@ func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 				fieldName:  f.Name,
 				gotype:     f.Type,
 			}
-			cols = append(cols, cm)
+			// Check for nested fields of the same field name and
+			// override them.
+			shouldAppend := true
+			for index, col := range cols {
+				if !col.Transient && col.fieldName == cm.fieldName {
+					cols[index] = cm
+					shouldAppend = false
+					break
+				}
+			}
+			if shouldAppend {
+				cols = append(cols, cm)
+			}
 			if cm.fieldName == "Version" {
 				version = cm
 			}
@@ -712,12 +744,23 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 	for i := range m.tables {
 		table := m.tables[i]
 
+		s := bytes.Buffer{}
+
+		if strings.TrimSpace(table.SchemaName) != "" {
+			schemaCreate := "create schema"
+			if ifNotExists {
+				schemaCreate += " if not exists"
+			}
+
+			s.WriteString(fmt.Sprintf("%s %s;", schemaCreate, table.SchemaName))
+		}
+
 		create := "create table"
 		if ifNotExists {
 			create += " if not exists"
 		}
-		s := bytes.Buffer{}
-		s.WriteString(fmt.Sprintf("%s %s (", create, m.Dialect.QuoteField(table.TableName)))
+
+		s.WriteString(fmt.Sprintf("%s %s (", create, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		x := 0
 		for _, col := range table.columns {
 			if !col.Transient {
@@ -780,14 +823,14 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 // if the table does not exist.
 func (m *DbMap) DropTable(table interface{}) error {
 	t := reflect.TypeOf(table)
-  return m.dropTable(t, false)
+	return m.dropTable(t, false)
 }
 
 // DropTable drops an individual table.  Will NOT throw an error
 // if the table does not exist.
 func (m *DbMap) DropTableIfExists(table interface{}) error {
 	t := reflect.TypeOf(table)
-  return m.dropTable(t, true)
+	return m.dropTable(t, true)
 }
 
 // DropTables iterates through TableMaps registered to this DbMap and
@@ -808,19 +851,21 @@ func (m *DbMap) DropTablesIfExists() error {
 func (m *DbMap) dropTables(addIfExists bool) (err error) {
 	for _, table := range m.tables {
 		err = m.dropTableImpl(table, addIfExists)
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 	}
 	return err
 }
 
 // Implementation of dropping a single table.
 func (m *DbMap) dropTable(t reflect.Type, addIfExists bool) error {
-  table := tableOrNil(m, t)
-  if table == nil {
-    return errors.New(fmt.Sprintf("table %s was not registered!", table.TableName))
-  }
+	table := tableOrNil(m, t)
+	if table == nil {
+		return errors.New(fmt.Sprintf("table %s was not registered!", table.TableName))
+	}
 
-  return m.dropTableImpl(table, addIfExists)
+	return m.dropTableImpl(table, addIfExists)
 }
 
 func (m *DbMap) dropTableImpl(table *TableMap, addIfExists bool) (err error) {
@@ -828,8 +873,8 @@ func (m *DbMap) dropTableImpl(table *TableMap, addIfExists bool) (err error) {
 	if addIfExists {
 		ifExists = " if exists"
 	}
-  _, err = m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuoteField(table.TableName)))
-  return err
+	_, err = m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
+	return err
 }
 
 // TruncateTables iterates through TableMaps registered to this DbMap and
@@ -840,7 +885,7 @@ func (m *DbMap) TruncateTables() error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
-		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuoteField(table.TableName)))
+		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		if e != nil {
 			err = e
 		}
