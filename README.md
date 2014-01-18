@@ -627,6 +627,18 @@ locally to test the library.
 
 gorp uses reflection to construct SQL queries and bind parameters.  See the BenchmarkNativeCrud vs BenchmarkGorpCrud in gorp_test.go for a simple perf test.  On my MacBook Pro gorp is about 2-3% slower than hand written SQL. 
 
+## Pull requests / Contributions
+
+Contributions are very welcome.  Please follow these guidelines:
+
+* Fork the `develop` branch and issue pull requests targeting the `develop` branch
+  * If you don't do this, I'll likely cherry pick your commit into develop
+* If you are adding an enhancement, please open an issue first with your proposed change. 
+* Changes that break backwards compatibility in the public API are only accepted after we
+  discuss on a GitHub issue for a while. 
+
+Thanks!
+
 ## Contributors
 
 * matthias-margush - column aliasing via tags
