@@ -919,7 +919,10 @@ func (m *DbMap) Insert(list ...interface{}) error {
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
 func (m *DbMap) Update(list ...interface{}) (int64, error) {
-	return update(m, m, list...)
+	f := func(cm *ColumnMap) bool {
+		return true
+	}
+	return update(m, m, f, list...)
 }
 
 /******************************************************************
@@ -948,9 +951,6 @@ An example of how to use :
 
 *****************************************************************/
 func (m *DbMap) UpdateWithSelector(f func(cm *ColumnMap) bool, list ...interface{}) (int64, error) {
-	f := func(cm *ColumnMap) bool {
-		return true
-	}
 	return update(m, m, f, list...)
 }
 
