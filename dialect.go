@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -51,6 +52,14 @@ type Dialect interface {
 	// schema - The schema that <table> lives in
 	// table - The table name
 	QuotedTableForQuery(schema string, table string) string
+
+	// Checks whether the given string is a variable string in
+	// the current dialect and returns its value if it has one
+	// (such as 1 if the placeholder was $1)
+	IsVarWithVal(token string) (int, bool)
+
+	// Expands a placeholder string if v is of type gorp.List
+	ExpandPlaceholder(i int, v interface{}) (string, int)
 }
 
 func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
@@ -145,6 +154,24 @@ func (d SqliteDialect) QuoteField(f string) string {
 // sqlite does not have schemas like PostgreSQL does, so just escape it like normal
 func (d SqliteDialect) QuotedTableForQuery(schema string, table string) string {
 	return d.QuoteField(table)
+}
+
+func (d SqliteDialect) IsVarWithVal(token string) (int, bool) {
+	return -2, token == "?"
+}
+
+func (d SqliteDialect) ExpandPlaceholder(i int, v interface{}) (string, int) {
+	val, ok := v.(List)
+	if !ok {
+		return "", i
+	}
+
+	numVals := len(val.Vals)
+	if numVals == 1 {
+		return "?", i
+	}
+
+	return strings.Repeat("?, ", numVals-1) + "?", i
 }
 
 ///////////////////////////////////////////////////////
@@ -248,11 +275,48 @@ func (d PostgresDialect) QuoteField(f string) string {
 }
 
 func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string {
-	if (strings.TrimSpace(schema) == "") {
+	if strings.TrimSpace(schema) == "" {
 		return d.QuoteField(table)
 	}
 
 	return schema + "." + d.QuoteField(table)
+}
+
+func (d PostgresDialect) IsVarWithVal(token string) (int, bool) {
+	if token == "?" {
+		return -1, true
+	}
+
+	if len(token) < 2 {
+		return -1, false
+	}
+
+	hasDollarSign := token[0:1] == "$"
+	val, isNumberErr := strconv.Atoi(token[1:])
+
+	return val, hasDollarSign && isNumberErr == nil
+}
+
+func (d PostgresDialect) ExpandPlaceholder(i int, v interface{}) (string, int) {
+	val, ok := v.(List)
+	if !ok {
+		return "", i
+	}
+
+	numVals := len(val.Vals)
+	if numVals == 1 {
+		return fmt.Sprintf("$%d", i+1), i + 1
+	}
+
+	toReturn := ""
+	if i == 0 {
+		numVals++
+	}
+	for j := 1; j < numVals; j++ {
+		toReturn += fmt.Sprintf(", $%d", i+j)
+	}
+
+	return toReturn, i - 1 + numVals
 }
 
 ///////////////////////////////////////////////////////
@@ -372,4 +436,22 @@ func (d MySQLDialect) QuoteField(f string) string {
 // MySQL does not have schemas like PostgreSQL does, so just escape it like normal
 func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
 	return d.QuoteField(table)
+}
+
+func (d MySQLDialect) IsVarWithVal(token string) (int, bool) {
+	return -2, token == "?"
+}
+
+func (d MySQLDialect) ExpandPlaceholder(i int, v interface{}) (string, int) {
+	val, ok := v.(List)
+	if !ok {
+		return "", i
+	}
+
+	numVals := len(val.Vals)
+	if numVals == 1 {
+		return "?", i
+	}
+
+	return strings.Repeat("?, ", numVals-1) + "?", i
 }

@@ -1436,6 +1436,29 @@ func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
 	db.CreateTables()
 }
 
+func TestListExpansion(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	inv1 := &Invoice{0, 100, 200, "a", 0, false}
+	inv2 := &Invoice{0, 100, 200, "b", 0, true}
+	inv3 := &Invoice{0, 100, 200, "c", 0, false}
+	_insert(dbmap, inv1, inv2, inv3)
+
+	var invoices []*Invoice
+	_, err := dbmap.Select(
+		&invoices,
+		"select memo from invoice_test where id in (?)",
+		List{[]interface{}{1, 2, 3}})
+	if err != nil {
+		panic(err)
+	}
+
+	if len(invoices) != 3 {
+		t.Errorf("incorrect number of structs retrieved from database, got %d, expected 3", len(invoices))
+	}
+}
+
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
