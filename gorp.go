@@ -1032,7 +1032,7 @@ func (m *DbMap) Begin() (*Transaction, error) {
 func (m *DbMap) tableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 	table := tableOrNil(m, t)
 	if table == nil {
-		panic(fmt.Sprintf("No table found for type: %v", t.Name()))
+		return nil, errors.New(fmt.Sprintf("No table found for type: %v", t.Name()))
 	}
 
 	if checkPK && len(table.keys) < 1 {
