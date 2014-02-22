@@ -233,6 +233,7 @@ type bindPlan struct {
 	query             string
 	argFields         []string
 	keyFields         []string
+	updateFields      []string
 	versField         string
 	autoIncrIdx       int
 	autoIncrFieldName string
@@ -291,21 +292,23 @@ type bindInstance struct {
 	autoIncrFieldName string
 }
 
-func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
+func (t *TableMap) bindInsert(elem reflect.Value) (bindPlan, bindInstance, error) {
 	plan := t.insertPlan
 	if plan.query == "" {
 		plan.autoIncrIdx = -1
 
 		s := bytes.Buffer{}
 		s2 := bytes.Buffer{}
+		rets := bytes.Buffer{}
 		s.WriteString(fmt.Sprintf("insert into %s (", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
 
 		x := 0
 		first := true
+		ret_first := true
 		for y := range t.columns {
 			col := t.columns[y]
 
-			if !col.Transient {
+			if !(col.Transient || col.Autogenerate) {
 				if !first {
 					s.WriteString(",")
 					s2.WriteString(",")
@@ -330,6 +333,16 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 
 				first = false
 			}
+			if col.UpdateOnInsert {
+				plan.updateFields = append(plan.updateFields, col.fieldName)
+				if !ret_first {
+					rets.WriteString(", ")
+				} else {
+					rets.WriteString(" returning ")
+					ret_first = false
+				}
+				rets.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
+			}
 		}
 		s.WriteString(") values (")
 		s.WriteString(s2.String())
@@ -337,13 +350,17 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 		if plan.autoIncrIdx > -1 {
 			s.WriteString(t.dbmap.Dialect.AutoIncrInsertSuffix(t.columns[plan.autoIncrIdx]))
 		}
+		if rets.Len() != 0 {
+			s.WriteString(" ")
+			s.WriteString(rets.String())
+		}
 		s.WriteString(";")
 
 		plan.query = s.String()
 		t.insertPlan = plan
 	}
-
-	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
+	bi, err := plan.createBindInstance(elem, t.dbmap.TypeConverter)
+	return plan, bi, err
 }
 
 func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
@@ -511,6 +528,13 @@ type ColumnMap struct {
 	// Not used elsewhere
 	MaxSize int
 
+	// If this is true, treat as transient on insert, but not on retrieval
+	Autogenerate bool
+
+	// If this is true, any time a model with this column is inserted, this column
+	// is retrieved and set on the model
+	UpdateOnInsert bool
+
 	fieldName  string
 	gotype     reflect.Type
 	isPK       bool
@@ -545,6 +569,16 @@ func (c *ColumnMap) SetUnique(b bool) *ColumnMap {
 // column, if nn is true.
 func (c *ColumnMap) SetNotNull(nn bool) *ColumnMap {
 	c.isNotNull = nn
+	return c
+}
+
+func (c *ColumnMap) SetAutogenerate(ag bool) *ColumnMap {
+	c.Autogenerate = ag
+	return c
+}
+
+func (c *ColumnMap) SetUpdateOnInsert(uoi bool) *ColumnMap {
+	c.UpdateOnInsert = uoi
 	return c
 }
 
@@ -1836,7 +1870,7 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			return err
 		}
 
-		bi, err := table.bindInsert(elem)
+		bp, bi, err := table.bindInsert(elem)
 		if err != nil {
 			return err
 		}
@@ -1854,6 +1888,26 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 				f.SetUint(uint64(id))
 			} else {
 				return fmt.Errorf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d autoIncrFieldName=%s", bi.query, bi.autoIncrIdx, bi.autoIncrFieldName)
+			}
+		} else if len(bp.updateFields) != 0 {
+
+			conv := m.TypeConverter
+			dest := make([]interface{}, len(bp.updateFields))
+			for x, fieldName := range bp.updateFields {
+				f := eptr.Elem().FieldByName(fieldName)
+				targ := f.Addr().Interface()
+				if conv != nil {
+					scanner, ok := conv.FromDb(targ)
+					if ok {
+						targ = scanner.Holder
+					}
+				}
+				dest[x] = targ
+			}
+			row := exec.queryRow(bi.query, bi.args...)
+			err = row.Scan(dest...)
+			if err != nil {
+				return err
 			}
 		} else {
 			_, err := exec.Exec(bi.query, bi.args...)
