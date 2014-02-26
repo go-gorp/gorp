@@ -981,11 +981,6 @@ func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]inte
 // This is equivalent to running:  Exec() using database/sql
 func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	m.trace(query, args)
-	//stmt, err := m.Db.Prepare(query)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//fmt.Println("Exec", query, args)
 	return m.Db.Exec(query, args...)
 }
 
