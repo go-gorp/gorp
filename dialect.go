@@ -86,14 +86,12 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 	}
 
 	switch val.Name() {
-	case "NullableInt64", "NullInt64":
+	case "NullInt64":
 		return "integer"
-	case "NullableFloat64", "NullFloat64":
+	case "NullFloat64":
 		return "real"
-	case "NullableBool", "NullBool":
+	case "NullBool":
 		return "integer"
-	case "NullableBytes":
-		return "blob"
 	case "Time":
 		return "datetime"
 	}
@@ -171,7 +169,9 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 			return "bigserial"
 		}
 		return "bigint"
-	case reflect.Float64, reflect.Float32:
+	case reflect.Float64:
+		return "double precision"
+	case reflect.Float32:
 		return "real"
 	case reflect.Slice:
 		if val.Elem().Kind() == reflect.Uint8 {
@@ -180,15 +180,13 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 	}
 
 	switch val.Name() {
-	case "NullableInt64", "NullInt64":
+	case "NullInt64":
 		return "bigint"
-	case "NullableFloat64", "NullFloat64":
-		return "real"
-	case "NullableBool", "NullBool":
-		return "smallint"
-	case "NullableBytes":
-		return "bytea"
-	case "Time", "NullTime":
+	case "NullFloat64":
+		return "double precision"
+	case "NullBool":
+		return "boolean"
+	case "Time":
 		return "timestamp with time zone"
 	}
 
@@ -248,7 +246,7 @@ func (d PostgresDialect) QuoteField(f string) string {
 }
 
 func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string {
-	if (strings.TrimSpace(schema) == "") {
+	if strings.TrimSpace(schema) == "" {
 		return d.QuoteField(table)
 	}
 
@@ -300,14 +298,12 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 	}
 
 	switch val.Name() {
-	case "NullableInt64", "NullInt64":
+	case "NullInt64":
 		return "bigint"
-	case "NullableFloat64", "NullFloat64":
+	case "NullFloat64":
 		return "double"
-	case "NullableBool", "NullBool":
+	case "NullBool":
 		return "tinyint"
-	case "NullableBytes":
-		return "mediumblob"
 	case "Time":
 		return "datetime"
 	}
