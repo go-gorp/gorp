@@ -64,6 +64,12 @@ type WithIgnoredColumn struct {
 	Created  int64
 }
 
+type IgnoredColumnExported struct {
+	Id       int64
+	External int64 `db:"-"`
+	Created  int64
+}
+
 type WithStringPk struct {
 	Id   string
 	Name string
@@ -1412,6 +1418,40 @@ func TestSelectSingleVal(t *testing.T) {
 	}
 }
 
+func TestSelectAlias(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+
+	p1 := &IgnoredColumnExported{Id: 1, External: 2, Created: 3}
+	_insert(dbmap, p1)
+
+	var p2 IgnoredColumnExported
+
+	err := dbmap.SelectOne(&p2, "select * from ignored_column_exported_test where Id=1")
+	if err != nil {
+		t.Error(err)
+	}
+	if p2.Id != 1 || p2.Created != 3 || p2.External != 0 {
+		t.Error("Expected ignorred field defaults to not set")
+	}
+
+	err = dbmap.SelectOne(&p2, "SELECT *, 1 AS external FROM ignored_column_exported_test")
+	if err != nil {
+		t.Error(err)
+	}
+	if p2.External != 1 {
+		t.Error("Expected select as can map to exported field.")
+	}
+
+	var rows *sql.Rows
+	var cols []string
+	rows, err = dbmap.Db.Query("SELECT * FROM ignored_column_exported_test")
+	cols, err = rows.Columns()
+	if err != nil || len(cols) != 2 {
+		t.Error("Expected ignored column not created")
+	}
+}
+
 func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
 	_, driver := dialectAndDriver()
 	// this test only applies to MySQL
@@ -1546,6 +1586,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(OverriddenInvoice{}, "invoice_override_test").SetKeys(false, "Id")
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(IgnoredColumnExported{}, "ignored_column_exported_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStruct{}, "embedded_struct_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStructBeforeAutoincrField{}, "embedded_struct_before_autoincr_test").SetKeys(true, "Id")
