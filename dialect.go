@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+const (
+	NOT_POSTGRES = -2
+)
+
 // The Dialect interface encapsulates behaviors that differ across
 // SQL databases.  At present the Dialect is only used by CreateTables()
 // but this could change in the future
@@ -58,7 +62,7 @@ type Dialect interface {
 	// (such as 1 if the placeholder was $1)
 	IsVarWithVal(token string) (int, bool)
 
-	// Expands a placeholder string if v is of type gorp.List
+	// Expands a placeholder string if v is of type gorp.list
 	ExpandPlaceholder(i int, v interface{}) (string, int)
 }
 
@@ -157,16 +161,16 @@ func (d SqliteDialect) QuotedTableForQuery(schema string, table string) string {
 }
 
 func (d SqliteDialect) IsVarWithVal(token string) (int, bool) {
-	return -2, token == "?"
+	return NOT_POSTGRES, token == "?"
 }
 
 func (d SqliteDialect) ExpandPlaceholder(i int, v interface{}) (string, int) {
-	val, ok := v.(List)
+	val, ok := v.(list)
 	if !ok {
 		return "", i
 	}
 
-	numVals := len(val.Vals)
+	numVals := len(val.vals)
 	if numVals == 1 {
 		return "?", i
 	}
@@ -291,32 +295,33 @@ func (d PostgresDialect) IsVarWithVal(token string) (int, bool) {
 		return -1, false
 	}
 
-	hasDollarSign := token[0:1] == "$"
+	hasDollarSign := token[0] == '$'
 	val, isNumberErr := strconv.Atoi(token[1:])
 
 	return val, hasDollarSign && isNumberErr == nil
 }
 
 func (d PostgresDialect) ExpandPlaceholder(i int, v interface{}) (string, int) {
-	val, ok := v.(List)
+	val, ok := v.(list)
 	if !ok {
 		return "", i
 	}
 
-	numVals := len(val.Vals)
+	numVals := len(val.vals)
 	if numVals == 1 {
 		return fmt.Sprintf("$%d", i+1), i + 1
 	}
 
-	toReturn := ""
 	if i == 0 {
 		numVals++
 	}
+
+	vals := make([]string, numVals-1)
 	for j := 1; j < numVals; j++ {
-		toReturn += fmt.Sprintf(", $%d", i+j)
+		vals[j-1] = fmt.Sprintf("%d", i+j)
 	}
 
-	return toReturn, i - 1 + numVals
+	return "  $" + strings.Join(vals, ", $"), i - 1 + numVals
 }
 
 ///////////////////////////////////////////////////////
@@ -439,16 +444,16 @@ func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
 }
 
 func (d MySQLDialect) IsVarWithVal(token string) (int, bool) {
-	return -2, token == "?"
+	return NOT_POSTGRES, token == "?"
 }
 
 func (d MySQLDialect) ExpandPlaceholder(i int, v interface{}) (string, int) {
-	val, ok := v.(List)
+	val, ok := v.(list)
 	if !ok {
 		return "", i
 	}
 
-	numVals := len(val.Vals)
+	numVals := len(val.vals)
 	if numVals == 1 {
 		return "?", i
 	}

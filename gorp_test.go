@@ -1449,13 +1449,224 @@ func TestListExpansion(t *testing.T) {
 	_, err := dbmap.Select(
 		&invoices,
 		"select memo from invoice_test where id in (?)",
-		List{[]interface{}{1, 2, 3}})
+		List(1, 2, 3))
 	if err != nil {
 		panic(err)
 	}
 
 	if len(invoices) != 3 {
 		t.Errorf("incorrect number of structs retrieved from database, got %d, expected 3", len(invoices))
+	}
+}
+
+func TestListExpansion_OnlyOne(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	inv1 := &Invoice{0, 100, 200, "a", 0, false}
+	inv2 := &Invoice{0, 100, 200, "b", 0, true}
+	inv3 := &Invoice{0, 100, 200, "c", 0, false}
+	_insert(dbmap, inv1, inv2, inv3)
+
+	var invoices []*Invoice
+	_, err := dbmap.Select(
+		&invoices,
+		"select memo from invoice_test where id in (?)",
+		List(3, 4, 5))
+	if err != nil {
+		panic(err)
+	}
+
+	if len(invoices) != 1 {
+		t.Errorf("incorrect number of structs retrieved from database, got %d, expected 3", len(invoices))
+	}
+}
+
+func TestListExpansion_NothingToExpand(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	inv1 := &Invoice{0, 100, 200, "a", 0, false}
+	inv2 := &Invoice{0, 100, 200, "b", 0, true}
+	inv3 := &Invoice{0, 100, 200, "c", 0, false}
+	_insert(dbmap, inv1, inv2, inv3)
+
+	var invoices []*Invoice
+	_, err := dbmap.Select(
+		&invoices,
+		"select memo from invoice_test where id in (?)",
+		List())
+	if err != sql.ErrNoRows {
+		t.Error("expansion of nothing should have resulted in sql.ErrNoRows")
+	}
+}
+
+func TestListExpansion_PlaceHolderInStringLiteral(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+
+	inv1 := &Invoice{0, 100, 200, "a", 0, false}
+	inv2 := &Invoice{0, 100, 200, "b", 0, true}
+	inv3 := &Invoice{0, 100, 200, "c", 0, false}
+	_insert(dbmap, inv1, inv2, inv3)
+
+	var invoices []*Invoice
+	_, err := dbmap.Select(
+		&invoices,
+		`
+        select 
+          memo 
+        from 
+          invoice_test 
+        where 
+          memo <> 'What was my memo?'
+          and id in (?)`,
+		List(1, 2, 3))
+
+	if err != nil {
+		panic(err)
+	}
+
+	if len(invoices) != 3 {
+		t.Errorf("incorrect number of structs retrieved from database, got %d, expected 3", len(invoices))
+	}
+}
+
+func TestmaybeExpandListQuery(t *testing.T) {
+	var tests = []struct {
+		name          string
+		Dialect       Dialect
+		query         string
+		args          []interface{}
+		expectedQuery string
+		expectedArgs  []interface{}
+		expectedErr   error
+	}{
+		{
+			"SqliteDialect with no expansion",
+			SqliteDialect{},
+			"select memo from invoice_test where id in (?)",
+			[]interface{}{1},
+			"select memo from invoice_test where id in (?)",
+			[]interface{}{1},
+			nil,
+		}, {
+			"SqliteDialect with expansion",
+			SqliteDialect{},
+			"select memo from invoice_test where id in (?)",
+			[]interface{}{List(1, 2, 3, 4)},
+			"select memo from invoice_test where id in (?, ?, ?, ?)",
+			[]interface{}{1, 2, 3, 4},
+			nil,
+		},
+		{
+			"MySQLDialect with no expansion",
+			MySQLDialect{},
+			"select memo from invoice_test where id in (?)",
+			[]interface{}{1},
+			"select memo from invoice_test where id in (?)",
+			[]interface{}{1},
+			nil,
+		}, {
+			"MySQLDialect with expansion",
+			MySQLDialect{},
+			"select memo from invoice_test where id in (?)",
+			[]interface{}{List(1, 2, 3, 4)},
+			"select memo from invoice_test where id in (?, ?, ?, ?)",
+			[]interface{}{1, 2, 3, 4},
+			nil,
+		}, {
+			"PostgresDialect with no expansion",
+			PostgresDialect{},
+			"select memo from invoice_test where id in (?)",
+			[]interface{}{1},
+			"select memo from invoice_test where id in (?)",
+			[]interface{}{1},
+			nil,
+		}, {
+			"PostgresDialect with expansion",
+			PostgresDialect{},
+			"select memo from invoice_test where id in (?)",
+			[]interface{}{List(1, 2, 3, 4)},
+			"select memo from invoice_test where id in (?, ?, ?, ?)",
+			[]interface{}{1, 2, 3, 4},
+			nil,
+		}, {
+			"PostgresDialect ($n placeholders) with no expansion",
+			PostgresDialect{},
+			"select memo from invoice_test where id in ($1)",
+			[]interface{}{1},
+			"select memo from invoice_test where id in ($1)",
+			[]interface{}{1},
+			nil,
+		}, {
+			"PostgresDialect ($n placeholders) with expansion",
+			PostgresDialect{},
+			"select memo from invoice_test where id in ($1)",
+			[]interface{}{List(1, 2, 3, 4)},
+			"select memo from invoice_test where id in ($1, $2, $3, $4)",
+			[]interface{}{1, 2, 3, 4},
+			nil,
+		}, {
+			"PostgresDialect ($n placeholders) with expansion but only one item",
+			PostgresDialect{},
+			"select memo from invoice_test where id in ($1)",
+			[]interface{}{List(1)},
+			"select memo from invoice_test where id in ($1)",
+			[]interface{}{1},
+			nil,
+		}, {
+			"PostgresDialect ($n placeholders out of order) with expansion",
+			PostgresDialect{},
+			"select memo from invoice_test where message = '$2' and id in ($1)",
+			[]interface{}{List(1, 2, 3, 4), "foo"},
+			"select memo from invoice_test where message = '$2' and id in ($1, $3, $4, $5)",
+			[]interface{}{1, "foo", 2, 3, 4},
+			nil,
+		},
+	}
+	m := &DbMap{}
+	for _, test := range tests {
+		m.Dialect = test.Dialect
+		retQuery, retArgs, err := maybeExpandListQuery(m,
+			test.query,
+			test.args...,
+		)
+
+		if err != test.expectedErr {
+			t.Errorf("Test %q failed, expected err: %v does not match returned err: %v",
+				test.name,
+				test.expectedErr,
+				err,
+			)
+		}
+
+		if retQuery != test.expectedQuery {
+			t.Errorf("Test %q failed, expected query: %s does not match returned query: %v",
+				test.name,
+				test.expectedQuery,
+				retQuery,
+			)
+		}
+
+		if len(retArgs) != len(test.expectedArgs) {
+			t.Errorf("Test %q failed, expected num args: %d does not match returned num args: %d",
+				test.name,
+				len(test.expectedArgs),
+				len(retArgs),
+			)
+		}
+		for i, arg := range test.expectedArgs {
+			if arg != retArgs[i] {
+				t.Errorf("Test %q failed, expected arg %d: %v does not match returned arg %d: %v",
+					test.name,
+					i,
+					arg,
+					i,
+					retArgs[i],
+				)
+			}
+		}
 	}
 }
 

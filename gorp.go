@@ -19,11 +19,16 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 )
 
-var zeroVal reflect.Value
-var versFieldConst = "[gorp_ver_field]"
+var (
+	zeroVal        reflect.Value
+	versFieldConst = "[gorp_ver_field]"
+	timeType       = reflect.TypeOf(time.Time{})
+	listType       = reflect.TypeOf(list{})
+)
 
 // OptimisticLockError is returned by Update() or Delete() if the
 // struct being modified has a Version field and the value is not equal to
@@ -1434,7 +1439,10 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		query, args = maybeExpandNamedQuery(m, query, args)
 	}
 
-	query, args = maybeExpandListQuery(m, query, args...)
+	query, args, err = maybeExpandListQuery(m, query, args...)
+	if err != nil {
+		return nil, err
+	}
 
 	// Run the query
 	rows, err := exec.query(query, args...)
@@ -1544,8 +1552,7 @@ func maybeExpandNamedQuery(m *DbMap, query string, args []interface{}) (string, 
 		})
 		// #84 - ignore time.Time structs here - there may be a cleaner way to do this
 	case arg.Kind() == reflect.Struct &&
-		!(arg.Type().PkgPath() == "time" && arg.Type().Name() == "Time") &&
-		arg.Type().String() != "gorp.List":
+		arg.Type() != timeType && arg.Type() != listType:
 		return expandNamedQuery(m, query, arg.FieldByName)
 	}
 	return query, args
@@ -1578,18 +1585,26 @@ func expandNamedQuery(m *DbMap, query string, keyGetter func(key string) reflect
 // whose placeholder should be expanded to reflect the
 // size of the slice. A common example would be:
 // 'select * from t where v in (?)', gorp.List{vals}
-type List struct {
-	Vals []interface{}
+type list struct {
+	vals []interface{}
+}
+
+func List(i ...interface{}) interface{} {
+	return list{i}
 }
 
 // maybeExpandListQuery expands a parameter to the appropriate number of
 // occurrences to reflect the number of values given in a gorp.List in
 // the args list to allow for queries of the form "... where val in (?)"
 // to repeat the ? the appropriate number of times
-func maybeExpandListQuery(m *DbMap, query string, args ...interface{}) (string, []interface{}) {
-	listIndices := getListIndices(args...)
+func maybeExpandListQuery(m *DbMap, query string, args ...interface{}) (string, []interface{}, error) {
+	listIndices, err := getListIndices(args...)
+	if err != nil {
+		return "", nil, err
+	}
+
 	if len(listIndices) == 0 {
-		return query, args
+		return query, args, nil
 	}
 
 	placeholderIndices, max := getPlaceholderIndices(m, query)
@@ -1602,7 +1617,7 @@ func maybeExpandListQuery(m *DbMap, query string, args ...interface{}) (string, 
 	lastIndex := 0
 	expandArgsInOrder := false
 	for i, pIndex := range placeholderIndices {
-		if pIndex[1] == -2 {
+		if pIndex[1] == NOT_POSTGRES {
 			newQuery += query[lastIndex:pIndex[0]] + expandedPlaceholders[i]
 			lastIndex = pIndex[0] + 1
 		} else {
@@ -1622,12 +1637,12 @@ func maybeExpandListQuery(m *DbMap, query string, args ...interface{}) (string, 
 	if expandArgsInOrder {
 		var atEnd []interface{}
 		for _, arg := range args {
-			if l, ok := arg.(List); ok {
-				if len(l.Vals) > 1 {
-					newArgs = append(newArgs, l.Vals[0])
-					atEnd = append(atEnd, l.Vals[1:]...)
+			if l, ok := arg.(list); ok {
+				if len(l.vals) > 1 {
+					newArgs = append(newArgs, l.vals[0])
+					atEnd = append(atEnd, l.vals[1:]...)
 				} else {
-					newArgs = append(newArgs, l.Vals[0])
+					newArgs = append(newArgs, l.vals[0])
 				}
 			} else {
 				newArgs = append(newArgs, arg)
@@ -1636,21 +1651,21 @@ func maybeExpandListQuery(m *DbMap, query string, args ...interface{}) (string, 
 		newArgs = append(newArgs, atEnd...)
 	} else {
 		for _, arg := range args {
-			if l, ok := arg.(List); ok {
-				newArgs = append(newArgs, l.Vals...)
+			if l, ok := arg.(list); ok {
+				newArgs = append(newArgs, l.vals...)
 			} else {
 				newArgs = append(newArgs, arg)
 			}
 		}
 	}
 
-	return newQuery + query[lastIndex:], newArgs
+	return newQuery + query[lastIndex:], newArgs, nil
 }
 
 // getPlaceholderIndices returns all occurences of placeholders
 // in the given query string with associated information where
 // the second slice is of the form [0]=token start in query string,
-// [1] = token value (useful in Postgres queries, wil be -2 is
+// [1] = token value (useful in Postgres queries, will be -2 if
 // not Postgres query and will be -1 in Postgres query using ?
 // instead of $#) and [2]=token end
 func getPlaceholderIndices(m *DbMap, query string) ([][]int, int) {
@@ -1660,9 +1675,8 @@ func getPlaceholderIndices(m *DbMap, query string) ([][]int, int) {
 	inToken := false
 	tokenStart := 0
 
-	for i := 0; i < len(query); i++ {
-		c := query[i : i+1]
-		if unicode.IsSpace(rune(c[0])) || c == "(" || c == ")" || c == "," || c == ";" {
+	for i, runeVal := range query {
+		if unicode.IsSpace(runeVal) || runeVal == '(' || runeVal == ')' || runeVal == ',' || runeVal == ';' {
 			if inToken {
 				token := query[tokenStart:i]
 				if val, isVar := m.Dialect.IsVarWithVal(token); isVar {
@@ -1698,13 +1712,17 @@ func getPlaceholderIndices(m *DbMap, query string) ([][]int, int) {
 
 // getListIndices simply returns all indices in the args
 // list which are of the type gorp.List
-func getListIndices(args ...interface{}) (is []int) {
+func getListIndices(args ...interface{}) ([]int, error) {
+	var is []int
 	for i, arg := range args {
-		if _, ok := arg.(List); ok {
+		if l, ok := arg.(list); ok {
+			if len(l.vals) == 0 {
+				return nil, sql.ErrNoRows
+			}
 			is = append(is, i)
 		}
 	}
-	return
+	return is, nil
 }
 
 func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error) {
