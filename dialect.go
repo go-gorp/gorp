@@ -75,7 +75,7 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "integer"
-	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return "integer"
 	case reflect.Float64, reflect.Float32:
 		return "real"
@@ -86,14 +86,12 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 	}
 
 	switch val.Name() {
-	case "NullableInt64":
+	case "NullInt64":
 		return "integer"
-	case "NullableFloat64":
+	case "NullFloat64":
 		return "real"
-	case "NullableBool":
+	case "NullBool":
 		return "integer"
-	case "NullableBytes":
-		return "blob"
 	case "Time":
 		return "datetime"
 	}
@@ -161,7 +159,7 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "boolean"
-	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Uint16, reflect.Uint32:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint8, reflect.Uint16, reflect.Uint32:
 		if isAutoIncr {
 			return "serial"
 		}
@@ -171,7 +169,9 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 			return "bigserial"
 		}
 		return "bigint"
-	case reflect.Float64, reflect.Float32:
+	case reflect.Float64:
+		return "double precision"
+	case reflect.Float32:
 		return "real"
 	case reflect.Slice:
 		if val.Elem().Kind() == reflect.Uint8 {
@@ -180,15 +180,13 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 	}
 
 	switch val.Name() {
-	case "NullableInt64":
+	case "NullInt64":
 		return "bigint"
-	case "NullableFloat64":
-		return "double"
-	case "NullableBool":
-		return "smallint"
-	case "NullableBytes":
-		return "bytea"
-	case "Time", "NullTime":
+	case "NullFloat64":
+		return "double precision"
+	case "NullBool":
+		return "boolean"
+	case "Time":
 		return "timestamp with time zone"
 	}
 
@@ -248,7 +246,7 @@ func (d PostgresDialect) QuoteField(f string) string {
 }
 
 func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string {
-	if (strings.TrimSpace(schema) == "") {
+	if strings.TrimSpace(schema) == "" {
 		return d.QuoteField(table)
 	}
 
@@ -275,10 +273,22 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 		return m.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "boolean"
-	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Uint16, reflect.Uint32:
+	case reflect.Int8:
+		return "tinyint"
+	case reflect.Uint8:
+		return "tinyint unsigned"
+	case reflect.Int16:
+		return "smallint"
+	case reflect.Uint16:
+		return "smallint unsigned"
+	case reflect.Int, reflect.Int32:
 		return "int"
-	case reflect.Int64, reflect.Uint64:
+	case reflect.Uint, reflect.Uint32:
+		return "int unsigned"
+	case reflect.Int64:
 		return "bigint"
+	case reflect.Uint64:
+		return "bigint unsigned"
 	case reflect.Float64, reflect.Float32:
 		return "double"
 	case reflect.Slice:
@@ -288,14 +298,12 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 	}
 
 	switch val.Name() {
-	case "NullableInt64":
+	case "NullInt64":
 		return "bigint"
-	case "NullableFloat64":
+	case "NullFloat64":
 		return "double"
-	case "NullableBool":
+	case "NullBool":
 		return "tinyint"
-	case "NullableBytes":
-		return "mediumblob"
 	case "Time":
 		return "datetime"
 	}
