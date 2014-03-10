@@ -1581,14 +1581,16 @@ func expandNamedQuery(m *DbMap, query string, keyGetter func(key string) reflect
 	}), args
 }
 
-// List is used to tag slices in a query's argument list
-// whose placeholder should be expanded to reflect the
-// size of the slice. A common example would be:
-// 'select * from t where v in (?)', gorp.List{vals}
+// list is the struct that a group of arguments is actually tagged by
+// so that then can be identified when expanding a query's arguments.
 type list struct {
 	vals []interface{}
 }
 
+// List is used to tag slices in a query's argument list
+// whose placeholder should be expanded to reflect the
+// size of the slice. A common example would be:
+// 'select * from t where v in (?)', gorp.List(vals)
 func List(i ...interface{}) interface{} {
 	return list{i}
 }
