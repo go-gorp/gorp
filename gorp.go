@@ -966,11 +966,13 @@ func (m *DbMap) Get(i interface{}, keys ...interface{}) (interface{}, error) {
 // The hook function PostGet() will be executed after the SELECT
 // statement if the interface defines them.
 //
-// Values are returned in one of two ways:
+// Values are returned in one of three ways:
 // 1. If i is a struct or a pointer to a struct, returns a slice of pointers to
 // matching rows of type i.
 // 2. If i is a pointer to a slice, the results will be appended to that slice
 // and nil returned.
+// 3. If i is a channel of pointers, return the results one row at a time to the
+// channel.
 //
 // i does NOT need to be registered with AddTable()
 func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]interface{}, error) {
@@ -1396,7 +1398,14 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		appendToSlice   = false // Write results to i directly?
 		intoStruct      = true  // Selecting into a struct?
 		pointerElements = true  // Are the slice elements pointers (vs values)?
+		intoChan        = false // Are we writing back to a channel?
 	)
+
+	// Check whether we will send each result back to a channel
+	ch := reflect.TypeOf(i)
+	if ch.Kind() == reflect.Chan {
+		intoChan = true
+	}
 
 	// get type for i, verifying it's a supported destination
 	t, err := toType(i)
@@ -1502,6 +1511,8 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 				v = v.Elem()
 			}
 			sliceValue.Set(reflect.Append(sliceValue, v))
+		} else if intoChan {
+			reflect.ValueOf(i).Send(v)
 		} else {
 			list = append(list, v.Interface())
 		}
@@ -1511,6 +1522,9 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		sliceValue.Set(reflect.MakeSlice(sliceValue.Type(), 0, 0))
 	}
 
+	if intoChan {
+		return nil, nil
+	}
 	return list, nil
 }
 
@@ -1648,6 +1662,14 @@ func toSliceType(i interface{}) (reflect.Type, error) {
 
 func toType(i interface{}) (reflect.Type, error) {
 	t := reflect.TypeOf(i)
+
+	// If a Channel get the pointer type from the channel
+	if t.Kind() == reflect.Chan {
+		t = t.Elem()
+		if t.Kind() != reflect.Ptr {
+			return nil, fmt.Errorf("gorp: Cannot SELECT into this type: %v", reflect.TypeOf(i))
+		}
+	}
 
 	// If a Pointer to a type, follow
 	for t.Kind() == reflect.Ptr {
