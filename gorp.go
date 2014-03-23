@@ -1225,7 +1225,7 @@ func (t *Transaction) query(query string, args ...interface{}) (*sql.Rows, error
 func SelectInt(e SqlExecutor, query string, args ...interface{}) (int64, error) {
 	var h int64
 	err := selectVal(e, &h, query, args...)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return 0, err
 	}
 	return h, nil
@@ -1237,7 +1237,7 @@ func SelectInt(e SqlExecutor, query string, args ...interface{}) (int64, error) 
 func SelectNullInt(e SqlExecutor, query string, args ...interface{}) (sql.NullInt64, error) {
 	var h sql.NullInt64
 	err := selectVal(e, &h, query, args...)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return h, err
 	}
 	return h, nil
@@ -1249,7 +1249,7 @@ func SelectNullInt(e SqlExecutor, query string, args ...interface{}) (sql.NullIn
 func SelectFloat(e SqlExecutor, query string, args ...interface{}) (float64, error) {
 	var h float64
 	err := selectVal(e, &h, query, args...)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return 0, err
 	}
 	return h, nil
@@ -1261,7 +1261,7 @@ func SelectFloat(e SqlExecutor, query string, args ...interface{}) (float64, err
 func SelectNullFloat(e SqlExecutor, query string, args ...interface{}) (sql.NullFloat64, error) {
 	var h sql.NullFloat64
 	err := selectVal(e, &h, query, args...)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return h, err
 	}
 	return h, nil
@@ -1273,7 +1273,7 @@ func SelectNullFloat(e SqlExecutor, query string, args ...interface{}) (sql.Null
 func SelectStr(e SqlExecutor, query string, args ...interface{}) (string, error) {
 	var h string
 	err := selectVal(e, &h, query, args...)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return "", err
 	}
 	return h, nil
@@ -1286,7 +1286,7 @@ func SelectStr(e SqlExecutor, query string, args ...interface{}) (string, error)
 func SelectNullStr(e SqlExecutor, query string, args ...interface{}) (sql.NullString, error) {
 	var h sql.NullString
 	err := selectVal(e, &h, query, args...)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return h, err
 	}
 	return h, nil
@@ -1350,14 +1350,11 @@ func selectVal(e SqlExecutor, holder interface{}, query string, args ...interfac
 	}
 	defer rows.Close()
 
-	if rows.Next() {
-		err = rows.Scan(holder)
-		if err != nil {
-			return err
-		}
+	if !rows.Next() {
+		return sql.ErrNoRows
 	}
 
-	return nil
+	return rows.Scan(holder)
 }
 
 ///////////////
