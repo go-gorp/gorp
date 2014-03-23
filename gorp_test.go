@@ -1408,7 +1408,20 @@ func TestSelectSingleVal(t *testing.T) {
 	_insert(dbmap, &Person{0, 0, 0, "bob", "smith", 0})
 	err = dbmap.SelectOne(&p2, "select * from person_test where Fname='bob'")
 	if err == nil {
-		t.Error("Expected nil when two rows found")
+		t.Error("Expected error when two rows found")
+	}
+
+	// tests for #150
+	var tInt int64
+	var tStr string
+	var tBool bool
+	var tFloat float64
+	primVals := []interface{}{tInt, tStr, tBool, tFloat}
+	for _, prim := range primVals {
+		err = dbmap.SelectOne(&prim, "select * from person_test where Id=-123")
+		if err == nil || err != sql.ErrNoRows {
+			t.Error("primVals: SelectOne should have returned sql.ErrNoRows")
+		}
 	}
 }
 
