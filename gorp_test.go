@@ -1438,8 +1438,9 @@ func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
 
 func TestChannelSelect(t *testing.T) {
 	dbInvoiceChan := make(chan *Invoice, 1000)
-	insertStmt := "insert into invoice_test (Memo, PersonId) values (?, ?)"
-	query := "select * from invoice_test"
+	completed := make(chan bool)
+	insertStmt := "insert into invoice_test (Memo, PersonId, Created, Updated, IsPaid) values (?, ?, ?, ?, ?)"
+	query := "select Id, Created, Updated, Memo, PersonId, IsPaid from invoice_test"
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
 
@@ -1447,8 +1448,11 @@ func TestChannelSelect(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		var inv Invoice
 		inv.PersonId = int64(i)
+		inv.Created = 100
+		inv.Updated = 200
+		inv.IsPaid = false
 		inv.Memo = "Initial state"
-		_, err := dbmap.Db.Exec(insertStmt, inv.Memo, inv.PersonId)
+		_, err := dbmap.Db.Exec(insertStmt, inv.Memo, inv.PersonId, inv.Created, inv.Updated, inv.IsPaid)
 		if err != nil {
 			t.Fatalf("Failed to insert row into test database : %v\n", err)
 		}
@@ -1458,20 +1462,23 @@ func TestChannelSelect(t *testing.T) {
 	go func() {
 		var counter int
 		for _ = range dbInvoiceChan {
+			log.Printf("Got a row\n")
 			counter++
 		}
 		if counter < 999 {
-			t.Fail()
+			t.Fatalf("Didn't receive all the rows\n")
 		}
+		completed <- true
 	}()
 
 	// Grab the rows
-	go func() {
-		_, err := dbmap.Select(dbInvoiceChan, query)
-		if err != nil {
-			t.Fail()
-		}
-	}()
+	_, err := dbmap.Select(dbInvoiceChan, query)
+	close(dbInvoiceChan)
+	if err != nil {
+		t.Fatalf("Error in Select : %v\n", err)
+	}
+
+	<-completed
 }
 
 func BenchmarkNativeCrud(b *testing.B) {
