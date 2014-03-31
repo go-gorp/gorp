@@ -1439,10 +1439,13 @@ func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
 func TestChannelSelect(t *testing.T) {
 	dbInvoiceChan := make(chan *Invoice, 1000)
 	completed := make(chan bool)
-	insertStmt := "insert into invoice_test (Memo, PersonId, Created, Updated, IsPaid) values (?, ?, ?, ?, ?)"
-	query := "select Id, Created, Updated, Memo, PersonId, IsPaid from invoice_test"
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
+
+	bindVar := dbmap.Dialect.BindVar(0)
+	insertStmt := "insert into invoice_test (Memo, PersonId, Created, Updated, IsPaid) values (" +
+		bindVar + ", " + bindVar + ", " + bindVar + ", " + bindVar + ", " + bindVar + ")"
+	query := "select Id, Created, Updated, Memo, PersonId, IsPaid from invoice_test"
 
 	// Build a table with a few rows in to play with
 	for i := 0; i < 1000; i++ {
@@ -1458,11 +1461,19 @@ func TestChannelSelect(t *testing.T) {
 		}
 	}
 
+	// Grab the rows
+	go func() {
+		_, err := dbmap.Select(dbInvoiceChan, query)
+		close(dbInvoiceChan)
+		if err != nil {
+			t.Fatalf("Error in Select : %v\n", err)
+		}
+	}()
+
 	// Gopher processing the rows as they come out of the database.
 	go func() {
 		var counter int
 		for _ = range dbInvoiceChan {
-			log.Printf("Got a row\n")
 			counter++
 		}
 		if counter < 999 {
@@ -1470,13 +1481,6 @@ func TestChannelSelect(t *testing.T) {
 		}
 		completed <- true
 	}()
-
-	// Grab the rows
-	_, err := dbmap.Select(dbInvoiceChan, query)
-	close(dbInvoiceChan)
-	if err != nil {
-		t.Fatalf("Error in Select : %v\n", err)
-	}
 
 	<-completed
 }
