@@ -1436,6 +1436,44 @@ func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
 	db.CreateTables()
 }
 
+func TestChannelSelect(t *testing.T) {
+	dbInvoiceChan := make(chan *Invoice, 1000)
+	insertStmt := "insert into invoice_test (Memo, PersonId) values (?, ?)"
+	query := "select * from invoice_test"
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+
+	// Build a table with a few rows in to play with
+	for i := 0; i < 1000; i++ {
+		var inv Invoice
+		inv.PersonId = int64(i)
+		inv.Memo = "Initial state"
+		_, err := dbmap.Db.Exec(insertStmt, inv.Memo, inv.PersonId)
+		if err != nil {
+			t.Fatalf("Failed to insert row into test database : %v\n", err)
+		}
+	}
+
+	// Gopher processing the rows as they come out of the database.
+	go func() {
+		var counter int
+		for _ = range dbInvoiceChan {
+			counter++
+		}
+		if counter < 999 {
+			t.Fail()
+		}
+	}()
+
+	// Grab the rows
+	go func() {
+		_, err := dbmap.Select(dbInvoiceChan, query)
+		if err != nil {
+			t.Fail()
+		}
+	}()
+}
+
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
