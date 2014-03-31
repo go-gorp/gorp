@@ -1442,9 +1442,6 @@ func TestChannelSelect(t *testing.T) {
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
 
-	bindVar := dbmap.Dialect.BindVar(0)
-	insertStmt := "insert into invoice_test (Memo, PersonId, Created, Updated, IsPaid) values (" +
-		bindVar + ", " + bindVar + ", " + bindVar + ", " + bindVar + ", " + bindVar + ")"
 	query := "select Id, Created, Updated, Memo, PersonId, IsPaid from invoice_test"
 
 	// Build a table with a few rows in to play with
@@ -1455,9 +1452,9 @@ func TestChannelSelect(t *testing.T) {
 		inv.Updated = 200
 		inv.IsPaid = false
 		inv.Memo = "Initial state"
-		_, err := dbmap.Db.Exec(insertStmt, inv.Memo, inv.PersonId, inv.Created, inv.Updated, inv.IsPaid)
+		err := dbmap.Insert(&inv)
 		if err != nil {
-			t.Fatalf("Failed to insert row into test database : %v\n", err)
+			t.Fatalf("Failed to insert invoices into test database : %v\n", err)
 		}
 	}
 
