@@ -23,6 +23,8 @@ type Dialect interface {
 
 	AutoIncrBindValue() string
 
+	OnChangeStr(change string, action FKOnChangeAction) string
+
 	AutoIncrInsertSuffix(col *ColumnMap) string
 
 	// string to append to "create table" statement for vendor specific
@@ -59,6 +61,18 @@ func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...interf
 		return 0, err
 	}
 	return res.LastInsertId()
+}
+
+func standardOnChangeStr(change string, action FKOnChangeAction) string {
+	switch action {
+	case UNSPECIFIED: return ""
+	case NO_ACTION: return "on " + change + " no action"
+	case RESTRICT: return "on " + change + " restrict"
+	case CASCADE: return "on " + change + " cascade"
+	case SET_NULL: return "on " + change + " set null"
+	case DELETE: return "on " + change + " delete"
+	}
+	return ""
 }
 
 ///////////////////////////////////////////////////////
@@ -113,6 +127,10 @@ func (d SqliteDialect) AutoIncrBindValue() string {
 
 func (d SqliteDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return ""
+}
+
+func (d SqliteDialect) OnChangeStr(change string, action FKOnChangeAction ) string {
+	return standardOnChangeStr(change, action)
 }
 
 // Returns suffix
@@ -209,6 +227,10 @@ func (d PostgresDialect) AutoIncrBindValue() string {
 
 func (d PostgresDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return " returning " + col.ColumnName
+}
+
+func (d PostgresDialect) OnChangeStr(change string, action FKOnChangeAction ) string {
+	return standardOnChangeStr(change, action)
 }
 
 // Returns suffix
@@ -325,6 +347,10 @@ func (m MySQLDialect) AutoIncrBindValue() string {
 
 func (m MySQLDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return ""
+}
+
+func (m MySQLDialect) OnChangeStr(change string, action FKOnChangeAction ) string {
+	return standardOnChangeStr(change, action)
 }
 
 // Returns engine=%s charset=%s  based on values stored on struct

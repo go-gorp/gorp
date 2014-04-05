@@ -296,6 +296,7 @@ func (m *DbMap) dropTableImpl(table *TableMap, addIfExists bool) (err error) {
 	return err
 }
 
+
 // TableMap represents a mapping between a Go struct and a database table
 // Use dbmap.AddTable() or dbmap.AddTableWithName() to create these
 type TableMap struct {
@@ -409,6 +410,7 @@ func (t *TableMap) SetVersionCol(field string) *ColumnMap {
 	return c
 }
 
+
 // ColumnMap represents a mapping between a Go struct field and a single
 // column in a table.
 // Unique and MaxSize only inform the
@@ -428,6 +430,10 @@ type ColumnMap struct {
 	// correct column type to map to in CreateTables()
 	// Not used elsewhere
 	MaxSize int
+
+	// If present, specifies that this column is a foreign key that
+	// references another column of another table.
+	References *ForeignKey
 
 	fieldName  string
 	gotype     reflect.Type
@@ -472,5 +478,54 @@ func (c *ColumnMap) SetNotNull(nn bool) *ColumnMap {
 func (c *ColumnMap) SetMaxSize(size int) *ColumnMap {
 	c.MaxSize = size
 	return c
+}
+
+// SetForeignKey specifies the foreign-key relationship between this column
+// and a column in another table.
+func (c *ColumnMap) SetForeignKey(fk *ForeignKey) *ColumnMap {
+	c.References = fk
+	return c
+}
+
+
+// Specifies what foreign-key constraints will be enforced by the database.
+type FKOnChangeAction int
+
+const (
+	UNSPECIFIED FKOnChangeAction = iota
+	NO_ACTION
+	RESTRICT
+	CASCADE
+	SET_NULL
+	//SET_DEFAULT // may not be supported by MySql
+	DELETE
+)
+
+// ForeignKey specifies the relationship formed when one column refers to the
+// primary key of another table.
+type ForeignKey struct {
+	ReferencedTable string
+	ReferencedColumn string
+	ActionOnDelete FKOnChangeAction
+	ActionOnUpdate FKOnChangeAction
+}
+
+// NewForeignKey creates a new ForeignKey for a specified table/column reference.
+func NewForeignKey(referencedTable, referencedColumn string) *ForeignKey {
+	return &ForeignKey{referencedTable, referencedColumn, UNSPECIFIED, UNSPECIFIED}
+}
+
+// Sets the action that the database is to perform when the parent record
+// is updated. The default is usually RESTRICT.
+func (fk *ForeignKey) OnUpdate(action FKOnChangeAction) *ForeignKey {
+	fk.ActionOnUpdate = action
+	return fk
+}
+
+// Sets the action that the database is to perform when the parent record
+// is deleted. The default is usually RESTRICT.
+func (fk *ForeignKey) OnDelete(action FKOnChangeAction) *ForeignKey {
+	fk.ActionOnDelete = action
+	return fk
 }
 
