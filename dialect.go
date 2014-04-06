@@ -129,7 +129,7 @@ func (d SqliteDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return ""
 }
 
-func (d SqliteDialect) OnChangeStr(change string, action FKOnChangeAction ) string {
+func (d SqliteDialect) OnChangeStr(change string, action FKOnChangeAction) string {
 	return standardOnChangeStr(change, action)
 }
 
@@ -229,7 +229,7 @@ func (d PostgresDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return " returning " + col.ColumnName
 }
 
-func (d PostgresDialect) OnChangeStr(change string, action FKOnChangeAction ) string {
+func (d PostgresDialect) OnChangeStr(change string, action FKOnChangeAction) string {
 	return standardOnChangeStr(change, action)
 }
 
@@ -349,7 +349,7 @@ func (m MySQLDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return ""
 }
 
-func (m MySQLDialect) OnChangeStr(change string, action FKOnChangeAction ) string {
+func (m MySQLDialect) OnChangeStr(change string, action FKOnChangeAction) string {
 	return standardOnChangeStr(change, action)
 }
 

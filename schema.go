@@ -186,8 +186,8 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 	if ifNotExists {
 		s.WriteString("if not exists ")
 	}
-	s.WriteString(m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName))
-	s.WriteString("(")
+	tableName := m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)
+	s.WriteString(fmt.Sprintf("%s (", tableName))
 
 	x := 0
 	for _, col := range table.columns {
@@ -195,8 +195,9 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 			if x > 0 {
 				s.WriteString(", ")
 			}
+			field := m.Dialect.QuoteField(col.ColumnName)
 			stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
-			s.WriteString(fmt.Sprintf("%s %s", m.Dialect.QuoteField(col.ColumnName), stype))
+			s.WriteString(fmt.Sprintf("%s %s", field, stype))
 
 			if col.isPK || col.isNotNull {
 				s.WriteString(" not null")
@@ -208,7 +209,14 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 				s.WriteString(" unique")
 			}
 			if col.isAutoIncr {
-				s.WriteString(fmt.Sprintf(" %s", m.Dialect.AutoIncrStr()))
+				s.WriteString(" " + m.Dialect.AutoIncrStr())
+			}
+			if col.References != nil {
+				refTable := m.Dialect.QuotedTableForQuery("", col.References.ReferencedTable)
+				refField := m.Dialect.QuoteField(col.References.ReferencedColumn)
+				onDelete := m.Dialect.OnChangeStr("delete", col.References.ActionOnDelete)
+				onUpdate := m.Dialect.OnChangeStr("update", col.References.ActionOnUpdate)
+				s.WriteString(fmt.Sprintf(" references %s (%s) %s %s", refTable, refField, onDelete, onUpdate))
 			}
 
 			x++
