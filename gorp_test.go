@@ -736,29 +736,30 @@ func TestColumnProps(t *testing.T) {
 	}
 }
 
-func ZTestFkColumnProps(t *testing.T) {
+func TestFkColumnProps(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTable(Person{}).SetKeys(true, "Id")
 	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("person", "id").OnDelete(CASCADE))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(RESTRICT).OnUpdate(CASCADE))
+	// note: "on update" is not yet tested
 
 	err := dbmap.CreateTables()
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	defer dropAndClose(dbmap)
 
-//	person := &Person{123, 0, 0, "John", "Cooper", 0}
-//	_insert(dbmap, person)
-//
-//	inv := &Invoice{0, 0, 1, "my invoice", 123, true}
-//	_insert(dbmap, inv)
-//
-//	_, err = dbmap.Delete(person)
-//	if err == nil {
-//		t.Errorf("Restricted delete failed.")
-//	}
+	person := &Person{0, 0, 0, "John", "Cooper", 0}
+	_insert(dbmap, person)
+
+	inv := &Invoice{0, 0, 1, "my invoice", person.Id, true}
+	_insert(dbmap, inv)
+
+	n, err := dbmap.Delete(person)
+	if err == nil {
+		t.Errorf("Restricted delete failed; deleted %d. %d\n", n, person.Id)
+	}
 }
 
 func TestRawSelect(t *testing.T) {
@@ -1602,7 +1603,10 @@ func newDbMap() *DbMap {
 }
 
 func dropAndClose(dbmap *DbMap) {
-	dbmap.DropTablesIfExists()
+	err := dbmap.DropTablesIfExists()
+	if err != nil {
+		log.Println(err)
+	}
 	dbmap.Db.Close()
 }
 

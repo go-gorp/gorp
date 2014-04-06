@@ -23,9 +23,13 @@ type Dialect interface {
 
 	AutoIncrBindValue() string
 
-	OnChangeStr(change string, action FKOnChangeAction) string
-
 	AutoIncrInsertSuffix(col *ColumnMap) string
+
+	// Creates the trailing foreign key reference in a column specification.
+	CreateForeignKeySuffix(references *ForeignKey) string
+
+	// Creates the separate foreign key reference for a column.
+	CreateForeignKeyBlock(col *ColumnMap) string
 
 	// string to append to "create table" statement for vendor specific
 	// table attributes
@@ -64,13 +68,14 @@ func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...interf
 }
 
 func standardOnChangeStr(change string, action FKOnChangeAction) string {
+	prefix := "\n    "
 	switch action {
 	case UNSPECIFIED: return ""
-	case NO_ACTION: return "on " + change + " no action"
-	case RESTRICT: return "on " + change + " restrict"
-	case CASCADE: return "on " + change + " cascade"
-	case SET_NULL: return "on " + change + " set null"
-	case DELETE: return "on " + change + " delete"
+	case NO_ACTION: return prefix + "on " + change + " no action"
+	case RESTRICT: return prefix + "on " + change + " restrict"
+	case CASCADE: return prefix + "on " + change + " cascade"
+	case SET_NULL: return prefix + "on " + change + " set null"
+	case DELETE: return prefix + "on " + change + " delete"
 	}
 	return ""
 }
@@ -129,8 +134,12 @@ func (d SqliteDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return ""
 }
 
-func (d SqliteDialect) OnChangeStr(change string, action FKOnChangeAction) string {
-	return standardOnChangeStr(change, action)
+func (d SqliteDialect) CreateForeignKeySuffix(references *ForeignKey) string {
+	return ""
+}
+
+func (d SqliteDialect) CreateForeignKeyBlock(col *ColumnMap) string {
+	return ""
 }
 
 // Returns suffix
@@ -229,8 +238,12 @@ func (d PostgresDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return " returning " + col.ColumnName
 }
 
-func (d PostgresDialect) OnChangeStr(change string, action FKOnChangeAction) string {
-	return standardOnChangeStr(change, action)
+func (d PostgresDialect) CreateForeignKeySuffix(references *ForeignKey) string {
+	return ""
+}
+
+func (d PostgresDialect) CreateForeignKeyBlock(col *ColumnMap) string {
+	return ""
 }
 
 // Returns suffix
@@ -260,7 +273,7 @@ func (d PostgresDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, para
 		return id, err
 	}
 
-	return 0, errors.New("No serial value returned for insert: " + insertSql + " Encountered error: " + rows.Err().Error())
+	return 0, errors.New("No serial value returned for insert: "+insertSql+" Encountered error: "+rows.Err().Error())
 }
 
 func (d PostgresDialect) QuoteField(f string) string {
@@ -349,8 +362,17 @@ func (m MySQLDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return ""
 }
 
-func (m MySQLDialect) OnChangeStr(change string, action FKOnChangeAction) string {
-	return standardOnChangeStr(change, action)
+func (m MySQLDialect) CreateForeignKeySuffix(references *ForeignKey) string {
+	return ""
+}
+
+func (m MySQLDialect) CreateForeignKeyBlock(col *ColumnMap) string {
+	return fmt.Sprintf("foreign key (%s) references %s (%s)",
+		m.QuoteField(col.ColumnName),
+		m.QuoteField(col.References.ReferencedTable),
+		m.QuoteField(col.References.ReferencedColumn)) +
+			standardOnChangeStr("update", col.References.ActionOnUpdate) +
+			standardOnChangeStr("delete", col.References.ActionOnDelete)
 }
 
 // Returns engine=%s charset=%s  based on values stored on struct

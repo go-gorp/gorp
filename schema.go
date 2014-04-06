@@ -158,15 +158,14 @@ func (m *DbMap) CreateTablesIfNotExists() error {
 }
 
 func (m *DbMap) createTables(ifNotExists bool) error {
-	var err error
 	for _, t := range m.tables {
 		ddl := m.createOneTableSql(ifNotExists, t)
 		_, err := m.Exec(ddl)
 		if err != nil {
-			break
+			return err
 		}
 	}
-	return err
+	return nil
 }
 
 func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
@@ -187,13 +186,13 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 		s.WriteString("if not exists ")
 	}
 	tableName := m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)
-	s.WriteString(fmt.Sprintf("%s (", tableName))
+	s.WriteString(fmt.Sprintf("%s (\n  ", tableName))
 
 	x := 0
 	for _, col := range table.columns {
 		if !col.Transient {
 			if x > 0 {
-				s.WriteString(", ")
+				s.WriteString(",\n  ")
 			}
 			field := m.Dialect.QuoteField(col.ColumnName)
 			stype := m.Dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
@@ -212,11 +211,7 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 				s.WriteString(" " + m.Dialect.AutoIncrStr())
 			}
 			if col.References != nil {
-				refTable := m.Dialect.QuotedTableForQuery("", col.References.ReferencedTable)
-				refField := m.Dialect.QuoteField(col.References.ReferencedColumn)
-				onDelete := m.Dialect.OnChangeStr("delete", col.References.ActionOnDelete)
-				onUpdate := m.Dialect.OnChangeStr("update", col.References.ActionOnUpdate)
-				s.WriteString(fmt.Sprintf(" references %s (%s) %s %s", refTable, refField, onDelete, onUpdate))
+				s.WriteString(m.Dialect.CreateForeignKeySuffix(col.References))
 			}
 
 			x++
@@ -224,7 +219,7 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 	}
 
 	if len(table.keys) > 1 {
-		s.WriteString(", primary key (")
+		s.WriteString(",\n  primary key (")
 		for x := range table.keys {
 			if x > 0 {
 				s.WriteString(", ")
@@ -236,7 +231,7 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 
 	if len(table.uniqueTogether) > 0 {
 		for _, columns := range table.uniqueTogether {
-			s.WriteString(", unique (")
+			s.WriteString(",\n  unique (")
 			for i, column := range columns {
 				if i > 0 {
 					s.WriteString(", ")
@@ -246,7 +241,15 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 			s.WriteString(")")
 		}
 	}
-	s.WriteString(") ")
+
+	for _, col := range table.columns {
+		if !col.Transient && col.References != nil {
+			s.WriteString(",\n  ")
+			s.WriteString(m.Dialect.CreateForeignKeyBlock(col))
+		}
+	}
+
+	s.WriteString("\n) ")
 	s.WriteString(m.Dialect.CreateTableSuffix())
 	s.WriteString(";")
 	return s.String()
@@ -282,13 +285,17 @@ func (m *DbMap) DropTablesIfExists() error {
 // If an error is encountered, then it is returned and the rest of
 // the tables are not dropped.
 func (m *DbMap) dropTables(addIfExists bool) (err error) {
-	for _, table := range m.tables {
+	// drop in reverse order, assuming that foreign keys were created in
+	// the order that the tables were created
+	n := len(m.tables) - 1
+	for i, _ := range m.tables {
+		table := m.tables[n - i]
 		err = m.dropTableImpl(table, addIfExists)
 		if err != nil {
 			return
 		}
 	}
-	return err
+	return
 }
 
 // Implementation of dropping a single table.
