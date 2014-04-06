@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-//	"regexp"
 	"strings"
 )
 
@@ -160,26 +159,36 @@ func (m *DbMap) CreateTablesIfNotExists() error {
 
 func (m *DbMap) createTables(ifNotExists bool) error {
 	var err error
-	for i := range m.tables {
-		table := m.tables[i]
+	for _, t := range m.tables {
+		ddl := m.createOneTableSql(ifNotExists, t)
+		_, err := m.Exec(ddl)
+		if err != nil {
+			break
+		}
+	}
+	return err
+}
 
-		s := bytes.Buffer{}
+func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
+	s := bytes.Buffer{}
 
 	if strings.TrimSpace(table.SchemaName) != "" {
-		schemaCreate := "create schema"
+		s.WriteString("create schema ")
 		if ifNotExists {
-			schemaCreate += " if not exists"
+			s.WriteString("if not exists ")
 		}
 
-		s.WriteString(fmt.Sprintf("%s %s;", schemaCreate, table.SchemaName))
+		s.WriteString(table.SchemaName)
+		s.WriteString(";")
 	}
 
-	create := "create table"
+	s.WriteString("create table ")
 	if ifNotExists {
-		create += " if not exists"
+		s.WriteString("if not exists ")
 	}
+	s.WriteString(m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName))
+	s.WriteString("(")
 
-	s.WriteString(fmt.Sprintf("%s %s (", create, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 	x := 0
 	for _, col := range table.columns {
 		if !col.Transient {
@@ -205,6 +214,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 			x++
 		}
 	}
+
 	if len(table.keys) > 1 {
 		s.WriteString(", primary key (")
 		for x := range table.keys {
@@ -215,6 +225,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 		}
 		s.WriteString(")")
 	}
+
 	if len(table.uniqueTogether) > 0 {
 		for _, columns := range table.uniqueTogether {
 			s.WriteString(", unique (")
@@ -230,12 +241,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 	s.WriteString(") ")
 	s.WriteString(m.Dialect.CreateTableSuffix())
 	s.WriteString(";")
-	_, err = m.Exec(s.String())
-	if err != nil {
-		break
-	}
-}
-return err
+	return s.String()
 }
 
 // DropTable drops an individual table.  Will throw an error
@@ -295,7 +301,6 @@ func (m *DbMap) dropTableImpl(table *TableMap, addIfExists bool) (err error) {
 	_, err = m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 	return err
 }
-
 
 // TableMap represents a mapping between a Go struct and a database table
 // Use dbmap.AddTable() or dbmap.AddTableWithName() to create these
@@ -410,7 +415,6 @@ func (t *TableMap) SetVersionCol(field string) *ColumnMap {
 	return c
 }
 
-
 // ColumnMap represents a mapping between a Go struct field and a single
 // column in a table.
 // Unique and MaxSize only inform the
@@ -487,7 +491,6 @@ func (c *ColumnMap) SetForeignKey(fk *ForeignKey) *ColumnMap {
 	return c
 }
 
-
 // Specifies what foreign-key constraints will be enforced by the database.
 type FKOnChangeAction int
 
@@ -504,10 +507,10 @@ const (
 // ForeignKey specifies the relationship formed when one column refers to the
 // primary key of another table.
 type ForeignKey struct {
-	ReferencedTable string
+	ReferencedTable  string
 	ReferencedColumn string
-	ActionOnDelete FKOnChangeAction
-	ActionOnUpdate FKOnChangeAction
+	ActionOnDelete   FKOnChangeAction
+	ActionOnUpdate   FKOnChangeAction
 }
 
 // NewForeignKey creates a new ForeignKey for a specified table/column reference.

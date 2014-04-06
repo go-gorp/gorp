@@ -736,6 +736,31 @@ func TestColumnProps(t *testing.T) {
 	}
 }
 
+func ZTestFkColumnProps(t *testing.T) {
+	dbmap := newDbMap()
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	dbmap.AddTable(Person{}).SetKeys(true, "Id")
+	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("person", "id").OnDelete(CASCADE))
+
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
+	defer dropAndClose(dbmap)
+
+//	person := &Person{123, 0, 0, "John", "Cooper", 0}
+//	_insert(dbmap, person)
+//
+//	inv := &Invoice{0, 0, 1, "my invoice", 123, true}
+//	_insert(dbmap, inv)
+//
+//	_, err = dbmap.Delete(person)
+//	if err == nil {
+//		t.Errorf("Restricted delete failed.")
+//	}
+}
+
 func TestRawSelect(t *testing.T) {
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
