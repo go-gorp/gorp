@@ -356,7 +356,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 
 		for y := range t.columns {
 			col := t.columns[y]
-			if !col.isPK && !col.Transient {
+			if !col.isAutoIncr && !col.Transient {
 				if x > 0 {
 					s.WriteString(", ")
 				}
