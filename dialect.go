@@ -135,7 +135,11 @@ func (d SqliteDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 }
 
 func (d SqliteDialect) CreateForeignKeySuffix(references *ForeignKey) string {
-	return ""
+	refTable := d.QuotedTableForQuery("", references.ReferencedTable)
+	refField := d.QuoteField(references.ReferencedColumn)
+	return fmt.Sprintf(" references %s (%s)%s%s", refTable, refField,
+		standardOnChangeStr("delete", references.ActionOnDelete),
+		standardOnChangeStr("update", references.ActionOnUpdate))
 }
 
 func (d SqliteDialect) CreateForeignKeyBlock(col *ColumnMap) string {
@@ -239,7 +243,11 @@ func (d PostgresDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 }
 
 func (d PostgresDialect) CreateForeignKeySuffix(references *ForeignKey) string {
-	return ""
+	refTable := d.QuotedTableForQuery("", references.ReferencedTable)
+	refField := d.QuoteField(references.ReferencedColumn)
+	return fmt.Sprintf(" references %s (%s)%s%s", refTable, refField,
+		standardOnChangeStr("delete", references.ActionOnDelete),
+		standardOnChangeStr("update", references.ActionOnUpdate))
 }
 
 func (d PostgresDialect) CreateForeignKeyBlock(col *ColumnMap) string {

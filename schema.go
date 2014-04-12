@@ -188,6 +188,18 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 	tableName := m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)
 	s.WriteString(fmt.Sprintf("%s (\n  ", tableName))
 
+	s = m.createOneTableColumns(table, s)
+	s = m.createOneTablePrimaryKeys(table, s)
+	s = m.createOneTableIndexes(table, s)
+	s = m.createOneTableForeignKeys(table, s)
+
+	s.WriteString("\n) ")
+	s.WriteString(m.Dialect.CreateTableSuffix())
+	s.WriteString(";")
+	return s.String()
+}
+
+func (m *DbMap) createOneTableColumns(table *TableMap, s bytes.Buffer) bytes.Buffer {
 	x := 0
 	for _, col := range table.columns {
 		if !col.Transient {
@@ -217,7 +229,10 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 			x++
 		}
 	}
+	return s
+}
 
+func (m *DbMap) createOneTablePrimaryKeys(table *TableMap, s bytes.Buffer) bytes.Buffer {
 	if len(table.keys) > 1 {
 		s.WriteString(",\n  primary key (")
 		for x := range table.keys {
@@ -228,7 +243,10 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 		}
 		s.WriteString(")")
 	}
+	return s
+}
 
+func (m *DbMap) createOneTableIndexes(table *TableMap, s bytes.Buffer) bytes.Buffer {
 	if len(table.uniqueTogether) > 0 {
 		for _, columns := range table.uniqueTogether {
 			s.WriteString(",\n  unique (")
@@ -241,18 +259,20 @@ func (m *DbMap) createOneTableSql(ifNotExists bool, table *TableMap) string {
 			s.WriteString(")")
 		}
 	}
+	return s
+}
 
+func (m *DbMap) createOneTableForeignKeys(table *TableMap, s bytes.Buffer) bytes.Buffer {
 	for _, col := range table.columns {
 		if !col.Transient && col.References != nil {
-			s.WriteString(",\n  ")
-			s.WriteString(m.Dialect.CreateForeignKeyBlock(col))
+			fkBlock := m.Dialect.CreateForeignKeyBlock(col)
+			if fkBlock != "" {
+				s.WriteString(",\n  ")
+				s.WriteString(fkBlock)
+			}
 		}
 	}
-
-	s.WriteString("\n) ")
-	s.WriteString(m.Dialect.CreateTableSuffix())
-	s.WriteString(";")
-	return s.String()
+	return s
 }
 
 // DropTable drops an individual table.  Will throw an error
