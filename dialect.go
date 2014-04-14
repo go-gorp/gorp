@@ -57,6 +57,11 @@ type Dialect interface {
 	// schema - The schema that <table> lives in
 	// table - The table name
 	QuotedTableForQuery(schema string, table string) string
+
+	// Sends an initialisation instruction when connecting to the database.
+	// Primarily, this exists for Sqlite3 because foreign keys are disable
+	// by default, unlike Postgresql and Mysql InnoDB.
+	InitString() string
 }
 
 func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
@@ -135,15 +140,16 @@ func (d SqliteDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 }
 
 func (d SqliteDialect) CreateForeignKeySuffix(references *ForeignKey) string {
-	refTable := d.QuotedTableForQuery("", references.ReferencedTable)
-	refField := d.QuoteField(references.ReferencedColumn)
-	return fmt.Sprintf(" references %s (%s)%s%s", refTable, refField,
-		standardOnChangeStr("delete", references.ActionOnDelete),
-		standardOnChangeStr("update", references.ActionOnUpdate))
+	return ""
 }
 
 func (d SqliteDialect) CreateForeignKeyBlock(col *ColumnMap) string {
-	return ""
+	return fmt.Sprintf("foreign key (%s) references %s (%s)",
+		d.QuoteField(col.ColumnName),
+		d.QuoteField(col.References.ReferencedTable),
+		d.QuoteField(col.References.ReferencedColumn)) +
+			standardOnChangeStr("update", col.References.ActionOnUpdate) +
+			standardOnChangeStr("delete", col.References.ActionOnDelete)
 }
 
 // Returns suffix
@@ -174,6 +180,11 @@ func (d SqliteDialect) QuoteField(f string) string {
 // sqlite does not have schemas like PostgreSQL does, so just escape it like normal
 func (d SqliteDialect) QuotedTableForQuery(schema string, table string) string {
 	return d.QuoteField(table)
+}
+
+// sqlite3 has foreign keys disabled by default (will be enabled in sqlite4).
+func (d SqliteDialect) InitString() string {
+	return "pragma foreign_keys = ON;"
 }
 
 ///////////////////////////////////////////////////////
@@ -269,7 +280,7 @@ func (d PostgresDialect) BindVar(i int) string {
 }
 
 func (d PostgresDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
-	rows, err := exec.query(insertSql, params...)
+	rows, err := exec.Query(insertSql, params...)
 	if err != nil {
 		return 0, err
 	}
@@ -296,6 +307,10 @@ func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string
 	return schema + "." + d.QuoteField(table)
 }
 
+func (d PostgresDialect) InitString() string {
+	return ""
+}
+
 ///////////////////////////////////////////////////////
 // MySQL //
 ///////////
@@ -310,10 +325,10 @@ type MySQLDialect struct {
 	Encoding string
 }
 
-func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
 	case reflect.Ptr:
-		return m.ToSqlType(val.Elem(), maxsize, isAutoIncr)
+		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "boolean"
 	case reflect.Int8:
@@ -358,62 +373,62 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 }
 
 // Returns auto_increment
-func (m MySQLDialect) AutoIncrStr() string {
+func (d MySQLDialect) AutoIncrStr() string {
 	return "auto_increment"
 }
 
-func (m MySQLDialect) AutoIncrBindValue() string {
+func (d MySQLDialect) AutoIncrBindValue() string {
 	return "null"
 }
 
-func (m MySQLDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
+func (d MySQLDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return ""
 }
 
-func (m MySQLDialect) CreateForeignKeySuffix(references *ForeignKey) string {
+func (d MySQLDialect) CreateForeignKeySuffix(references *ForeignKey) string {
 	return ""
 }
 
-func (m MySQLDialect) CreateForeignKeyBlock(col *ColumnMap) string {
+func (d MySQLDialect) CreateForeignKeyBlock(col *ColumnMap) string {
 	return fmt.Sprintf("foreign key (%s) references %s (%s)",
-		m.QuoteField(col.ColumnName),
-		m.QuoteField(col.References.ReferencedTable),
-		m.QuoteField(col.References.ReferencedColumn)) +
+		d.QuoteField(col.ColumnName),
+		d.QuoteField(col.References.ReferencedTable),
+		d.QuoteField(col.References.ReferencedColumn)) +
 			standardOnChangeStr("update", col.References.ActionOnUpdate) +
 			standardOnChangeStr("delete", col.References.ActionOnDelete)
 }
 
 // Returns engine=%s charset=%s  based on values stored on struct
-func (m MySQLDialect) CreateTableSuffix() string {
-	if m.Engine == "" || m.Encoding == "" {
+func (d MySQLDialect) CreateTableSuffix() string {
+	if d.Engine == "" || d.Encoding == "" {
 		msg := "gorp - undefined"
 
-		if m.Engine == "" {
+		if d.Engine == "" {
 			msg += " MySQLDialect.Engine"
 		}
-		if m.Engine == "" && m.Encoding == "" {
+		if d.Engine == "" && d.Encoding == "" {
 			msg += ","
 		}
-		if m.Encoding == "" {
+		if d.Encoding == "" {
 			msg += " MySQLDialect.Encoding"
 		}
 		msg += ". Check that your MySQLDialect was correctly initialized when declared."
 		panic(msg)
 	}
 
-	return fmt.Sprintf(" engine=%s charset=%s", m.Engine, m.Encoding)
+	return fmt.Sprintf(" engine=%s charset=%s", d.Engine, d.Encoding)
 }
 
-func (m MySQLDialect) TruncateClause() string {
+func (d MySQLDialect) TruncateClause() string {
 	return "truncate"
 }
 
 // Returns "?"
-func (m MySQLDialect) BindVar(i int) string {
+func (d MySQLDialect) BindVar(i int) string {
 	return "?"
 }
 
-func (m MySQLDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+func (d MySQLDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
 	return standardInsertAutoIncr(exec, insertSql, params...)
 }
 
@@ -424,4 +439,8 @@ func (d MySQLDialect) QuoteField(f string) string {
 // MySQL does not have schemas like PostgreSQL does, so just escape it like normal
 func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
 	return d.QuoteField(table)
+}
+
+func (d MySQLDialect) InitString() string {
+	return ""
 }

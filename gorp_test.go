@@ -306,7 +306,7 @@ func TestSetUniqueTogether(t *testing.T) {
 		t.Error(err)
 	}
 	// "unique" for Postgres/SQLite, "Duplicate entry" for MySQL
-	if !strings.Contains(err.Error(), "unique") && !strings.Contains(err.Error(), "Duplicate entry") {
+	if !stringContainsIgnoreCase(err.Error(), "unique") && !stringContainsIgnoreCase(err.Error(), "Duplicate entry") {
 		t.Error(err)
 	}
 
@@ -317,7 +317,7 @@ func TestSetUniqueTogether(t *testing.T) {
 		t.Error(err)
 	}
 	// "unique" for Postgres/SQLite, "Duplicate entry" for MySQL
-	if !strings.Contains(err.Error(), "unique") && !strings.Contains(err.Error(), "Duplicate entry") {
+	if !stringContainsIgnoreCase(err.Error(), "unique") && !stringContainsIgnoreCase(err.Error(), "Duplicate entry") {
 		t.Error(err)
 	}
 
@@ -800,7 +800,7 @@ func TestUnitFkColumnPropsSqlite(t *testing.T) {
 
 	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(RESTRICT).OnUpdate(CASCADE))
 	table1 := dbmap.createOneTableSql(true, dbmap.tables[1])
-	if !strings.Contains(table1, `"PersonId" integer references "Person" ("Id")`) {
+	if !strings.Contains(table1, `foreign key ("PersonId") references "Person" ("Id")`) {
 		t.Errorf("Expected foreign key reference in:\n%s", table1)
 	}
 	checkFkProperty(t, table1, "on update cascade", true)
@@ -1819,4 +1819,10 @@ func _rawselect(dbmap *DbMap, i interface{}, query string, args ...interface{}) 
 		panic(err)
 	}
 	return list
+}
+
+func stringContainsIgnoreCase(value, lookingFor string) bool {
+	valueLC := strings.ToLower(value)
+	lookingForLC := strings.ToLower(lookingFor)
+	return strings.Contains(valueLC, lookingForLC)
 }

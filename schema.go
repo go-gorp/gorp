@@ -38,9 +38,10 @@ type DbMap struct {
 
 	TypeConverter TypeConverter
 
-	tables    []*TableMap
-	logger    GorpLogger
-	logPrefix string
+	tables      []*TableMap
+	logger      GorpLogger
+	logPrefix   string
+	initialised bool
 }
 
 // AddTable registers the given interface type with gorp. The table name
