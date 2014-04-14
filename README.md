@@ -226,9 +226,13 @@ dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
 // SetKeys(true) means we have a auto increment primary key, which
 // will get automatically bound to your struct post-insert
 //
-t1 := dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
-t2 := dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
+t1 := dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
+t2 := dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 t3 := dbmap.AddTableWithName(Product{}, "product_test").SetKeys(true, "Id")
+
+// SetForeignKey will declare that Invoice.PersonId is a foreign key for
+// Person.Id, and delete/update actions are to be treated as specified.
+t2.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(RESTRICT).OnUpdate(CASCADE))
 ```
 
 ### Struct Embedding ###
@@ -450,6 +454,15 @@ func InsertInv(dbmap *DbMap, inv *Invoice, per *Person) error {
 }
 ```
 
+### Foreign Keys ###
+
+You can define the foreign-key relationships when you create the table schema.
+The `ColumnMap` has a `SetForeignKey` method to do this, shown in Examples above.
+
+Gorp only uses this when `CreateTables` or `CreateTablesIfNotExists` are invoked.
+Thereafter, Gorp plays no further part because the database itself enforces the
+consistency of keys, returning an error any time that a constraint would be violated.
+
 ### Hooks ###
 
 Use hooks to update data before/after saving to the db. Good for timestamps:
@@ -644,3 +657,4 @@ Thanks!
 * matthias-margush - column aliasing via tags
 * Rob Figueiredo - @robfig
 * Quinn Slack - @sqs
+* Rick Beton - @rickb777 - foreign keys
