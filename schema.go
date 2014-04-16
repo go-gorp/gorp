@@ -531,13 +531,13 @@ func (c *ColumnMap) SetForeignKey(fk *ForeignKey) *ColumnMap {
 type FKOnChangeAction int
 
 const (
-	UNSPECIFIED FKOnChangeAction = iota
-	NO_ACTION
-	RESTRICT
-	CASCADE
-	SET_NULL
-	//SET_DEFAULT // may not be supported by MySql
-	DELETE
+	Unspecified FKOnChangeAction = iota
+	NoAction
+	Restrict
+	Cascade
+	SetNull
+	//SetDefault // may not be supported by MySql
+	Delete
 )
 
 // ForeignKey specifies the relationship formed when one column refers to the
@@ -549,20 +549,22 @@ type ForeignKey struct {
 	ActionOnUpdate   FKOnChangeAction
 }
 
-// NewForeignKey creates a new ForeignKey for a specified table/column reference.
+// NewForeignKey creates a new ForeignKey for a specified table/column reference. If
+// the table is part of a named schema, include the schema prefix in the referencedTable
+// value.
 func NewForeignKey(referencedTable, referencedColumn string) *ForeignKey {
-	return &ForeignKey{referencedTable, referencedColumn, UNSPECIFIED, UNSPECIFIED}
+	return &ForeignKey{referencedTable, referencedColumn, Unspecified, Unspecified}
 }
 
 // Sets the action that the database is to perform when the parent record
-// is updated. The default is usually RESTRICT.
+// is updated. The default is usually Restrict.
 func (fk *ForeignKey) OnUpdate(action FKOnChangeAction) *ForeignKey {
 	fk.ActionOnUpdate = action
 	return fk
 }
 
 // Sets the action that the database is to perform when the parent record
-// is deleted. The default is usually RESTRICT.
+// is deleted. The default is usually Restrict.
 func (fk *ForeignKey) OnDelete(action FKOnChangeAction) *ForeignKey {
 	fk.ActionOnDelete = action
 	return fk

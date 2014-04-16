@@ -75,12 +75,12 @@ func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...interf
 func standardOnChangeStr(change string, action FKOnChangeAction) string {
 	prefix := "\n    "
 	switch action {
-	case UNSPECIFIED: return ""
-	case NO_ACTION: return prefix + "on " + change + " no action"
-	case RESTRICT: return prefix + "on " + change + " restrict"
-	case CASCADE: return prefix + "on " + change + " cascade"
-	case SET_NULL: return prefix + "on " + change + " set null"
-	case DELETE: return prefix + "on " + change + " delete"
+	case Unspecified: return ""
+	case NoAction: return prefix + "on " + change + " no action"
+	case Restrict: return prefix + "on " + change + " restrict"
+	case Cascade: return prefix + "on " + change + " cascade"
+	case SetNull: return prefix + "on " + change + " set null"
+	case Delete: return prefix + "on " + change + " delete"
 	}
 	return ""
 }

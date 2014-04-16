@@ -232,7 +232,7 @@ t3 := dbmap.AddTableWithName(Product{}, "product_test").SetKeys(true, "Id")
 
 // SetForeignKey will declare that Invoice.PersonId is a foreign key for
 // Person.Id, and delete/update actions are to be treated as specified.
-t2.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(RESTRICT).OnUpdate(CASCADE))
+t2.ColMap("PersonId").SetForeignKey(gorp.NewForeignKey("Person", "Id").OnDelete(gorp.Restrict).OnUpdate(gorp.Cascade))
 ```
 
 ### Struct Embedding ###

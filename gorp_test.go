@@ -748,7 +748,7 @@ func TestUnitFkColumnPropsMysql(t *testing.T) {
 	dbmap.AddTable(Person{}).SetKeys(true, "Id")
 	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
 
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(RESTRICT).OnUpdate(CASCADE))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Restrict).OnUpdate(Cascade))
 	table1 := dbmap.createOneTableSql(true, dbmap.tables[1])
 	if !strings.Contains(table1, "foreign key (`PersonId`) references `Person` (`Id`)") {
 		t.Errorf("Expected foreign key reference in:\n%s", table1)
@@ -756,12 +756,12 @@ func TestUnitFkColumnPropsMysql(t *testing.T) {
 	checkFkProperty(t, table1, "on update cascade", true)
 	checkFkProperty(t, table1, "on delete restrict", true)
 
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(DELETE).OnUpdate(SET_NULL))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Delete).OnUpdate(SetNull))
 	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
 	checkFkProperty(t, table1, "on update set null", true)
 	checkFkProperty(t, table1, "on delete delete", true)
 
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(NO_ACTION).OnUpdate(UNSPECIFIED))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(NoAction).OnUpdate(Unspecified))
 	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
 	checkFkProperty(t, table1, "on update", false)
 	checkFkProperty(t, table1, "on delete no action", true)
@@ -773,7 +773,7 @@ func TestUnitFkColumnPropsPsql(t *testing.T) {
 	dbmap.AddTable(Person{}).SetKeys(true, "Id")
 	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
 
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(RESTRICT).OnUpdate(CASCADE))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Restrict).OnUpdate(Cascade))
 	table1 := dbmap.createOneTableSql(true, dbmap.tables[1])
 	if !strings.Contains(table1, `"personid" bigint references "person" ("id")`) {
 		t.Errorf("Expected foreign key reference in:\n%s", table1)
@@ -781,12 +781,12 @@ func TestUnitFkColumnPropsPsql(t *testing.T) {
 	checkFkProperty(t, table1, "on update cascade", true)
 	checkFkProperty(t, table1, "on delete restrict", true)
 
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(DELETE).OnUpdate(SET_NULL))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Delete).OnUpdate(SetNull))
 	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
 	checkFkProperty(t, table1, "on update set null", true)
 	checkFkProperty(t, table1, "on delete delete", true)
 
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(NO_ACTION).OnUpdate(UNSPECIFIED))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(NoAction).OnUpdate(Unspecified))
 	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
 	checkFkProperty(t, table1, "on update", false)
 	checkFkProperty(t, table1, "on delete no action", true)
@@ -798,7 +798,7 @@ func TestUnitFkColumnPropsSqlite(t *testing.T) {
 	dbmap.AddTable(Person{}).SetKeys(true, "Id")
 	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
 
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(RESTRICT).OnUpdate(CASCADE))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Restrict).OnUpdate(Cascade))
 	table1 := dbmap.createOneTableSql(true, dbmap.tables[1])
 	if !strings.Contains(table1, `foreign key ("PersonId") references "Person" ("Id")`) {
 		t.Errorf("Expected foreign key reference in:\n%s", table1)
@@ -806,12 +806,12 @@ func TestUnitFkColumnPropsSqlite(t *testing.T) {
 	checkFkProperty(t, table1, "on update cascade", true)
 	checkFkProperty(t, table1, "on delete restrict", true)
 
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(DELETE).OnUpdate(SET_NULL))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Delete).OnUpdate(SetNull))
 	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
 	checkFkProperty(t, table1, "on update set null", true)
 	checkFkProperty(t, table1, "on delete delete", true)
 
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(NO_ACTION).OnUpdate(UNSPECIFIED))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(NoAction).OnUpdate(Unspecified))
 	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
 	checkFkProperty(t, table1, "on update", false)
 	checkFkProperty(t, table1, "on delete no action", true)
@@ -822,7 +822,7 @@ func TestFkColumnProps(t *testing.T) {
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTable(Person{}).SetKeys(true, "Id")
 	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
-	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(RESTRICT).OnUpdate(CASCADE))
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Restrict).OnUpdate(Cascade))
 	// note: "on update" is not yet tested
 
 	err := dbmap.CreateTables()
