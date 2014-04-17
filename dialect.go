@@ -32,8 +32,6 @@ type Dialect interface {
 	// string to truncate tables
 	TruncateClause() string
 
-	InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error)
-
 	// bind variable string to use when forming SQL statements
 	// in many dbs it is "?", but Postgres appears to use $1
 	//
@@ -51,6 +49,25 @@ type Dialect interface {
 	// schema - The schema that <table> lives in
 	// table - The table name
 	QuotedTableForQuery(schema string, table string) string
+}
+
+// IntegerAutoIncrInserter is implemented by dialects that can perform
+// inserts with automatically incremented integer primary keys.  If
+// the dialect can handle automatic assignment of more than just
+// integers, see TargetedAutoIncrInserter.
+type IntegerAutoIncrInserter interface {
+	InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error)
+}
+
+// TargetedAutoIncrInserter is implemented by dialects that can
+// perform automatic assignment of any primary key type (i.e. strings
+// for uuids, integers for serials, etc).
+type TargetedAutoIncrInserter interface {
+	// InsertAutoIncrToTarget runs an insert operation and assigns the
+	// resulting automatically generated primary key directly to the
+	// passed in target, which should be a pointer to the primary key
+	// element.
+	InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target interface{}, params ...interface{}) error
 }
 
 func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
@@ -225,20 +242,19 @@ func (d PostgresDialect) BindVar(i int) string {
 	return fmt.Sprintf("$%d", i+1)
 }
 
-func (d PostgresDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target interface{}, params ...interface{}) error {
 	rows, err := exec.query(insertSql, params...)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer rows.Close()
 
 	if rows.Next() {
-		var id int64
-		err := rows.Scan(&id)
-		return id, err
+		err := rows.Scan(target)
+		return err
 	}
 
-	return 0, errors.New("No serial value returned for insert: " + insertSql + " Encountered error: " + rows.Err().Error())
+	return errors.New("No serial value returned for insert: " + insertSql + " Encountered error: " + rows.Err().Error())
 }
 
 func (d PostgresDialect) QuoteField(f string) string {
