@@ -66,7 +66,7 @@ type TargetedAutoIncrInserter interface {
 	// InsertAutoIncrToTarget runs an insert operation and assigns the
 	// resulting automatically generated primary key directly to the
 	// passed in target, which should be a pointer to the primary key
-	// element.
+	// field.
 	InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target interface{}, params ...interface{}) error
 }
 
