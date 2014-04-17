@@ -64,9 +64,9 @@ type IntegerAutoIncrInserter interface {
 // for uuids, integers for serials, etc).
 type TargetedAutoIncrInserter interface {
 	// InsertAutoIncrToTarget runs an insert operation and assigns the
-	// resulting automatically generated primary key directly to the
-	// passed in target, which should be a pointer to the primary key
-	// field.
+	// automatically generated primary key directly to the passed in
+	// target.  The target should be a pointer to the primary key
+	// field of the value being inserted.
 	InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target interface{}, params ...interface{}) error
 }
 
