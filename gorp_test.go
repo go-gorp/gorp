@@ -306,7 +306,7 @@ func TestSetUniqueTogether(t *testing.T) {
 		t.Error(err)
 	}
 	// "unique" for Postgres/SQLite, "Duplicate entry" for MySQL
-	if !strings.Contains(err.Error(), "unique") && !strings.Contains(err.Error(), "Duplicate entry") {
+	if !stringContainsIgnoreCase(err.Error(), "unique") && !stringContainsIgnoreCase(err.Error(), "Duplicate entry") {
 		t.Error(err)
 	}
 
@@ -317,7 +317,7 @@ func TestSetUniqueTogether(t *testing.T) {
 		t.Error(err)
 	}
 	// "unique" for Postgres/SQLite, "Duplicate entry" for MySQL
-	if !strings.Contains(err.Error(), "unique") && !strings.Contains(err.Error(), "Duplicate entry") {
+	if !stringContainsIgnoreCase(err.Error(), "unique") && !stringContainsIgnoreCase(err.Error(), "Duplicate entry") {
 		t.Error(err)
 	}
 
@@ -733,6 +733,113 @@ func TestColumnProps(t *testing.T) {
 	err = dbmap.Insert(inv)
 	if err == nil {
 		t.Errorf("same PersonId inserted, but Insert did not fail.")
+	}
+}
+
+func checkFkProperty(t *testing.T, createTableSql, expected string, required bool) {
+	if strings.Contains(createTableSql, expected) != required {
+		t.Errorf("Expected '%s' in:\n%s", expected, createTableSql)
+	}
+}
+
+func TestUnitFkColumnPropsMysql(t *testing.T) {
+	dialect := MySQLDialect{"InnoDB", "UTF8"}
+	dbmap := &DbMap{Dialect: dialect}
+	dbmap.AddTable(Person{}).SetKeys(true, "Id")
+	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
+
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Restrict).OnUpdate(Cascade))
+	table1 := dbmap.createOneTableSql(true, dbmap.tables[1])
+	if !strings.Contains(table1, "foreign key (`PersonId`) references `Person` (`Id`)") {
+		t.Errorf("Expected foreign key reference in:\n%s", table1)
+	}
+	checkFkProperty(t, table1, "on update cascade", true)
+	checkFkProperty(t, table1, "on delete restrict", true)
+
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Delete).OnUpdate(SetNull))
+	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
+	checkFkProperty(t, table1, "on update set null", true)
+	checkFkProperty(t, table1, "on delete delete", true)
+
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(NoAction).OnUpdate(Unspecified))
+	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
+	checkFkProperty(t, table1, "on update", false)
+	checkFkProperty(t, table1, "on delete no action", true)
+}
+
+func TestUnitFkColumnPropsPsql(t *testing.T) {
+	dialect := PostgresDialect{}
+	dbmap := &DbMap{Dialect: dialect}
+	dbmap.AddTable(Person{}).SetKeys(true, "Id")
+	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
+
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Restrict).OnUpdate(Cascade))
+	table1 := dbmap.createOneTableSql(true, dbmap.tables[1])
+	if !strings.Contains(table1, `"personid" bigint references "person" ("id")`) {
+		t.Errorf("Expected foreign key reference in:\n%s", table1)
+	}
+	checkFkProperty(t, table1, "on update cascade", true)
+	checkFkProperty(t, table1, "on delete restrict", true)
+
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Delete).OnUpdate(SetNull))
+	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
+	checkFkProperty(t, table1, "on update set null", true)
+	checkFkProperty(t, table1, "on delete delete", true)
+
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(NoAction).OnUpdate(Unspecified))
+	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
+	checkFkProperty(t, table1, "on update", false)
+	checkFkProperty(t, table1, "on delete no action", true)
+}
+
+func TestUnitFkColumnPropsSqlite(t *testing.T) {
+	dialect := SqliteDialect{}
+	dbmap := &DbMap{Dialect: dialect}
+	dbmap.AddTable(Person{}).SetKeys(true, "Id")
+	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
+
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Restrict).OnUpdate(Cascade))
+	table1 := dbmap.createOneTableSql(true, dbmap.tables[1])
+	if !strings.Contains(table1, `foreign key ("PersonId") references "Person" ("Id")`) {
+		t.Errorf("Expected foreign key reference in:\n%s", table1)
+	}
+	checkFkProperty(t, table1, "on update cascade", true)
+	checkFkProperty(t, table1, "on delete restrict", true)
+
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Delete).OnUpdate(SetNull))
+	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
+	checkFkProperty(t, table1, "on update set null", true)
+	checkFkProperty(t, table1, "on delete delete", true)
+
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(NoAction).OnUpdate(Unspecified))
+	table1 = dbmap.createOneTableSql(true, dbmap.tables[1])
+	checkFkProperty(t, table1, "on update", false)
+	checkFkProperty(t, table1, "on delete no action", true)
+}
+
+func TestFkColumnProps(t *testing.T) {
+	dbmap := newDbMap()
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	dbmap.AddTable(Person{}).SetKeys(true, "Id")
+	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
+	t1.ColMap("PersonId").SetForeignKey(NewForeignKey("Person", "Id").OnDelete(Restrict).OnUpdate(Cascade))
+	// note: "on update" is not yet tested
+
+	err := dbmap.CreateTables()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer dropAndClose(dbmap)
+
+	person := &Person{0, 0, 0, "John", "Cooper", 0}
+	_insert(dbmap, person)
+
+	inv := &Invoice{0, 0, 1, "my invoice", person.Id, true}
+	_insert(dbmap, inv)
+
+	n, err := dbmap.Delete(person)
+	if err == nil {
+		t.Errorf("Restricted delete failed; deleted %d. %d\n", n, person.Id)
 	}
 }
 
@@ -1555,9 +1662,9 @@ func initDbMapBench() *DbMap {
 func initDbMap() *DbMap {
 	dbmap := newDbMap()
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(OverriddenInvoice{}, "invoice_override_test").SetKeys(false, "Id")
-	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStruct{}, "embedded_struct_test").SetKeys(true, "Id")
@@ -1590,7 +1697,10 @@ func newDbMap() *DbMap {
 }
 
 func dropAndClose(dbmap *DbMap) {
-	dbmap.DropTablesIfExists()
+	err := dbmap.DropTablesIfExists()
+	if err != nil {
+		log.Println(err)
+	}
 	dbmap.Db.Close()
 }
 
@@ -1722,4 +1832,10 @@ func _rawselect(dbmap *DbMap, i interface{}, query string, args ...interface{}) 
 		panic(err)
 	}
 	return list
+}
+
+func stringContainsIgnoreCase(value, lookingFor string) bool {
+	valueLC := strings.ToLower(value)
+	lookingForLC := strings.ToLower(lookingFor)
+	return strings.Contains(valueLC, lookingForLC)
 }
