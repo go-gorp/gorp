@@ -365,7 +365,10 @@ func (d MySQLDialect) QuoteField(f string) string {
 	return "`" + f + "`"
 }
 
-// MySQL does not have schemas like PostgreSQL does, so just escape it like normal
 func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
-	return d.QuoteField(table)
+	if strings.TrimSpace(schema) == "" {
+		return d.QuoteField(table)
+	}
+
+	return schema + "." + d.QuoteField(table)
 }
