@@ -1572,14 +1572,16 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error
 	// a field in the i struct
 	for x := range cols {
 		colName := strings.ToLower(cols[x])
-
 		field, found := t.FieldByNameFunc(func(fieldName string) bool {
+			var mappedFieldName string
 			field, _ := t.FieldByName(fieldName)
-			fieldName = field.Tag.Get("db")
-
-			if fieldName == "-" {
+			lowerFieldName := strings.ToLower(field.Name)
+			mappedFieldName = field.Tag.Get("db")
+			if mappedFieldName == "-" && colName != lowerFieldName {
 				return false
-			} else if fieldName == "" {
+			} else if mappedFieldName == "-" && colName == lowerFieldName {
+				return true
+			} else if mappedFieldName == "" {
 				fieldName = field.Name
 			}
 			if tableMapped {
@@ -1588,7 +1590,6 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error
 					fieldName = colMap.ColumnName
 				}
 			}
-
 			return colName == strings.ToLower(fieldName)
 		})
 		if found {
