@@ -306,7 +306,8 @@ func TestSetUniqueTogether(t *testing.T) {
 		t.Error(err)
 	}
 	// "unique" for Postgres/SQLite, "Duplicate entry" for MySQL
-	if !strings.Contains(err.Error(), "unique") && !strings.Contains(err.Error(), "Duplicate entry") {
+	errLower := strings.ToLower(err.Error())
+	if !strings.Contains(errLower, "unique") && !strings.Contains(errLower, "duplicate entry") {
 		t.Error(err)
 	}
 
@@ -317,7 +318,8 @@ func TestSetUniqueTogether(t *testing.T) {
 		t.Error(err)
 	}
 	// "unique" for Postgres/SQLite, "Duplicate entry" for MySQL
-	if !strings.Contains(err.Error(), "unique") && !strings.Contains(err.Error(), "Duplicate entry") {
+	errLower = strings.ToLower(err.Error())
+	if !strings.Contains(errLower, "unique") && !strings.Contains(errLower, "duplicate entry") {
 		t.Error(err)
 	}
 
