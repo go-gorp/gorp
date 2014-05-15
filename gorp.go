@@ -304,31 +304,34 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 		first := true
 		for y := range t.columns {
 			col := t.columns[y]
-
-			if !col.Transient {
-				if !first {
-					s.WriteString(",")
-					s2.WriteString(",")
-				}
-				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
-
-				if col.isAutoIncr {
-					s2.WriteString(t.dbmap.Dialect.AutoIncrBindValue())
-					plan.autoIncrIdx = y
-					plan.autoIncrFieldName = col.fieldName
-				} else {
-					s2.WriteString(t.dbmap.Dialect.BindVar(x))
-					if col == t.version {
-						plan.versField = col.fieldName
-						plan.argFields = append(plan.argFields, versFieldConst)
-					} else {
-						plan.argFields = append(plan.argFields, col.fieldName)
+			if !(col.isAutoIncr && t.dbmap.Dialect.AutoIncrBindValue() == "") {
+				if !col.Transient {
+					if !first {
+						s.WriteString(",")
+						s2.WriteString(",")
 					}
+					s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 
-					x++
+					if col.isAutoIncr {
+						s2.WriteString(t.dbmap.Dialect.AutoIncrBindValue())
+						plan.autoIncrIdx = y
+						plan.autoIncrFieldName = col.fieldName
+					} else {
+						s2.WriteString(t.dbmap.Dialect.BindVar(x))
+						if col == t.version {
+							plan.versField = col.fieldName
+							plan.argFields = append(plan.argFields, versFieldConst)
+						} else {
+							plan.argFields = append(plan.argFields, col.fieldName)
+						}
+
+						x++
+					}
+					first = false
 				}
-
-				first = false
+			} else {
+				plan.autoIncrIdx = y
+				plan.autoIncrFieldName = col.fieldName
 			}
 		}
 		s.WriteString(") values (")
