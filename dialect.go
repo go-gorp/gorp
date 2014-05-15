@@ -21,6 +21,8 @@ type Dialect interface {
 	// string to append to primary key column definitions
 	AutoIncrStr() string
 
+	// string to bind autoincrement columns to. Empty string will
+	// remove reference to those columns in the INSERT statement.
 	AutoIncrBindValue() string
 
 	AutoIncrInsertSuffix(col *ColumnMap) string
@@ -387,4 +389,109 @@ func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
 	}
 
 	return schema + "." + d.QuoteField(table)
+}
+
+///////////////////////////////////////////////////////
+// Sql Server //
+////////////////
+
+// Implementation of Dialect for Microsoft SQL Server databases.
+// Tested on SQL Server 2008.
+// Presently, it doesn't work with CreateTablesIfNotExists().
+
+type SqlServerDialect struct {
+	suffix string
+}
+
+func (m SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+	switch val.Kind() {
+	case reflect.Ptr:
+		return m.ToSqlType(val.Elem(), maxsize, isAutoIncr)
+	case reflect.Bool:
+		return "bit"
+	case reflect.Int8:
+		return "tinyint"
+	case reflect.Uint8:
+		return "smallint"
+	case reflect.Int16:
+		return "smallint"
+	case reflect.Uint16:
+		return "int"
+	case reflect.Int, reflect.Int32:
+		return "int"
+	case reflect.Uint, reflect.Uint32:
+		return "bigint"
+	case reflect.Int64:
+		return "bigint"
+	case reflect.Uint64:
+		return "bigint"
+	case reflect.Float32:
+		return "real"
+	case reflect.Float64:
+		return "float(53)"
+	case reflect.Slice:
+		if val.Elem().Kind() == reflect.Uint8 {
+			return "varbinary"
+		}
+	}
+
+	switch val.Name() {
+	case "NullInt64":
+		return "bigint"
+	case "NullFloat64":
+		return "float(53)"
+	case "NullBool":
+		return "tinyint"
+	case "Time":
+		return "datetime"
+	}
+
+	if maxsize < 1 {
+		maxsize = 255
+	}
+	return fmt.Sprintf("varchar(%d)", maxsize)
+}
+
+// Returns auto_increment
+func (m SqlServerDialect) AutoIncrStr() string {
+	return "identity(0,1)"
+}
+
+// Empty string removes autoincrement columns from the INSERT statements.
+func (m SqlServerDialect) AutoIncrBindValue() string {
+	return ""
+}
+
+func (m SqlServerDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
+	return ""
+}
+
+// Returns suffix
+func (d SqlServerDialect) CreateTableSuffix() string {
+
+	return d.suffix
+}
+
+func (m SqlServerDialect) TruncateClause() string {
+	return "delete from"
+}
+
+// Returns "?"
+func (m SqlServerDialect) BindVar(i int) string {
+	return "?"
+}
+
+func (m SqlServerDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+	return standardInsertAutoIncr(exec, insertSql, params...)
+}
+
+func (d SqlServerDialect) QuoteField(f string) string {
+	return f
+}
+
+func (d SqlServerDialect) QuotedTableForQuery(schema string, table string) string {
+	if strings.TrimSpace(schema) == "" {
+		return table
+	}
+	return schema + "." + table
 }
