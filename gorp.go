@@ -1079,6 +1079,9 @@ func (m *DbMap) Begin() (*Transaction, error) {
 	return &Transaction{m, tx, false}, nil
 }
 
+// TableFor returns the *TableMap corresponding to the given Go Type
+// If no table is mapped to that type an error is returned.
+// If checkPK is true and the mapped table has no registered PKs, an error is returned.
 func (m *DbMap) TableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 	table := tableOrNil(m, t)
 	if table == nil {
