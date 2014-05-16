@@ -168,7 +168,7 @@ type TableMap struct {
 	TableName      string
 	SchemaName     string
 	gotype         reflect.Type
-	columns        []*ColumnMap
+	Columns        []*ColumnMap
 	keys           []*ColumnMap
 	uniqueTogether [][]string
 	version        *ColumnMap
@@ -254,7 +254,7 @@ func (t *TableMap) ColMap(field string) *ColumnMap {
 }
 
 func colMapOrNil(t *TableMap, field string) *ColumnMap {
-	for _, col := range t.columns {
+	for _, col := range t.Columns {
 		if col.fieldName == field || col.ColumnName == field {
 			return col
 		}
@@ -347,8 +347,8 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 
 		x := 0
 		first := true
-		for y := range t.columns {
-			col := t.columns[y]
+		for y := range t.Columns {
+			col := t.Columns[y]
 			if !(col.isAutoIncr && t.dbmap.Dialect.AutoIncrBindValue() == "") {
 				if !col.Transient {
 					if !first {
@@ -383,7 +383,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 		s.WriteString(s2.String())
 		s.WriteString(")")
 		if plan.autoIncrIdx > -1 {
-			s.WriteString(t.dbmap.Dialect.AutoIncrInsertSuffix(t.columns[plan.autoIncrIdx]))
+			s.WriteString(t.dbmap.Dialect.AutoIncrInsertSuffix(t.Columns[plan.autoIncrIdx]))
 		}
 		s.WriteString(t.dbmap.Dialect.QuerySuffix())
 
@@ -402,8 +402,8 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 		s.WriteString(fmt.Sprintf("update %s set ", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
 		x := 0
 
-		for y := range t.columns {
-			col := t.columns[y]
+		for y := range t.Columns {
+			col := t.Columns[y]
 			if !col.isAutoIncr && !col.Transient {
 				if x > 0 {
 					s.WriteString(", ")
@@ -459,8 +459,8 @@ func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 		s := bytes.Buffer{}
 		s.WriteString(fmt.Sprintf("delete from %s", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
 
-		for y := range t.columns {
-			col := t.columns[y]
+		for y := range t.Columns {
+			col := t.Columns[y]
 			if !col.Transient {
 				if col == t.version {
 					plan.versField = col.fieldName
@@ -506,7 +506,7 @@ func (t *TableMap) bindGet() bindPlan {
 		s.WriteString("select ")
 
 		x := 0
-		for _, col := range t.columns {
+		for _, col := range t.Columns {
 			if !col.Transient {
 				if x > 0 {
 					s.WriteString(",")
@@ -709,7 +709,7 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
-	tmap.columns, tmap.version = readStructColumns(t)
+	tmap.Columns, tmap.version = readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 
 	return tmap
@@ -810,7 +810,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 
 		s.WriteString(fmt.Sprintf("%s %s (", create, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		x := 0
-		for _, col := range table.columns {
+		for _, col := range table.Columns {
 			if !col.Transient {
 				if x > 0 {
 					s.WriteString(", ")
@@ -1077,7 +1077,7 @@ func (m *DbMap) Begin() (*Transaction, error) {
 	return &Transaction{m, tx, false}, nil
 }
 
-func (m *DbMap) tableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
+func (m *DbMap) TableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 	table := tableOrNil(m, t)
 	if table == nil {
 		return nil, errors.New(fmt.Sprintf("No table found for type: %v", t.Name()))
@@ -1111,7 +1111,7 @@ func (m *DbMap) tableForPointer(ptr interface{}, checkPK bool) (*TableMap, refle
 	}
 	elem := ptrv.Elem()
 	etype := reflect.TypeOf(elem.Interface())
-	t, err := m.tableFor(etype, checkPK)
+	t, err := m.TableFor(etype, checkPK)
 	if err != nil {
 		return nil, reflect.Value{}, err
 	}
@@ -1743,7 +1743,7 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 		return nil, err
 	}
 
-	table, err := m.tableFor(t, true)
+	table, err := m.TableFor(t, true)
 	if err != nil {
 		return nil, err
 	}
