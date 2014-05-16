@@ -125,6 +125,10 @@ type UniqueColumns struct {
 	ZipCode   int64
 }
 
+type SingleColumnTable struct {
+	SomeId string
+}
+
 type testTypeConverter struct{}
 
 func (me testTypeConverter) ToDb(val interface{}) (interface{}, error) {
@@ -1489,6 +1493,37 @@ func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
 	db.AddTableWithName(Invoice{}, "invoice")
 	// the following call should panic :
 	db.CreateTables()
+}
+
+func TestSingleColumnKeyDbReturnsZeroRowsUpdatedOnPKChange(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+	dbmap.AddTableWithName(SingleColumnTable{}, "single_column_table").SetKeys(false, "SomeId")
+	err := dbmap.DropTablesIfExists()
+	if err != nil {
+		t.Error("Drop tables failed")
+	}
+	err = dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		t.Error("Create tables failed")
+	}
+	err = dbmap.TruncateTables()
+	if err != nil {
+		t.Error("Truncate tables failed")
+	}
+
+	sct := SingleColumnTable{
+		SomeId: "A Unique Id String",
+	}
+
+	count, err := dbmap.Update(&sct)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 updated rows, got %d", count)
+	}
+
 }
 
 func BenchmarkNativeCrud(b *testing.B) {

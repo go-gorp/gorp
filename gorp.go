@@ -14,12 +14,57 @@ package gorp
 import (
 	"bytes"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 )
+
+// Oracle String (empty string is null)
+type OracleString struct {
+	sql.NullString
+}
+
+// Scan implements the Scanner interface.
+func (os *OracleString) Scan(value interface{}) error {
+	if value == nil {
+		os.String, os.Valid = "", false
+		return nil
+	}
+	os.Valid = true
+	return os.NullString.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (os OracleString) Value() (driver.Value, error) {
+	if !os.Valid || os.String == "" {
+		return nil, nil
+	}
+	return os.String, nil
+}
+
+// A nullable Time value
+type NullTime struct {
+	Time  time.Time
+	Valid bool // Valid is true if Time is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (nt *NullTime) Scan(value interface{}) error {
+	nt.Time, nt.Valid = value.(time.Time)
+	return nil
+}
+
+// Value implements the driver Valuer interface.
+func (nt NullTime) Value() (driver.Value, error) {
+	if !nt.Valid {
+		return nil, nil
+	}
+	return nt.Time, nil
+}
 
 var zeroVal reflect.Value
 var versFieldConst = "[gorp_ver_field]"
@@ -304,31 +349,34 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 		first := true
 		for y := range t.Columns {
 			col := t.Columns[y]
-
-			if !col.Transient {
-				if !first {
-					s.WriteString(",")
-					s2.WriteString(",")
-				}
-				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
-
-				if col.isAutoIncr {
-					s2.WriteString(t.dbmap.Dialect.AutoIncrBindValue())
-					plan.autoIncrIdx = y
-					plan.autoIncrFieldName = col.fieldName
-				} else {
-					s2.WriteString(t.dbmap.Dialect.BindVar(x))
-					if col == t.version {
-						plan.versField = col.fieldName
-						plan.argFields = append(plan.argFields, versFieldConst)
-					} else {
-						plan.argFields = append(plan.argFields, col.fieldName)
+			if !(col.isAutoIncr && t.dbmap.Dialect.AutoIncrBindValue() == "") {
+				if !col.Transient {
+					if !first {
+						s.WriteString(",")
+						s2.WriteString(",")
 					}
+					s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
 
-					x++
+					if col.isAutoIncr {
+						s2.WriteString(t.dbmap.Dialect.AutoIncrBindValue())
+						plan.autoIncrIdx = y
+						plan.autoIncrFieldName = col.fieldName
+					} else {
+						s2.WriteString(t.dbmap.Dialect.BindVar(x))
+						if col == t.version {
+							plan.versField = col.fieldName
+							plan.argFields = append(plan.argFields, versFieldConst)
+						} else {
+							plan.argFields = append(plan.argFields, col.fieldName)
+						}
+
+						x++
+					}
+					first = false
 				}
-
-				first = false
+			} else {
+				plan.autoIncrIdx = y
+				plan.autoIncrFieldName = col.fieldName
 			}
 		}
 		s.WriteString(") values (")
@@ -337,7 +385,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 		if plan.autoIncrIdx > -1 {
 			s.WriteString(t.dbmap.Dialect.AutoIncrInsertSuffix(t.Columns[plan.autoIncrIdx]))
 		}
-		s.WriteString(";")
+		s.WriteString(t.dbmap.Dialect.QuerySuffix())
 
 		plan.query = s.String()
 		t.insertPlan = plan
@@ -356,7 +404,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 
 		for y := range t.Columns {
 			col := t.Columns[y]
-			if !col.isPK && !col.Transient {
+			if !col.isAutoIncr && !col.Transient {
 				if x > 0 {
 					s.WriteString(", ")
 				}
@@ -395,7 +443,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 			s.WriteString(t.dbmap.Dialect.BindVar(x))
 			plan.argFields = append(plan.argFields, plan.versField)
 		}
-		s.WriteString(";")
+		s.WriteString(t.dbmap.Dialect.QuerySuffix())
 
 		plan.query = s.String()
 		t.updatePlan = plan
@@ -441,7 +489,7 @@ func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 
 			plan.argFields = append(plan.argFields, plan.versField)
 		}
-		s.WriteString(";")
+		s.WriteString(t.dbmap.Dialect.QuerySuffix())
 
 		plan.query = s.String()
 		t.deletePlan = plan
@@ -482,7 +530,7 @@ func (t *TableMap) bindGet() bindPlan {
 
 			plan.keyFields = append(plan.keyFields, col.fieldName)
 		}
-		s.WriteString(";")
+		s.WriteString(t.dbmap.Dialect.QuerySuffix())
 
 		plan.query = s.String()
 		t.getPlan = plan
@@ -810,7 +858,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 		}
 		s.WriteString(") ")
 		s.WriteString(m.Dialect.CreateTableSuffix())
-		s.WriteString(";")
+		s.WriteString(m.Dialect.QuerySuffix())
 		_, err = m.Exec(s.String())
 		if err != nil {
 			break
@@ -1083,8 +1131,33 @@ func (m *DbMap) query(query string, args ...interface{}) (*sql.Rows, error) {
 
 func (m *DbMap) trace(query string, args ...interface{}) {
 	if m.logger != nil {
-		m.logger.Printf("%s%s %v", m.logPrefix, query, args)
+		var margs = argsString(args...)
+		m.logger.Printf("%s%s [%s]", m.logPrefix, query, margs)
 	}
+}
+
+func argsString(args ...interface{}) string {
+	var margs string
+	for i, a := range args {
+		var v interface{} = a
+		if x, ok := v.(driver.Valuer); ok {
+			y, err := x.Value()
+			if err == nil {
+				v = y
+			}
+		}
+		switch v.(type) {
+		case string:
+			v = fmt.Sprintf("%q", v)
+		default:
+			v = fmt.Sprintf("%v", v)
+		}
+		margs += fmt.Sprintf("%d:%s", i+1, v)
+		if i+1 < len(args) {
+			margs += " "
+		}
+	}
+	return margs
 }
 
 ///////////////
@@ -1843,18 +1916,28 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 		}
 
 		if bi.autoIncrIdx > -1 {
-			id, err := m.Dialect.InsertAutoIncr(exec, bi.query, bi.args...)
-			if err != nil {
-				return err
-			}
 			f := elem.FieldByName(bi.autoIncrFieldName)
-			k := f.Kind()
-			if (k == reflect.Int) || (k == reflect.Int16) || (k == reflect.Int32) || (k == reflect.Int64) {
-				f.SetInt(id)
-			} else if (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
-				f.SetUint(uint64(id))
-			} else {
-				return fmt.Errorf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d autoIncrFieldName=%s", bi.query, bi.autoIncrIdx, bi.autoIncrFieldName)
+			switch inserter := m.Dialect.(type) {
+			case IntegerAutoIncrInserter:
+				id, err := inserter.InsertAutoIncr(exec, bi.query, bi.args...)
+				if err != nil {
+					return err
+				}
+				k := f.Kind()
+				if (k == reflect.Int) || (k == reflect.Int16) || (k == reflect.Int32) || (k == reflect.Int64) {
+					f.SetInt(id)
+				} else if (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
+					f.SetUint(uint64(id))
+				} else {
+					return fmt.Errorf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d autoIncrFieldName=%s", bi.query, bi.autoIncrIdx, bi.autoIncrFieldName)
+				}
+			case TargetedAutoIncrInserter:
+				err := inserter.InsertAutoIncrToTarget(exec, bi.query, f.Addr().Interface(), bi.args...)
+				if err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("gorp: Cannot use autoincrement fields on dialects that do not implement an autoincrementing interface")
 			}
 		} else {
 			_, err := exec.Exec(bi.query, bi.args...)
