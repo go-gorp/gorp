@@ -486,7 +486,7 @@ func (m SqlServerDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, par
 }
 
 func (d SqlServerDialect) QuoteField(f string) string {
-	return f
+	return `"` + f + `"`
 }
 
 func (d SqlServerDialect) QuotedTableForQuery(schema string, table string) string {
