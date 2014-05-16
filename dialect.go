@@ -613,3 +613,112 @@ func (d OracleDialect) QuotedTableForQuery(schema string, table string) string {
 
 	return schema + "." + d.QuoteField(table)
 }
+
+///////////////////////////////////////////////////////
+// Oracle //
+///////////
+
+// Implementation of Dialect for Oracle databases.
+type OracleDialect struct{}
+
+func (d OracleDialect) QuerySuffix() string { return "" }
+
+func (d OracleDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+	switch val.Kind() {
+	case reflect.Ptr:
+		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
+	case reflect.Bool:
+		return "boolean"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+		if isAutoIncr {
+			return "serial"
+		}
+		return "integer"
+	case reflect.Int64, reflect.Uint64:
+		if isAutoIncr {
+			return "bigserial"
+		}
+		return "bigint"
+	case reflect.Float64:
+		return "double precision"
+	case reflect.Float32:
+		return "real"
+	case reflect.Slice:
+		if val.Elem().Kind() == reflect.Uint8 {
+			return "bytea"
+		}
+	}
+
+	switch val.Name() {
+	case "NullInt64":
+		return "bigint"
+	case "NullFloat64":
+		return "double precision"
+	case "NullBool":
+		return "boolean"
+	case "NullTime", "Time":
+		return "timestamp with time zone"
+	}
+
+	if maxsize > 0 {
+		return fmt.Sprintf("varchar(%d)", maxsize)
+	} else {
+		return "text"
+	}
+
+}
+
+// Returns empty string
+func (d OracleDialect) AutoIncrStr() string {
+	return ""
+}
+
+func (d OracleDialect) AutoIncrBindValue() string {
+	return "default"
+}
+
+func (d OracleDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
+	return " returning " + col.ColumnName
+}
+
+// Returns suffix
+func (d OracleDialect) CreateTableSuffix() string {
+	return ""
+}
+
+func (d OracleDialect) TruncateClause() string {
+	return "truncate"
+}
+
+// Returns "$(i+1)"
+func (d OracleDialect) BindVar(i int) string {
+	return fmt.Sprintf(":%d", i+1)
+}
+
+func (d OracleDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+	rows, err := exec.query(insertSql, params...)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		var id int64
+		err := rows.Scan(&id)
+		return id, err
+	}
+
+	return 0, errors.New("No serial value returned for insert: " + insertSql + " Encountered error: " + rows.Err().Error())
+}
+
+func (d OracleDialect) QuoteField(f string) string {
+	return `"` + strings.ToUpper(f) + `"`
+}
+
+func (d OracleDialect) QuotedTableForQuery(schema string, table string) string {
+	if strings.TrimSpace(schema) == "" {
+		return d.QuoteField(table)
+	}
+
+	return schema + "." + d.QuoteField(table)
+}
