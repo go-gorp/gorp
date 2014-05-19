@@ -18,6 +18,13 @@ import (
 	"time"
 )
 
+// verify interface compliance
+var _ Dialect = SqliteDialect{}
+var _ Dialect = PostgresDialect{}
+var _ Dialect = MySQLDialect{}
+var _ Dialect = SqlServerDialect{}
+var _ Dialect = OracleDialect{}
+
 type Invoice struct {
 	Id       int64
 	Created  int64
