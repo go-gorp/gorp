@@ -567,7 +567,7 @@ DSNs for these three databases.
 Support is also provided for:
 
 * Oracle (contributed by @klaidliadon)
-* SQL Server (contributed by @qrawl)
+* SQL Server (contributed by @qrawl) - use driver: github.com/denisenkom/go-mssqldb 
 
 Note that these databases are not covered by CI and I (@coopernurse) have no good way to
 test them locally.  So please try them and send patches as needed, but expect a bit more
