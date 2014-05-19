@@ -294,10 +294,10 @@ type MySQLDialect struct {
 
 func (d MySQLDialect) QuerySuffix() string { return ";" }
 
-func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
 	case reflect.Ptr:
-		return m.ToSqlType(val.Elem(), maxsize, isAutoIncr)
+		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "boolean"
 	case reflect.Int8:
@@ -342,49 +342,49 @@ func (m MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 }
 
 // Returns auto_increment
-func (m MySQLDialect) AutoIncrStr() string {
+func (d MySQLDialect) AutoIncrStr() string {
 	return "auto_increment"
 }
 
-func (m MySQLDialect) AutoIncrBindValue() string {
+func (d MySQLDialect) AutoIncrBindValue() string {
 	return "null"
 }
 
-func (m MySQLDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
+func (d MySQLDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return ""
 }
 
 // Returns engine=%s charset=%s  based on values stored on struct
-func (m MySQLDialect) CreateTableSuffix() string {
-	if m.Engine == "" || m.Encoding == "" {
+func (d MySQLDialect) CreateTableSuffix() string {
+	if d.Engine == "" || d.Encoding == "" {
 		msg := "gorp - undefined"
 
-		if m.Engine == "" {
+		if d.Engine == "" {
 			msg += " MySQLDialect.Engine"
 		}
-		if m.Engine == "" && m.Encoding == "" {
+		if d.Engine == "" && d.Encoding == "" {
 			msg += ","
 		}
-		if m.Encoding == "" {
+		if d.Encoding == "" {
 			msg += " MySQLDialect.Encoding"
 		}
 		msg += ". Check that your MySQLDialect was correctly initialized when declared."
 		panic(msg)
 	}
 
-	return fmt.Sprintf(" engine=%s charset=%s", m.Engine, m.Encoding)
+	return fmt.Sprintf(" engine=%s charset=%s", d.Engine, d.Encoding)
 }
 
-func (m MySQLDialect) TruncateClause() string {
+func (d MySQLDialect) TruncateClause() string {
 	return "truncate"
 }
 
 // Returns "?"
-func (m MySQLDialect) BindVar(i int) string {
+func (d MySQLDialect) BindVar(i int) string {
 	return "?"
 }
 
-func (m MySQLDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+func (d MySQLDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
 	return standardInsertAutoIncr(exec, insertSql, params...)
 }
 
@@ -405,17 +405,17 @@ func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
 ////////////////
 
 // Implementation of Dialect for Microsoft SQL Server databases.
-// Tested on SQL Server 2008.
+// Tested on SQL Server 2008 with driver: github.com/denisenkom/go-mssqldb
 // Presently, it doesn't work with CreateTablesIfNotExists().
 
 type SqlServerDialect struct {
 	suffix string
 }
 
-func (m SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+func (d SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
 	case reflect.Ptr:
-		return m.ToSqlType(val.Elem(), maxsize, isAutoIncr)
+		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "bit"
 	case reflect.Int8:
@@ -462,16 +462,16 @@ func (m SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bo
 }
 
 // Returns auto_increment
-func (m SqlServerDialect) AutoIncrStr() string {
+func (d SqlServerDialect) AutoIncrStr() string {
 	return "identity(0,1)"
 }
 
 // Empty string removes autoincrement columns from the INSERT statements.
-func (m SqlServerDialect) AutoIncrBindValue() string {
+func (d SqlServerDialect) AutoIncrBindValue() string {
 	return ""
 }
 
-func (m SqlServerDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
+func (d SqlServerDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return ""
 }
 
@@ -481,16 +481,16 @@ func (d SqlServerDialect) CreateTableSuffix() string {
 	return d.suffix
 }
 
-func (m SqlServerDialect) TruncateClause() string {
+func (d SqlServerDialect) TruncateClause() string {
 	return "delete from"
 }
 
 // Returns "?"
-func (m SqlServerDialect) BindVar(i int) string {
+func (d SqlServerDialect) BindVar(i int) string {
 	return "?"
 }
 
-func (m SqlServerDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+func (d SqlServerDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
 	return standardInsertAutoIncr(exec, insertSql, params...)
 }
 
@@ -504,6 +504,8 @@ func (d SqlServerDialect) QuotedTableForQuery(schema string, table string) strin
 	}
 	return schema + "." + table
 }
+
+func (d SqlServerDialect) QuerySuffix() string { return ";" }
 
 ///////////////////////////////////////////////////////
 // Oracle //
