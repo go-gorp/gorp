@@ -338,6 +338,17 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 	if maxsize < 1 {
 		maxsize = 255
 	}
+
+	/* == About varchar(N) ==
+	 * N is number of characters.
+	 * A varchar column can store up to 65535 bytes.
+	 * Remember that 1 character is 3 bytes in utf-8 charset.
+	 * Also remember that each row can store up to 65535 bytes, 
+	 * and you have some overheads, so it's not possible for a 
+	 * varchar column to have 65535/3 characters really.
+	 * So it would be better to use 'text' type in stead of 
+	 * large varchar type.
+	 */
 	if maxsize < 256 {
 		return fmt.Sprintf("varchar(%d)", maxsize)
 	} else {
