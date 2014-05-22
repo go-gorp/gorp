@@ -338,7 +338,11 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 	if maxsize < 1 {
 		maxsize = 255
 	}
-	return fmt.Sprintf("varchar(%d)", maxsize)
+	if maxsize < 256 {
+		return fmt.Sprintf("varchar(%d)", maxsize)
+	} else {
+		return "text"
+	}
 }
 
 // Returns auto_increment
