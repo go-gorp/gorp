@@ -68,6 +68,10 @@ type Dialect interface {
 	// table - The table name
 	QuotedTableForQuery(schema string, table string) string
 
+	// SupportsUpsert returns true if gorp includes dialect-specific support
+	// for the upsert (insert or update) statement.
+	SupportsUpsert() bool
+
 	// Existence clause for table creation / deletion
 	IfSchemaNotExists(command, schema string) string
 	IfTableExists(command, schema, table string) string

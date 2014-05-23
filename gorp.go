@@ -101,6 +101,7 @@ type SqlExecutor interface {
 	Get(i interface{}, keys ...interface{}) (interface{}, error)
 	Insert(list ...interface{}) error
 	Update(list ...interface{}) (int64, error)
+	Upsert(list ...interface{}) error
 	Delete(list ...interface{}) (int64, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Select(i interface{}, query string, args ...interface{}) ([]interface{}, error)
@@ -609,6 +610,41 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 
 		if v, ok := eval.(HasPostInsert); ok {
 			err := v.PostInsert(exec)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func upsert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
+	for _, ptr := range list {
+		table, elem, err := m.tableForPointer(ptr, false)
+		if err != nil {
+			return err
+		}
+
+		eval := elem.Addr().Interface()
+		if v, ok := eval.(HasPreUpsert); ok {
+			err := v.PreUpsert(exec)
+			if err != nil {
+				return err
+			}
+		}
+
+		bi, err := table.bindUpsert(elem)
+		if err != nil {
+			return err
+		}
+		fmt.Println(bi.query)
+		_, err = exec.Exec(bi.query, bi.args...)
+		if err != nil {
+			return err
+		}
+
+		if v, ok := eval.(HasPostUpsert); ok {
+			err := v.PostUpsert(exec)
 			if err != nil {
 				return err
 			}
