@@ -54,6 +54,10 @@ type Dialect interface {
 	// schema - The schema that <table> lives in
 	// table - The table name
 	QuotedTableForQuery(schema string, table string) string
+
+	// SupportsUpsert returns true if gorp includes dialect-specific support
+	// for the upsert (insert or update) statement.
+	SupportsUpsert() bool
 }
 
 // IntegerAutoIncrInserter is implemented by dialects that can perform
@@ -169,6 +173,10 @@ func (d SqliteDialect) QuotedTableForQuery(schema string, table string) string {
 	return d.QuoteField(table)
 }
 
+func (d SqliteDialect) SupportsUpsert() bool {
+	return false
+}
+
 ///////////////////////////////////////////////////////
 // PostgreSQL //
 ////////////////
@@ -276,6 +284,10 @@ func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string
 	}
 
 	return schema + "." + d.QuoteField(table)
+}
+
+func (d PostgresDialect) SupportsUpsert() bool {
+	return false
 }
 
 ///////////////////////////////////////////////////////
@@ -400,6 +412,10 @@ func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
 	return schema + "." + d.QuoteField(table)
 }
 
+func (d MySQLDialect) SupportsUpsert() bool {
+	return true
+}
+
 ///////////////////////////////////////////////////////
 // Sql Server //
 ////////////////
@@ -503,6 +519,10 @@ func (d SqlServerDialect) QuotedTableForQuery(schema string, table string) strin
 		return table
 	}
 	return schema + "." + table
+}
+
+func (d SqlServerDialect) SupportsUpsert() bool {
+	return false
 }
 
 func (d SqlServerDialect) QuerySuffix() string { return ";" }
@@ -614,4 +634,8 @@ func (d OracleDialect) QuotedTableForQuery(schema string, table string) string {
 	}
 
 	return schema + "." + d.QuoteField(table)
+}
+
+func (d OracleDialect) SupportsUpsert() bool {
+	return false
 }
