@@ -564,6 +564,15 @@ implemented per database vendor.  Dialects are provided for:
 Each of these three databases pass the test suite.  See `gorp_test.go` for example 
 DSNs for these three databases.
 
+Support is also provided for:
+
+* Oracle (contributed by @klaidliadon)
+* SQL Server (contributed by @qrawl) - use driver: github.com/denisenkom/go-mssqldb 
+
+Note that these databases are not covered by CI and I (@coopernurse) have no good way to
+test them locally.  So please try them and send patches as needed, but expect a bit more
+unpredicability.
+
 ## Known Issues ##
 
 ### SQL placeholder portability ###

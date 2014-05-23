@@ -18,6 +18,13 @@ import (
 	"time"
 )
 
+// verify interface compliance
+var _ Dialect = SqliteDialect{}
+var _ Dialect = PostgresDialect{}
+var _ Dialect = MySQLDialect{}
+var _ Dialect = SqlServerDialect{}
+var _ Dialect = OracleDialect{}
+
 type Invoice struct {
 	Id       int64
 	Created  int64
@@ -61,6 +68,12 @@ type TableWithNull struct {
 type WithIgnoredColumn struct {
 	internal int64 `db:"-"`
 	Id       int64
+	Created  int64
+}
+
+type IgnoredColumnExported struct {
+	Id       int64
+	External int64 `db:"-"`
 	Created  int64
 }
 
@@ -117,6 +130,10 @@ type UniqueColumns struct {
 	LastName  string
 	City      string
 	ZipCode   int64
+}
+
+type SingleColumnTable struct {
+	SomeId string
 }
 
 type testTypeConverter struct{}
@@ -306,7 +323,8 @@ func TestSetUniqueTogether(t *testing.T) {
 		t.Error(err)
 	}
 	// "unique" for Postgres/SQLite, "Duplicate entry" for MySQL
-	if !strings.Contains(err.Error(), "unique") && !strings.Contains(err.Error(), "Duplicate entry") {
+	errLower := strings.ToLower(err.Error())
+	if !strings.Contains(errLower, "unique") && !strings.Contains(errLower, "duplicate entry") {
 		t.Error(err)
 	}
 
@@ -317,7 +335,8 @@ func TestSetUniqueTogether(t *testing.T) {
 		t.Error(err)
 	}
 	// "unique" for Postgres/SQLite, "Duplicate entry" for MySQL
-	if !strings.Contains(err.Error(), "unique") && !strings.Contains(err.Error(), "Duplicate entry") {
+	errLower = strings.ToLower(err.Error())
+	if !strings.Contains(errLower, "unique") && !strings.Contains(errLower, "duplicate entry") {
 		t.Error(err)
 	}
 
@@ -1408,7 +1427,54 @@ func TestSelectSingleVal(t *testing.T) {
 	_insert(dbmap, &Person{0, 0, 0, "bob", "smith", 0})
 	err = dbmap.SelectOne(&p2, "select * from person_test where Fname='bob'")
 	if err == nil {
-		t.Error("Expected nil when two rows found")
+		t.Error("Expected error when two rows found")
+	}
+
+	// tests for #150
+	var tInt int64
+	var tStr string
+	var tBool bool
+	var tFloat float64
+	primVals := []interface{}{tInt, tStr, tBool, tFloat}
+	for _, prim := range primVals {
+		err = dbmap.SelectOne(&prim, "select * from person_test where Id=-123")
+		if err == nil || err != sql.ErrNoRows {
+			t.Error("primVals: SelectOne should have returned sql.ErrNoRows")
+		}
+	}
+}
+
+func TestSelectAlias(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+
+	p1 := &IgnoredColumnExported{Id: 1, External: 2, Created: 3}
+	_insert(dbmap, p1)
+
+	var p2 IgnoredColumnExported
+
+	err := dbmap.SelectOne(&p2, "select * from ignored_column_exported_test where Id=1")
+	if err != nil {
+		t.Error(err)
+	}
+	if p2.Id != 1 || p2.Created != 3 || p2.External != 0 {
+		t.Error("Expected ignorred field defaults to not set")
+	}
+
+	err = dbmap.SelectOne(&p2, "SELECT *, 1 AS external FROM ignored_column_exported_test")
+	if err != nil {
+		t.Error(err)
+	}
+	if p2.External != 1 {
+		t.Error("Expected select as can map to exported field.")
+	}
+
+	var rows *sql.Rows
+	var cols []string
+	rows, err = dbmap.Db.Query("SELECT * FROM ignored_column_exported_test")
+	cols, err = rows.Columns()
+	if err != nil || len(cols) != 2 {
+		t.Error("Expected ignored column not created")
 	}
 }
 
@@ -1434,6 +1500,37 @@ func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
 	db.AddTableWithName(Invoice{}, "invoice")
 	// the following call should panic :
 	db.CreateTables()
+}
+
+func TestSingleColumnKeyDbReturnsZeroRowsUpdatedOnPKChange(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+	dbmap.AddTableWithName(SingleColumnTable{}, "single_column_table").SetKeys(false, "SomeId")
+	err := dbmap.DropTablesIfExists()
+	if err != nil {
+		t.Error("Drop tables failed")
+	}
+	err = dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		t.Error("Create tables failed")
+	}
+	err = dbmap.TruncateTables()
+	if err != nil {
+		t.Error("Truncate tables failed")
+	}
+
+	sct := SingleColumnTable{
+		SomeId: "A Unique Id String",
+	}
+
+	count, err := dbmap.Update(&sct)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 updated rows, got %d", count)
+	}
+
 }
 
 func BenchmarkNativeCrud(b *testing.B) {
@@ -1546,6 +1643,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(OverriddenInvoice{}, "invoice_override_test").SetKeys(false, "Id")
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(IgnoredColumnExported{}, "ignored_column_exported_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStruct{}, "embedded_struct_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStructBeforeAutoincrField{}, "embedded_struct_before_autoincr_test").SetKeys(true, "Id")
