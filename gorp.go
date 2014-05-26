@@ -919,12 +919,12 @@ func (m *DbMap) dropTable(t reflect.Type, addIfExists bool) error {
 	return m.dropTableImpl(table, addIfExists)
 }
 
-func (m *DbMap) dropTableImpl(table *TableMap, addIfExists bool) (err error) {
-	ifExists := ""
-	if addIfExists {
-		ifExists = " if exists"
+func (m *DbMap) dropTableImpl(table *TableMap, ifExists bool) (err error) {
+	tableDrop := "drop table"
+	if ifExists {
+		tableDrop = m.Dialect.IfTableExists(tableDrop, table.SchemaName, table.TableName)
 	}
-	_, err = m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
+	_, err = m.Exec(fmt.Sprintf("%s %s;", tableDrop, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 	return err
 }
 
