@@ -1653,15 +1653,12 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error
 	for x := range cols {
 		colName := strings.ToLower(cols[x])
 		field, found := t.FieldByNameFunc(func(fieldName string) bool {
-			var mappedFieldName string
 			field, _ := t.FieldByName(fieldName)
-			lowerFieldName := strings.ToLower(field.Name)
-			mappedFieldName = field.Tag.Get("db")
-			if mappedFieldName == "-" && colName != lowerFieldName {
+			fieldName = field.Tag.Get("db")
+
+			if fieldName == "-" {
 				return false
-			} else if mappedFieldName == "-" && colName == lowerFieldName {
-				return true
-			} else if mappedFieldName == "" {
+			} else if fieldName == "" {
 				fieldName = field.Name
 			}
 			if tableMapped {
