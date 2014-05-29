@@ -174,6 +174,7 @@ type TableMap struct {
 	version        *ColumnMap
 	insertPlan     bindPlan
 	updatePlan     bindPlan
+	upsertPlan     bindPlan
 	deletePlan     bindPlan
 	getPlan        bindPlan
 	dbmap          *DbMap
@@ -185,6 +186,7 @@ type TableMap struct {
 func (t *TableMap) ResetSql() {
 	t.insertPlan = bindPlan{}
 	t.updatePlan = bindPlan{}
+	t.upsertPlan = bindPlan{}
 	t.deletePlan = bindPlan{}
 	t.getPlan = bindPlan{}
 }
@@ -452,6 +454,81 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
+// TODO(spencer.kimball@gmail.com): this is very MySQL-specific. I'm
+// not really sure yet what the best way to generalize this is using
+// the Dialect construct. I think the right next step is to start
+// supporting another database type and see what makes sense with that
+// specific case in mind.
+func (t *TableMap) bindUpsert(elem reflect.Value) (bindInstance, error) {
+	if !t.dbmap.Dialect.SupportsUpsert() {
+		return bindInstance{}, fmt.Errorf("SQL dialect doesn't have gorp support for upsert; consider adding it!")
+	}
+	plan := t.upsertPlan
+	if plan.query == "" {
+		plan.autoIncrIdx = -1
+
+		s := bytes.Buffer{}
+		s2 := bytes.Buffer{}
+		s.WriteString(fmt.Sprintf("insert into %s (", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
+
+		x := 0
+		first := true
+		for y := range t.Columns {
+			col := t.Columns[y]
+			// TODO(spencer.kimball@gmail.com): there are ways to handle
+			// auto increment columns with upsert in MySQL, and no doubt other
+			// databases as well.
+			if col.isAutoIncr {
+				return bindInstance{}, fmt.Errorf("gorp: cannot upsert to tables with autoincrement field %q", col.fieldName)
+			}
+			if !col.Transient {
+				if !first {
+					s.WriteString(",")
+					s2.WriteString(",")
+				}
+				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
+
+				s2.WriteString(t.dbmap.Dialect.BindVar(x))
+				if col == t.version {
+					plan.versField = col.fieldName
+					plan.argFields = append(plan.argFields, versFieldConst)
+				} else {
+					plan.argFields = append(plan.argFields, col.fieldName)
+				}
+
+				x++
+				first = false
+			}
+		}
+		s.WriteString(") values (")
+		s.WriteString(s2.String())
+		s.WriteString(")")
+
+		s.WriteString(" on duplicate key update")
+		first = true
+		for y := range t.Columns {
+			col := t.Columns[y]
+			// Skip primary key and transient columns.
+			if col.isPK || col.Transient {
+				continue
+			}
+			if !first {
+				s.WriteString(",")
+			}
+			qf := t.dbmap.Dialect.QuoteField(col.ColumnName)
+			s.WriteString(fmt.Sprintf(" %s=values(%s)", qf, qf))
+			first = false
+		}
+
+		s.WriteString(t.dbmap.Dialect.QuerySuffix())
+
+		plan.query = s.String()
+		t.upsertPlan = plan
+	}
+
+	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
+}
+
 func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 	plan := t.deletePlan
 	if plan.query == "" {
@@ -605,7 +682,7 @@ func (c *ColumnMap) SetMaxSize(size int) *ColumnMap {
 }
 
 // Transaction represents a database transaction.
-// Insert/Update/Delete/Get/Exec operations will be run in the context
+// Insert/Update/Upsert/Delete/Get/Exec operations will be run in the context
 // of that transaction.  Transactions should be terminated with
 // a call to Commit() or Rollback()
 type Transaction struct {
@@ -624,6 +701,7 @@ type SqlExecutor interface {
 	Get(i interface{}, keys ...interface{}) (interface{}, error)
 	Insert(list ...interface{}) error
 	Update(list ...interface{}) (int64, error)
+	Upsert(list ...interface{}) error
 	Delete(list ...interface{}) (int64, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Select(i interface{}, query string,
@@ -969,6 +1047,23 @@ func (m *DbMap) Update(list ...interface{}) (int64, error) {
 	return update(m, m, list...)
 }
 
+// Upsert runs a SQL statement specific to each dialog which either
+// inserts or updates each element in the list according to whether or
+// not it is already in the database (update) or is not yet in the
+// database (insert). List items must be pointers.
+//
+// Only TableMaps without auto-incrementing primary keys are
+// allowed. Any interface whose TableMap has an auto-increment primary
+// key will result in an error.
+//
+// The hook functions PreUpsert() and/or PostUpsert() will be executed
+// before/after the upsert if the interface defines them.
+//
+// Panics if any interface in the list has not been registered with AddTable
+func (m *DbMap) Upsert(list ...interface{}) error {
+	return upsert(m, m, list...)
+}
+
 // Delete runs a SQL DELETE statement for each element in list.  List
 // items must be pointers.
 //
@@ -1173,6 +1268,11 @@ func (t *Transaction) Insert(list ...interface{}) error {
 // Update had the same behavior as DbMap.Update(), but runs in a transaction.
 func (t *Transaction) Update(list ...interface{}) (int64, error) {
 	return update(t.dbmap, t, list...)
+}
+
+// Upsert has the same behavior as DbMap.Upsert(), but runs in a transaction.
+func (t *Transaction) Upsert(list ...interface{}) error {
+	return upsert(t.dbmap, t, list...)
 }
 
 // Delete has the same behavior as DbMap.Delete(), but runs in a transaction.
@@ -1956,6 +2056,41 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 	return nil
 }
 
+func upsert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
+	for _, ptr := range list {
+		table, elem, err := m.tableForPointer(ptr, false)
+		if err != nil {
+			return err
+		}
+
+		eval := elem.Addr().Interface()
+		if v, ok := eval.(HasPreUpsert); ok {
+			err := v.PreUpsert(exec)
+			if err != nil {
+				return err
+			}
+		}
+
+		bi, err := table.bindUpsert(elem)
+		if err != nil {
+			return err
+		}
+		fmt.Println(bi.query)
+		_, err = exec.Exec(bi.query, bi.args...)
+		if err != nil {
+			return err
+		}
+
+		if v, ok := eval.(HasPostUpsert); ok {
+			err := v.PostUpsert(exec)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func lockError(m *DbMap, exec SqlExecutor, tableName string,
 	existingVer int64, elem reflect.Value,
 	keys ...interface{}) (int64, error) {
@@ -1977,19 +2112,24 @@ type HasPostGet interface {
 	PostGet(SqlExecutor) error
 }
 
-// PostUpdate() will be executed after the DELETE statement
+// PostUpdate() will be executed after the DELETE statement.
 type HasPostDelete interface {
 	PostDelete(SqlExecutor) error
 }
 
-// PostUpdate() will be executed after the UPDATE statement
+// PostUpdate() will be executed after the UPDATE statement.
 type HasPostUpdate interface {
 	PostUpdate(SqlExecutor) error
 }
 
-// PostInsert() will be executed after the INSERT statement
+// PostInsert() will be executed after the INSERT statement.
 type HasPostInsert interface {
 	PostInsert(SqlExecutor) error
+}
+
+// PostUpsert() will be executed after an upsert statement.
+type HasPostUpsert interface {
+	PostUpsert(SqlExecutor) error
 }
 
 // PreDelete() will be executed before the DELETE statement.
@@ -2005,4 +2145,9 @@ type HasPreUpdate interface {
 // PreInsert() will be executed before INSERT statement.
 type HasPreInsert interface {
 	PreInsert(SqlExecutor) error
+}
+
+// PreUpsert() will be executed before an upsert statement.
+type HasPreUpsert interface {
+	PreUpsert(SqlExecutor) error
 }

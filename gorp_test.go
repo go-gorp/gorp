@@ -6,10 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
-	_ "github.com/ziutek/mymysql/godrv"
 	"log"
 	"math/rand"
 	"os"
@@ -17,6 +13,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/ziutek/mymysql/godrv"
 )
 
 // verify interface compliance
@@ -251,6 +252,16 @@ func (p *Person) PreUpdate(s SqlExecutor) error {
 
 func (p *Person) PostUpdate(s SqlExecutor) error {
 	p.LName = "postupdate"
+	return nil
+}
+
+func (p *Person) PreUpsert(s SqlExecutor) error {
+	p.FName = "preupsert"
+	return nil
+}
+
+func (p *Person) PostUpsert(s SqlExecutor) error {
+	p.LName = "postupsert"
 	return nil
 }
 
@@ -846,6 +857,15 @@ func TestHooks(t *testing.T) {
 		t.Errorf("p1.PostUpdate() didn't run: %v", p1)
 	}
 
+	if dbmap.Dialect.SupportsUpsert() {
+		_upsert(dbmap, p1)
+		if p1.FName != "preupsert" {
+			t.Errorf("p1.PreUpsert() didn't run: %v", p1)
+		} else if p1.LName != "postupsert" {
+			t.Errorf("p1.PostUpsert() didn't run: %v", p1)
+		}
+	}
+
 	var persons []*Person
 	bindVar := dbmap.Dialect.BindVar(0)
 	_rawselect(dbmap, &persons, "select * from person_test where id = "+bindVar, p1.Id)
@@ -1037,6 +1057,46 @@ func testCrudInternal(t *testing.T, dbmap *DbMap, val testable) {
 	val2 = _get(dbmap, val, val.GetId())
 	if val2 != nil {
 		t.Errorf("Found invoice with id: %d after Delete()", val.GetId())
+	}
+}
+
+func TestUpsert(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+	if !dbmap.Dialect.SupportsUpsert() {
+		return
+	}
+
+	// First, try an upsert with an auto-increment table.
+	inv := &Invoice{0, 100, 200, "first order", 0, true}
+	if err := dbmap.Upsert(inv); err == nil {
+		t.Error("expected failure trying to upsert a row to an auto-increment table")
+	}
+
+	oinv := &OverriddenInvoice{
+		Invoice: *inv,
+		Id:      "1",
+	}
+
+	// Upsert for insert.
+	_upsert(dbmap, oinv)
+
+	// SELECT row to verify insert.
+	obj := _get(dbmap, OverriddenInvoice{}, oinv.Id)
+	oinv2 := obj.(*OverriddenInvoice)
+	if !reflect.DeepEqual(oinv, oinv2) {
+		t.Errorf("%v != %v", oinv, oinv2)
+	}
+
+	// Upsert again with modifications.
+	oinv.Memo = "second order"
+	oinv.Created = 999
+	oinv.Updated = 11111
+	_upsert(dbmap, oinv)
+	obj = _get(dbmap, OverriddenInvoice{}, oinv.Id)
+	oinv2 = obj.(*OverriddenInvoice)
+	if !reflect.DeepEqual(oinv, oinv2) {
+		t.Errorf("%v != %v", oinv, oinv2)
 	}
 }
 
@@ -1803,6 +1863,13 @@ func _update(dbmap *DbMap, list ...interface{}) int64 {
 		panic(err)
 	}
 	return count
+}
+
+func _upsert(dbmap *DbMap, list ...interface{}) {
+	err := dbmap.Upsert(list...)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func _del(dbmap *DbMap, list ...interface{}) int64 {
