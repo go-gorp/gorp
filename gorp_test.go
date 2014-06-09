@@ -6,10 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
-	_ "github.com/ziutek/mymysql/godrv"
 	"log"
 	"math/rand"
 	"os"
@@ -17,6 +13,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/ziutek/mymysql/godrv"
 )
 
 // verify interface compliance
@@ -1509,6 +1510,22 @@ func TestSelectSingleVal(t *testing.T) {
 		if err == nil || err != sql.ErrNoRows {
 			t.Error("primVals: SelectOne should have returned sql.ErrNoRows")
 		}
+	}
+
+	// test for #181
+	_, err = dbmap.Exec("delete * from person_test")
+	type result struct {
+		Count int
+		Sum   int
+	}
+	data := &result{}
+	err = dbmap.SelectOne(data, "select count(*) Count, sum(Id) Sum from person_test")
+	if err != nil {
+		t.Errorf("Expected null values to be initialized rather than error with: %v", err)
+	}
+
+	if data.Count != 0 || data.Sum != 0 {
+		t.Errorf("Expected count and sum to be 0, not %d and %d", data.Count, data.Sum)
 	}
 }
 
