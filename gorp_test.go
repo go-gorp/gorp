@@ -1484,6 +1484,24 @@ func TestSelectSingleVal(t *testing.T) {
 		t.Error("SelectOne should have returned error for non-pointer holder")
 	}
 
+	// verify SelectOne works with uninitialized pointers
+	var p3 *Person
+	err = dbmap.SelectOne(&p3, "select * from person_test where Id=:Id", params)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !reflect.DeepEqual(p1, p3) {
+		t.Errorf("%v != %v", p1, p3)
+	}
+
+	// verify that the receiver is still nil if nothing was found
+	var p4 *Person
+	dbmap.SelectOne(&p3, "select * from person_test where 2<1 AND Id=:Id", params)
+	if p4 != nil {
+		t.Error("SelectOne should not have changed a nil receiver when no rows were found")
+	}
+
 	// verify that the error is set to sql.ErrNoRows if not found
 	err = dbmap.SelectOne(&p2, "select * from person_test where Id=:Id", map[string]interface{}{
 		"Id": -2222,
