@@ -89,6 +89,10 @@ type Person struct {
 	Version int64
 }
 
+type FNameOnly struct {
+	FName string
+}
+
 type InvoicePersonView struct {
 	InvoiceId     int64
 	PersonId      int64
@@ -1442,6 +1446,56 @@ func TestQuoteTableNames(t *testing.T) {
 		t.Errorf(errorTemplate, quotedTableName)
 	}
 	logBuffer.Reset()
+}
+
+func TestSelectTooManyCols(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+
+	p1 := &Person{0, 0, 0, "bob", "smith", 0}
+	p2 := &Person{0, 0, 0, "jane", "doe", 0}
+	_insert(dbmap, p1)
+	_insert(dbmap, p2)
+
+	obj := _get(dbmap, Person{}, p1.Id)
+	p1 = obj.(*Person)
+	obj = _get(dbmap, Person{}, p2.Id)
+	p2 = obj.(*Person)
+
+	params := map[string]interface{}{
+		"Id": p1.Id,
+	}
+
+	var p3 FNameOnly
+	err := dbmap.SelectOne(&p3, "select * from person_test where Id=:Id", params)
+	if err != nil {
+		if !NonFatalError(err) {
+			t.Error(err)
+		}
+	} else {
+		t.Errorf("Non-fatal error expected")
+	}
+
+	if p1.FName != p3.FName {
+		t.Errorf("%v != %v", p1.FName, p3.FName)
+	}
+
+	var pSlice []FNameOnly
+	_, err = dbmap.Select(&pSlice, "select * from person_test order by fname asc")
+	if err != nil {
+		if !NonFatalError(err) {
+			t.Error(err)
+		}
+	} else {
+		t.Errorf("Non-fatal error expected")
+	}
+
+	if p1.FName != pSlice[0].FName {
+		t.Errorf("%v != %v", p1.FName, pSlice[0].FName)
+	}
+	if p2.FName != pSlice[1].FName {
+		t.Errorf("%v != %v", p2.FName, pSlice[1].FName)
+	}
 }
 
 func TestSelectSingleVal(t *testing.T) {
