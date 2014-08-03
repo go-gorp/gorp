@@ -1643,11 +1643,11 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = dbmap.SelectOne(inv2, "SELECT * from invoice_test WHERE IsPaid=true")
+	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE IsPaid=%s", bindVar0), true)
 	if err == nil || err != sql.ErrNoRows {
 		t.Error("SelectOne should have returned an sql.ErrNoRows")
 	}
-	err = trans.SelectOne(inv2, "SELECT * from invoice_test WHERE IsPaid=true")
+	err = trans.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE IsPaid=%s", bindVar0), true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1655,7 +1655,7 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = dbmap.SelectOne(inv2, "SELECT * from invoice_test WHERE IsPaid=true")
+	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE IsPaid=%s", bindVar0), true)
 	if err != nil {
 		t.Error(err)
 	}
