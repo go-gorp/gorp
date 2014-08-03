@@ -1606,6 +1606,61 @@ func TestSingleColumnKeyDbReturnsZeroRowsUpdatedOnPKChange(t *testing.T) {
 
 }
 
+func TestPrepare(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+
+	inv1 := &Invoice{0, 100, 200, "prepare-foo", 0, false}
+	inv2 := &Invoice{0, 100, 200, "prepare-bar", 0, false}
+	_insert(dbmap, inv1, inv2)
+
+	bindVar0 := dbmap.Dialect.BindVar(0)
+	bindVar1 := dbmap.Dialect.BindVar(1)
+	stmt, err := dbmap.Prepare(fmt.Sprintf("UPDATE invoice_test SET Memo=%s WHERE Id=%s", bindVar0, bindVar1))
+	if err != nil {
+		t.Error(err)
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec("prepare-baz", inv1.Id)
+	if err != nil {
+		t.Error(err)
+	}
+	err = dbmap.SelectOne(inv1, "SELECT * from invoice_test WHERE Memo='prepare-baz'")
+	if err != nil {
+		t.Error(err)
+	}
+
+	trans, err := dbmap.Begin()
+	if err != nil {
+		t.Error(err)
+	}
+	transStmt, err := trans.Prepare(fmt.Sprintf("UPDATE invoice_test SET IsPaid=%s WHERE Id=%s", bindVar0, bindVar1))
+	if err != nil {
+		t.Error(err)
+	}
+	defer transStmt.Close()
+	_, err = transStmt.Exec(true, inv2.Id)
+	if err != nil {
+		t.Error(err)
+	}
+	err = dbmap.SelectOne(inv2, "SELECT * from invoice_test WHERE IsPaid=true")
+	if err == nil || err != sql.ErrNoRows {
+		t.Error("SelectOne should have returned an sql.ErrNoRows")
+	}
+	err = trans.SelectOne(inv2, "SELECT * from invoice_test WHERE IsPaid=true")
+	if err != nil {
+		t.Error(err)
+	}
+	err = trans.Commit()
+	if err != nil {
+		t.Error(err)
+	}
+	err = dbmap.SelectOne(inv2, "SELECT * from invoice_test WHERE IsPaid=true")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()

@@ -1095,6 +1095,14 @@ func (m *DbMap) TableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 	return table, nil
 }
 
+// Prepare creates a prepared statement for later queries or executions.
+// Multiple queries or executions may be run concurrently from the returned statement.
+// This is equivalent to running:  Prepare() using database/sql
+func (m *DbMap) Prepare(query string) (*sql.Stmt, error) {
+	m.trace(query, nil)
+	return m.Db.Prepare(query)
+}
+
 func tableOrNil(m *DbMap, t reflect.Type) *TableMap {
 	for i := range m.tables {
 		table := m.tables[i]
@@ -1281,6 +1289,12 @@ func (t *Transaction) ReleaseSavepoint(savepoint string) error {
 	t.dbmap.trace(query, nil)
 	_, err := t.tx.Exec(query)
 	return err
+}
+
+// Prepare has the same behavior as DbMap.Prepare(), but runs in a transaction.
+func (t *Transaction) Prepare(query string) (*sql.Stmt, error) {
+	t.dbmap.trace(query, nil)
+	return t.tx.Prepare(query)
 }
 
 func (t *Transaction) queryRow(query string, args ...interface{}) *sql.Row {
