@@ -129,6 +129,15 @@ type SingleColumnTable struct {
 	SomeId string
 }
 
+type CustomDate struct {
+	time.Time
+}
+
+type WithCustomDate struct {
+	Id    int64
+	Added CustomDate
+}
+
 type testTypeConverter struct{}
 
 func (me testTypeConverter) ToDb(val interface{}) (interface{}, error) {
@@ -142,6 +151,8 @@ func (me testTypeConverter) ToDb(val interface{}) (interface{}, error) {
 		return string(b), nil
 	case CustomStringType:
 		return string(t), nil
+	case CustomDate:
+		return t.Time, nil
 	}
 
 	return val, nil
@@ -173,6 +184,20 @@ func (me testTypeConverter) FromDb(target interface{}) (CustomScanner, bool) {
 			return nil
 		}
 		return CustomScanner{new(string), target, binder}, true
+	case *CustomDate:
+		binder := func(holder, target interface{}) error {
+			t, ok := holder.(*time.Time)
+			if !ok {
+				return errors.New("FromDb: Unable to convert CustomDate to *time.Time")
+			}
+			dateTarget, ok := target.(*CustomDate)
+			if !ok {
+				return errors.New(fmt.Sprint("FromDb: Unable to convert target to *CustomDate: ", reflect.TypeOf(target)))
+			}
+			dateTarget.Time = *t
+			return nil
+		}
+		return CustomScanner{new(time.Time), target, binder}, true
 	}
 
 	return CustomScanner{}, false
@@ -260,6 +285,42 @@ func TestTruncateTables(t *testing.T) {
 	rows, _ = dbmap.Select(Invoice{}, "SELECT * FROM invoice_test")
 	if len(rows) != 0 {
 		t.Errorf("Expected 0 invoice rows, got %d", len(rows))
+	}
+}
+
+func TestCustomDateType(t *testing.T) {
+	// Unfortunately, the gomysql driver doesn't handle time.Time
+	// values properly.  I can't find a way to work around that
+	// problem - every other type that I've tried is just silently
+	// converted.  time.Time is the only type that causes this issue.
+	// As such, if the driver is gomysql, we'll just skip this test.
+	if _, driver := dialectAndDriver(); driver == "mysql" {
+		t.Skip("TestCustomDateType is irrelevant to the mysql driver; skipping...")
+	}
+	dbmap := newDbMap()
+	dbmap.TypeConverter = testTypeConverter{}
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	dbmap.AddTable(WithCustomDate{}).SetKeys(true, "Id")
+	err := dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		panic(err)
+	}
+	defer dropAndClose(dbmap)
+
+	test1 := &WithCustomDate{Added: CustomDate{Time: time.Now().Truncate(time.Second)}}
+	err = dbmap.Insert(test1)
+	if err != nil {
+		t.Errorf("Could not insert struct with custom date field: %s", err)
+		t.FailNow()
+	}
+	result, err := dbmap.Get(new(WithCustomDate), test1.Id)
+	if err != nil {
+		t.Errorf("Could not get struct with custom date field: %s", err)
+		t.FailNow()
+	}
+	test2 := result.(*WithCustomDate)
+	if test2.Added.UTC() != test1.Added.UTC() {
+		t.Errorf("Custom dates do not match: %v != %v", test2.Added.UTC(), test1.Added.UTC())
 	}
 }
 
