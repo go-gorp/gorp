@@ -289,19 +289,11 @@ func TestTruncateTables(t *testing.T) {
 }
 
 func TestCustomDateType(t *testing.T) {
-	// Unfortunately, the gomysql driver doesn't handle time.Time
-	// values properly.  I can't find a way to work around that
-	// problem - every other type that I've tried is just silently
-	// converted.  time.Time is the only type that causes this issue.
-	// As such, if the driver is gomysql, we'll just skip this test.
-	if _, driver := dialectAndDriver(); driver == "mysql" {
-		t.Skip("TestCustomDateType is irrelevant to the mysql driver; skipping...")
-	}
 	dbmap := newDbMap()
 	dbmap.TypeConverter = testTypeConverter{}
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTable(WithCustomDate{}).SetKeys(true, "Id")
-	err := dbmap.CreateTablesIfNotExists()
+	err := dbmap.CreateTables()
 	if err != nil {
 		panic(err)
 	}
@@ -312,6 +304,15 @@ func TestCustomDateType(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not insert struct with custom date field: %s", err)
 		t.FailNow()
+	}
+	// Unfortunately, the mysql driver doesn't handle time.Time
+	// values properly during Get().  I can't find a way to work
+	// around that problem - every other type that I've tried is just
+	// silently converted.  time.Time is the only type that causes
+	// the issue that this test checks for.  As such, if the driver is
+	// mysql, we'll just skip the rest of this test.
+	if _, driver := dialectAndDriver(); driver == "mysql" {
+		t.Skip("TestCustomDateType can't run Get() with the mysql driver; skipping the rest of this test...")
 	}
 	result, err := dbmap.Get(new(WithCustomDate), test1.Id)
 	if err != nil {
