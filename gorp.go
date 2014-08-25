@@ -797,18 +797,21 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 		if strings.TrimSpace(table.SchemaName) != "" {
 			schemaCreate := "create schema"
 			if ifNotExists {
-				schemaCreate += " if not exists"
+				s.WriteString(m.Dialect.IfSchemaNotExists(schemaCreate, table.SchemaName))
+			} else {
+				s.WriteString(schemaCreate)
 			}
-
-			s.WriteString(fmt.Sprintf("%s %s;", schemaCreate, table.SchemaName))
+			fmt.Sprintf(" %s;", table.SchemaName)
 		}
 
-		create := "create table"
+		tableCreate := "create table"
 		if ifNotExists {
-			create += " if not exists"
+			s.WriteString(m.Dialect.IfTableNotExists(tableCreate, table.SchemaName, table.TableName))
+		} else {
+			s.WriteString(tableCreate)
 		}
+		s.WriteString(fmt.Sprintf(" %s (", m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 
-		s.WriteString(fmt.Sprintf("%s %s (", create, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		x := 0
 		for _, col := range table.Columns {
 			if !col.Transient {
@@ -916,12 +919,12 @@ func (m *DbMap) dropTable(t reflect.Type, addIfExists bool) error {
 	return m.dropTableImpl(table, addIfExists)
 }
 
-func (m *DbMap) dropTableImpl(table *TableMap, addIfExists bool) (err error) {
-	ifExists := ""
-	if addIfExists {
-		ifExists = " if exists"
+func (m *DbMap) dropTableImpl(table *TableMap, ifExists bool) (err error) {
+	tableDrop := "drop table"
+	if ifExists {
+		tableDrop = m.Dialect.IfTableExists(tableDrop, table.SchemaName, table.TableName)
 	}
-	_, err = m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
+	_, err = m.Exec(fmt.Sprintf("%s %s;", tableDrop, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 	return err
 }
 
