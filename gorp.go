@@ -709,19 +709,19 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
-	tmap.Columns, tmap.version = readStructColumns(t)
+	tmap.Columns, tmap.version = m.readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 
 	return tmap
 }
 
-func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
+func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		if f.Anonymous && f.Type.Kind() == reflect.Struct {
 			// Recursively add nested fields in embedded structs.
-			subcols, subversion := readStructColumns(f.Type)
+			subcols, subversion := m.readStructColumns(f.Type)
 			// Don't append nested fields that have the same field
 			// name as an already-mapped field.
 			for _, subcol := range subcols {
@@ -744,11 +744,23 @@ func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 			if columnName == "" {
 				columnName = f.Name
 			}
+			gotype := f.Type
+			if m.TypeConverter != nil {
+				// Make a new pointer to a value of type gotype and
+				// pass it to the TypeConverter's FromDb method to see
+				// if a different type should be used for the column
+				// type during table creation.
+				value := reflect.New(gotype).Interface()
+				scanner, useHolder := m.TypeConverter.FromDb(value)
+				if useHolder {
+					gotype = reflect.TypeOf(scanner.Holder)
+				}
+			}
 			cm := &ColumnMap{
 				ColumnName: columnName,
 				Transient:  columnName == "-",
 				fieldName:  f.Name,
-				gotype:     f.Type,
+				gotype:     gotype,
 			}
 			// Check for nested fields of the same field name and
 			// override them.
