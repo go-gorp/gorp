@@ -1371,7 +1371,7 @@ func SelectNullStr(e SqlExecutor, query string, args ...interface{}) (sql.NullSt
 // SelectOne executes the given query (which should be a SELECT statement)
 // and binds the result to holder, which must be a pointer.
 //
-// If no row is found, an an error (sql.ErrNoRows specifically) will be returned
+// If no row is found, an error (sql.ErrNoRows specifically) will be returned
 //
 // If more than one row is found, an error will be returned.
 //
