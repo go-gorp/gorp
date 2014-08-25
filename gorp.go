@@ -1394,9 +1394,14 @@ func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args .
 	}
 
 	if t.Kind() == reflect.Struct {
+		var nonFatalErr error
+
 		list, err := hookedselect(m, e, holder, query, args...)
 		if err != nil {
-			return err
+			if !NonFatalError(err) {
+				return err
+			}
+			nonFatalErr = err
 		}
 
 		dest := reflect.ValueOf(holder)
@@ -1423,7 +1428,7 @@ func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args .
 			return sql.ErrNoRows
 		}
 
-		return nil
+		return nonFatalErr
 	}
 
 	return selectVal(e, holder, query, args...)
@@ -1456,9 +1461,14 @@ func selectVal(e SqlExecutor, holder interface{}, query string, args ...interfac
 func hookedselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	args ...interface{}) ([]interface{}, error) {
 
+	var nonFatalErr error
+
 	list, err := rawselect(m, exec, i, query, args...)
 	if err != nil {
-		return nil, err
+		if !NonFatalError(err) {
+			return nil, err
+		}
+		nonFatalErr = err
 	}
 
 	// Determine where the results are: written to i, or returned in list
@@ -1482,7 +1492,7 @@ func hookedselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 			}
 		}
 	}
-	return list, nil
+	return list, nonFatalErr
 }
 
 func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
@@ -1492,6 +1502,8 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		intoStruct      = true  // Selecting into a struct?
 		pointerElements = true  // Are the slice elements pointers (vs values)?
 	)
+
+	var nonFatalErr error
 
 	// get type for i, verifying it's a supported destination
 	t, err := toType(i)
@@ -1538,7 +1550,10 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	var colToFieldIndex [][]int
 	if intoStruct {
 		if colToFieldIndex, err = columnToFieldIndex(m, t, cols); err != nil {
-			return nil, err
+			if !NonFatalError(err) {
+				return nil, err
+			}
+			nonFatalErr = err
 		}
 	}
 
@@ -1567,7 +1582,15 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		for x := range cols {
 			f := v.Elem()
 			if intoStruct {
-				f = f.FieldByIndex(colToFieldIndex[x])
+				index := colToFieldIndex[x]
+				if index == nil {
+					// this field is not present in the struct, so create a dummy
+					// value for rows.Scan to scan into
+					var dummy sql.RawBytes
+					dest[x] = &dummy
+					continue
+				}
+				f = f.FieldByIndex(index)
 			}
 			target := f.Addr().Interface()
 			if conv != nil {
@@ -1606,7 +1629,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		sliceValue.Set(reflect.MakeSlice(sliceValue.Type(), 0, 0))
 	}
 
-	return list, nil
+	return list, nonFatalErr
 }
 
 // maybeExpandNamedQuery checks the given arg to see if it's eligible to be used
@@ -1668,6 +1691,7 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error
 	// Loop over column names and find field in i to bind to
 	// based on column name. all returned columns must match
 	// a field in the i struct
+	missingColNames := []string{}
 	for x := range cols {
 		colName := strings.ToLower(cols[x])
 		field, found := t.FieldByNameFunc(func(fieldName string) bool {
@@ -1691,7 +1715,13 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error
 			colToFieldIndex[x] = field.Index
 		}
 		if colToFieldIndex[x] == nil {
-			return nil, fmt.Errorf("gorp: No field %s in type %s", colName, t.Name())
+			missingColNames = append(missingColNames, colName)
+		}
+	}
+	if len(missingColNames) > 0 {
+		return colToFieldIndex, &NoFieldInTypeError{
+			TypeName:        t.Name(),
+			MissingColNames: missingColNames,
 		}
 	}
 	return colToFieldIndex, nil
