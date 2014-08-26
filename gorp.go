@@ -813,7 +813,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 			} else {
 				s.WriteString(schemaCreate)
 			}
-			fmt.Sprintf(" %s;", table.SchemaName)
+			s.WriteString(fmt.Sprintf(" %s;", table.SchemaName))
 		}
 
 		tableCreate := "create table"
