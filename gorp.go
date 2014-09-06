@@ -709,19 +709,19 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
-	tmap.Columns, tmap.version = readStructColumns(t)
+	tmap.Columns, tmap.version = m.readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 
 	return tmap
 }
 
-func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
+func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		if f.Anonymous && f.Type.Kind() == reflect.Struct {
 			// Recursively add nested fields in embedded structs.
-			subcols, subversion := readStructColumns(f.Type)
+			subcols, subversion := m.readStructColumns(f.Type)
 			// Don't append nested fields that have the same field
 			// name as an already-mapped field.
 			for _, subcol := range subcols {
@@ -744,11 +744,23 @@ func readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
 			if columnName == "" {
 				columnName = f.Name
 			}
+			gotype := f.Type
+			if m.TypeConverter != nil {
+				// Make a new pointer to a value of type gotype and
+				// pass it to the TypeConverter's FromDb method to see
+				// if a different type should be used for the column
+				// type during table creation.
+				value := reflect.New(gotype).Interface()
+				scanner, useHolder := m.TypeConverter.FromDb(value)
+				if useHolder {
+					gotype = reflect.TypeOf(scanner.Holder)
+				}
+			}
 			cm := &ColumnMap{
 				ColumnName: columnName,
 				Transient:  columnName == "-",
 				fieldName:  f.Name,
-				gotype:     f.Type,
+				gotype:     gotype,
 			}
 			// Check for nested fields of the same field name and
 			// override them.
@@ -797,18 +809,21 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 		if strings.TrimSpace(table.SchemaName) != "" {
 			schemaCreate := "create schema"
 			if ifNotExists {
-				schemaCreate += " if not exists"
+				s.WriteString(m.Dialect.IfSchemaNotExists(schemaCreate, table.SchemaName))
+			} else {
+				s.WriteString(schemaCreate)
 			}
-
-			s.WriteString(fmt.Sprintf("%s %s;", schemaCreate, table.SchemaName))
+			s.WriteString(fmt.Sprintf(" %s;", table.SchemaName))
 		}
 
-		create := "create table"
+		tableCreate := "create table"
 		if ifNotExists {
-			create += " if not exists"
+			s.WriteString(m.Dialect.IfTableNotExists(tableCreate, table.SchemaName, table.TableName))
+		} else {
+			s.WriteString(tableCreate)
 		}
+		s.WriteString(fmt.Sprintf(" %s (", m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 
-		s.WriteString(fmt.Sprintf("%s %s (", create, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		x := 0
 		for _, col := range table.Columns {
 			if !col.Transient {
@@ -916,12 +931,12 @@ func (m *DbMap) dropTable(t reflect.Type, addIfExists bool) error {
 	return m.dropTableImpl(table, addIfExists)
 }
 
-func (m *DbMap) dropTableImpl(table *TableMap, addIfExists bool) (err error) {
-	ifExists := ""
-	if addIfExists {
-		ifExists = " if exists"
+func (m *DbMap) dropTableImpl(table *TableMap, ifExists bool) (err error) {
+	tableDrop := "drop table"
+	if ifExists {
+		tableDrop = m.Dialect.IfTableExists(tableDrop, table.SchemaName, table.TableName)
 	}
-	_, err = m.Exec(fmt.Sprintf("drop table%s %s;", ifExists, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
+	_, err = m.Exec(fmt.Sprintf("%s %s;", tableDrop, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 	return err
 }
 
@@ -1093,6 +1108,14 @@ func (m *DbMap) TableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 	}
 
 	return table, nil
+}
+
+// Prepare creates a prepared statement for later queries or executions.
+// Multiple queries or executions may be run concurrently from the returned statement.
+// This is equivalent to running:  Prepare() using database/sql
+func (m *DbMap) Prepare(query string) (*sql.Stmt, error) {
+	m.trace(query, nil)
+	return m.Db.Prepare(query)
 }
 
 func tableOrNil(m *DbMap, t reflect.Type) *TableMap {
@@ -1283,6 +1306,12 @@ func (t *Transaction) ReleaseSavepoint(savepoint string) error {
 	return err
 }
 
+// Prepare has the same behavior as DbMap.Prepare(), but runs in a transaction.
+func (t *Transaction) Prepare(query string) (*sql.Stmt, error) {
+	t.dbmap.trace(query, nil)
+	return t.tx.Prepare(query)
+}
+
 func (t *Transaction) queryRow(query string, args ...interface{}) *sql.Row {
 	t.dbmap.trace(query, args...)
 	return t.tx.QueryRow(query, args...)
@@ -1371,7 +1400,7 @@ func SelectNullStr(e SqlExecutor, query string, args ...interface{}) (sql.NullSt
 // SelectOne executes the given query (which should be a SELECT statement)
 // and binds the result to holder, which must be a pointer.
 //
-// If no row is found, an an error (sql.ErrNoRows specifically) will be returned
+// If no row is found, an error (sql.ErrNoRows specifically) will be returned
 //
 // If more than one row is found, an error will be returned.
 //
@@ -1383,18 +1412,38 @@ func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args .
 		return fmt.Errorf("gorp: SelectOne holder must be a pointer, but got: %t", holder)
 	}
 
+	// Handle pointer to pointer
+	isptr := false
+	if t.Kind() == reflect.Ptr {
+		isptr = true
+		t = t.Elem()
+	}
+
 	if t.Kind() == reflect.Struct {
+		var nonFatalErr error
+
 		list, err := hookedselect(m, e, holder, query, args...)
 		if err != nil {
-			return err
+			if !NonFatalError(err) {
+				return err
+			}
+			nonFatalErr = err
 		}
 
 		dest := reflect.ValueOf(holder)
+		if isptr {
+			dest = dest.Elem()
+		}
 
 		if list != nil && len(list) > 0 {
 			// check for multiple rows
 			if len(list) > 1 {
 				return fmt.Errorf("gorp: multiple rows returned for: %s - %v", query, args)
+			}
+
+			// Initialize if nil
+			if dest.IsNil() {
+				dest.Set(reflect.New(t))
 			}
 
 			// only one row found
@@ -1405,7 +1454,7 @@ func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args .
 			return sql.ErrNoRows
 		}
 
-		return nil
+		return nonFatalErr
 	}
 
 	return selectVal(e, holder, query, args...)
@@ -1438,9 +1487,14 @@ func selectVal(e SqlExecutor, holder interface{}, query string, args ...interfac
 func hookedselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	args ...interface{}) ([]interface{}, error) {
 
+	var nonFatalErr error
+
 	list, err := rawselect(m, exec, i, query, args...)
 	if err != nil {
-		return nil, err
+		if !NonFatalError(err) {
+			return nil, err
+		}
+		nonFatalErr = err
 	}
 
 	// Determine where the results are: written to i, or returned in list
@@ -1464,7 +1518,7 @@ func hookedselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 			}
 		}
 	}
-	return list, nil
+	return list, nonFatalErr
 }
 
 func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
@@ -1474,6 +1528,8 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		intoStruct      = true  // Selecting into a struct?
 		pointerElements = true  // Are the slice elements pointers (vs values)?
 	)
+
+	var nonFatalErr error
 
 	// get type for i, verifying it's a supported destination
 	t, err := toType(i)
@@ -1520,7 +1576,10 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	var colToFieldIndex [][]int
 	if intoStruct {
 		if colToFieldIndex, err = columnToFieldIndex(m, t, cols); err != nil {
-			return nil, err
+			if !NonFatalError(err) {
+				return nil, err
+			}
+			nonFatalErr = err
 		}
 	}
 
@@ -1549,7 +1608,15 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		for x := range cols {
 			f := v.Elem()
 			if intoStruct {
-				f = f.FieldByIndex(colToFieldIndex[x])
+				index := colToFieldIndex[x]
+				if index == nil {
+					// this field is not present in the struct, so create a dummy
+					// value for rows.Scan to scan into
+					var dummy sql.RawBytes
+					dest[x] = &dummy
+					continue
+				}
+				f = f.FieldByIndex(index)
 			}
 			target := f.Addr().Interface()
 			if conv != nil {
@@ -1588,7 +1655,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		sliceValue.Set(reflect.MakeSlice(sliceValue.Type(), 0, 0))
 	}
 
-	return list, nil
+	return list, nonFatalErr
 }
 
 // maybeExpandNamedQuery checks the given arg to see if it's eligible to be used
@@ -1650,6 +1717,7 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error
 	// Loop over column names and find field in i to bind to
 	// based on column name. all returned columns must match
 	// a field in the i struct
+	missingColNames := []string{}
 	for x := range cols {
 		colName := strings.ToLower(cols[x])
 		field, found := t.FieldByNameFunc(func(fieldName string) bool {
@@ -1673,7 +1741,13 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error
 			colToFieldIndex[x] = field.Index
 		}
 		if colToFieldIndex[x] == nil {
-			return nil, fmt.Errorf("gorp: No field %s in type %s", colName, t.Name())
+			missingColNames = append(missingColNames, colName)
+		}
+	}
+	if len(missingColNames) > 0 {
+		return colToFieldIndex, &NoFieldInTypeError{
+			TypeName:        t.Name(),
+			MissingColNames: missingColNames,
 		}
 	}
 	return colToFieldIndex, nil
@@ -1926,7 +2000,7 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 				k := f.Kind()
 				if (k == reflect.Int) || (k == reflect.Int16) || (k == reflect.Int32) || (k == reflect.Int64) {
 					f.SetInt(id)
-				} else if (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
+				} else if (k == reflect.Uint) || (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
 					f.SetUint(uint64(id))
 				} else {
 					return fmt.Errorf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d autoIncrFieldName=%s", bi.query, bi.autoIncrIdx, bi.autoIncrFieldName)

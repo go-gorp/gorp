@@ -54,6 +54,11 @@ type Dialect interface {
 	// schema - The schema that <table> lives in
 	// table - The table name
 	QuotedTableForQuery(schema string, table string) string
+
+	// Existance clause for table creation / deletion
+	IfSchemaNotExists(command, schema string) string
+	IfTableExists(command, schema, table string) string
+	IfTableNotExists(command, schema, table string) string
 }
 
 // IntegerAutoIncrInserter is implemented by dialects that can perform
@@ -99,7 +104,7 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "integer"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return "integer"
 	case reflect.Float64, reflect.Float32:
 		return "real"
@@ -167,6 +172,18 @@ func (d SqliteDialect) QuoteField(f string) string {
 // sqlite does not have schemas like PostgreSQL does, so just escape it like normal
 func (d SqliteDialect) QuotedTableForQuery(schema string, table string) string {
 	return d.QuoteField(table)
+}
+
+func (d SqliteDialect) IfSchemaNotExists(command, schema string) string {
+	return fmt.Sprintf("%s if not exists", command)
+}
+
+func (d SqliteDialect) IfTableExists(command, schema, table string) string {
+	return fmt.Sprintf("%s if exists", command)
+}
+
+func (d SqliteDialect) IfTableNotExists(command, schema, table string) string {
+	return fmt.Sprintf("%s if not exists", command)
 }
 
 ///////////////////////////////////////////////////////
@@ -276,6 +293,18 @@ func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string
 	}
 
 	return schema + "." + d.QuoteField(table)
+}
+
+func (d PostgresDialect) IfSchemaNotExists(command, schema string) string {
+	return fmt.Sprintf("%s if not exists", command)
+}
+
+func (d PostgresDialect) IfTableExists(command, schema, table string) string {
+	return fmt.Sprintf("%s if exists", command)
+}
+
+func (d PostgresDialect) IfTableNotExists(command, schema, table string) string {
+	return fmt.Sprintf("%s if not exists", command)
 }
 
 ///////////////////////////////////////////////////////
@@ -400,13 +429,24 @@ func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
 	return schema + "." + d.QuoteField(table)
 }
 
+func (d MySQLDialect) IfSchemaNotExists(command, schema string) string {
+	return fmt.Sprintf("%s if not exists", command)
+}
+
+func (d MySQLDialect) IfTableExists(command, schema, table string) string {
+	return fmt.Sprintf("%s if exists", command)
+}
+
+func (d MySQLDialect) IfTableNotExists(command, schema, table string) string {
+	return fmt.Sprintf("%s if not exists", command)
+}
+
 ///////////////////////////////////////////////////////
 // Sql Server //
 ////////////////
 
 // Implementation of Dialect for Microsoft SQL Server databases.
 // Tested on SQL Server 2008 with driver: github.com/denisenkom/go-mssqldb
-// Presently, it doesn't work with CreateTablesIfNotExists().
 
 type SqlServerDialect struct {
 	suffix string
@@ -506,6 +546,29 @@ func (d SqlServerDialect) QuotedTableForQuery(schema string, table string) strin
 }
 
 func (d SqlServerDialect) QuerySuffix() string { return ";" }
+
+func (d SqlServerDialect) IfSchemaNotExists(command, schema string) string {
+	s := fmt.Sprintf("if not exists (select name from sys.schemas where name = '%s') %s", schema, command)
+	return s
+}
+
+func (d SqlServerDialect) IfTableExists(command, schema, table string) string {
+	var schema_clause string
+	if strings.TrimSpace(schema) != "" {
+		schema_clause = fmt.Sprintf("table_schema = '%s' and ", schema)
+	}
+	s := fmt.Sprintf("if exists (select * from information_schema.tables where %stable_name = '%s') %s", schema_clause, table, command)
+	return s
+}
+
+func (d SqlServerDialect) IfTableNotExists(command, schema, table string) string {
+	var schema_clause string
+	if strings.TrimSpace(schema) != "" {
+		schema_clause = fmt.Sprintf("table_schema = '%s' and ", schema)
+	}
+	s := fmt.Sprintf("if not exists (select * from information_schema.tables where %stable_name = '%s') %s", schema_clause, table, command)
+	return s
+}
 
 ///////////////////////////////////////////////////////
 // Oracle //
@@ -614,4 +677,16 @@ func (d OracleDialect) QuotedTableForQuery(schema string, table string) string {
 	}
 
 	return schema + "." + d.QuoteField(table)
+}
+
+func (d OracleDialect) IfSchemaNotExists(command, schema string) string {
+	return fmt.Sprintf("%s if not exists", command)
+}
+
+func (d OracleDialect) IfTableExists(command, schema, table string) string {
+	return fmt.Sprintf("%s if exists", command)
+}
+
+func (d OracleDialect) IfTableNotExists(command, schema, table string) string {
+	return fmt.Sprintf("%s if not exists", command)
 }

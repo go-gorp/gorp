@@ -89,6 +89,10 @@ type Person struct {
 	Version int64
 }
 
+type FNameOnly struct {
+	FName string
+}
+
 type InvoicePersonView struct {
 	InvoiceId     int64
 	PersonId      int64
@@ -181,6 +185,15 @@ type SingleColumnTable struct {
 	SomeId string
 }
 
+type CustomDate struct {
+	time.Time
+}
+
+type WithCustomDate struct {
+	Id    int64
+	Added CustomDate
+}
+
 type testTypeConverter struct{}
 
 func (me testTypeConverter) ToDb(val interface{}) (interface{}, error) {
@@ -194,6 +207,8 @@ func (me testTypeConverter) ToDb(val interface{}) (interface{}, error) {
 		return string(b), nil
 	case CustomStringType:
 		return string(t), nil
+	case CustomDate:
+		return t.Time, nil
 	}
 
 	return val, nil
@@ -225,6 +240,20 @@ func (me testTypeConverter) FromDb(target interface{}) (CustomScanner, bool) {
 			return nil
 		}
 		return CustomScanner{new(string), target, binder}, true
+	case *CustomDate:
+		binder := func(holder, target interface{}) error {
+			t, ok := holder.(*time.Time)
+			if !ok {
+				return errors.New("FromDb: Unable to convert CustomDate to *time.Time")
+			}
+			dateTarget, ok := target.(*CustomDate)
+			if !ok {
+				return errors.New(fmt.Sprint("FromDb: Unable to convert target to *CustomDate: ", reflect.TypeOf(target)))
+			}
+			dateTarget.Time = *t
+			return nil
+		}
+		return CustomScanner{new(time.Time), target, binder}, true
 	}
 
 	return CustomScanner{}, false
@@ -312,6 +341,43 @@ func TestTruncateTables(t *testing.T) {
 	rows, _ = dbmap.Select(Invoice{}, "SELECT * FROM invoice_test")
 	if len(rows) != 0 {
 		t.Errorf("Expected 0 invoice rows, got %d", len(rows))
+	}
+}
+
+func TestCustomDateType(t *testing.T) {
+	dbmap := newDbMap()
+	dbmap.TypeConverter = testTypeConverter{}
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	dbmap.AddTable(WithCustomDate{}).SetKeys(true, "Id")
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
+	defer dropAndClose(dbmap)
+
+	test1 := &WithCustomDate{Added: CustomDate{Time: time.Now().Truncate(time.Second)}}
+	err = dbmap.Insert(test1)
+	if err != nil {
+		t.Errorf("Could not insert struct with custom date field: %s", err)
+		t.FailNow()
+	}
+	// Unfortunately, the mysql driver doesn't handle time.Time
+	// values properly during Get().  I can't find a way to work
+	// around that problem - every other type that I've tried is just
+	// silently converted.  time.Time is the only type that causes
+	// the issue that this test checks for.  As such, if the driver is
+	// mysql, we'll just skip the rest of this test.
+	if _, driver := dialectAndDriver(); driver == "mysql" {
+		t.Skip("TestCustomDateType can't run Get() with the mysql driver; skipping the rest of this test...")
+	}
+	result, err := dbmap.Get(new(WithCustomDate), test1.Id)
+	if err != nil {
+		t.Errorf("Could not get struct with custom date field: %s", err)
+		t.FailNow()
+	}
+	test2 := result.(*WithCustomDate)
+	if test2.Added.UTC() != test1.Added.UTC() {
+		t.Errorf("Custom dates do not match: %v != %v", test2.Added.UTC(), test1.Added.UTC())
 	}
 }
 
@@ -1444,6 +1510,56 @@ func TestQuoteTableNames(t *testing.T) {
 	logBuffer.Reset()
 }
 
+func TestSelectTooManyCols(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+
+	p1 := &Person{0, 0, 0, "bob", "smith", 0}
+	p2 := &Person{0, 0, 0, "jane", "doe", 0}
+	_insert(dbmap, p1)
+	_insert(dbmap, p2)
+
+	obj := _get(dbmap, Person{}, p1.Id)
+	p1 = obj.(*Person)
+	obj = _get(dbmap, Person{}, p2.Id)
+	p2 = obj.(*Person)
+
+	params := map[string]interface{}{
+		"Id": p1.Id,
+	}
+
+	var p3 FNameOnly
+	err := dbmap.SelectOne(&p3, "select * from person_test where Id=:Id", params)
+	if err != nil {
+		if !NonFatalError(err) {
+			t.Error(err)
+		}
+	} else {
+		t.Errorf("Non-fatal error expected")
+	}
+
+	if p1.FName != p3.FName {
+		t.Errorf("%v != %v", p1.FName, p3.FName)
+	}
+
+	var pSlice []FNameOnly
+	_, err = dbmap.Select(&pSlice, "select * from person_test order by fname asc")
+	if err != nil {
+		if !NonFatalError(err) {
+			t.Error(err)
+		}
+	} else {
+		t.Errorf("Non-fatal error expected")
+	}
+
+	if p1.FName != pSlice[0].FName {
+		t.Errorf("%v != %v", p1.FName, pSlice[0].FName)
+	}
+	if p2.FName != pSlice[1].FName {
+		t.Errorf("%v != %v", p2.FName, pSlice[1].FName)
+	}
+}
+
 func TestSelectSingleVal(t *testing.T) {
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
@@ -1482,6 +1598,24 @@ func TestSelectSingleVal(t *testing.T) {
 	err = dbmap.SelectOne(s, "select FName from person_test where Id=:Id", params)
 	if err == nil {
 		t.Error("SelectOne should have returned error for non-pointer holder")
+	}
+
+	// verify SelectOne works with uninitialized pointers
+	var p3 *Person
+	err = dbmap.SelectOne(&p3, "select * from person_test where Id=:Id", params)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !reflect.DeepEqual(p1, p3) {
+		t.Errorf("%v != %v", p1, p3)
+	}
+
+	// verify that the receiver is still nil if nothing was found
+	var p4 *Person
+	dbmap.SelectOne(&p3, "select * from person_test where 2<1 AND Id=:Id", params)
+	if p4 != nil {
+		t.Error("SelectOne should not have changed a nil receiver when no rows were found")
 	}
 
 	// verify that the error is set to sql.ErrNoRows if not found
@@ -1604,6 +1738,61 @@ func TestSingleColumnKeyDbReturnsZeroRowsUpdatedOnPKChange(t *testing.T) {
 		t.Errorf("Expected 0 updated rows, got %d", count)
 	}
 
+}
+
+func TestPrepare(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+
+	inv1 := &Invoice{0, 100, 200, "prepare-foo", 0, false}
+	inv2 := &Invoice{0, 100, 200, "prepare-bar", 0, false}
+	_insert(dbmap, inv1, inv2)
+
+	bindVar0 := dbmap.Dialect.BindVar(0)
+	bindVar1 := dbmap.Dialect.BindVar(1)
+	stmt, err := dbmap.Prepare(fmt.Sprintf("UPDATE invoice_test SET Memo=%s WHERE Id=%s", bindVar0, bindVar1))
+	if err != nil {
+		t.Error(err)
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec("prepare-baz", inv1.Id)
+	if err != nil {
+		t.Error(err)
+	}
+	err = dbmap.SelectOne(inv1, "SELECT * from invoice_test WHERE Memo='prepare-baz'")
+	if err != nil {
+		t.Error(err)
+	}
+
+	trans, err := dbmap.Begin()
+	if err != nil {
+		t.Error(err)
+	}
+	transStmt, err := trans.Prepare(fmt.Sprintf("UPDATE invoice_test SET IsPaid=%s WHERE Id=%s", bindVar0, bindVar1))
+	if err != nil {
+		t.Error(err)
+	}
+	defer transStmt.Close()
+	_, err = transStmt.Exec(true, inv2.Id)
+	if err != nil {
+		t.Error(err)
+	}
+	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE IsPaid=%s", bindVar0), true)
+	if err == nil || err != sql.ErrNoRows {
+		t.Error("SelectOne should have returned an sql.ErrNoRows")
+	}
+	err = trans.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE IsPaid=%s", bindVar0), true)
+	if err != nil {
+		t.Error(err)
+	}
+	err = trans.Commit()
+	if err != nil {
+		t.Error(err)
+	}
+	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE IsPaid=%s", bindVar0), true)
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 func BenchmarkNativeCrud(b *testing.B) {
