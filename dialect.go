@@ -80,6 +80,16 @@ type TargetedAutoIncrInserter interface {
 	InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target interface{}, params ...interface{}) error
 }
 
+// TargetQueryInserter is implemented by dialects that can perform
+// assignment of integer primary key type by executing a query
+// like "select sequence.currval from dual".
+type TargetQueryInserter interface {
+	// TargetQueryInserter runs an insert operation and assigns the
+	// automatically generated primary key retrived by the query
+	// extracted from the GeneratedIdQuery field of the id column.
+	InsertQueryToTarget(exec SqlExecutor, insertSql, idSql string, target interface{}, params ...interface{}) error
+}
+
 func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
 	res, err := exec.Exec(insertSql, params...)
 	if err != nil {
@@ -630,11 +640,11 @@ func (d OracleDialect) AutoIncrStr() string {
 }
 
 func (d OracleDialect) AutoIncrBindValue() string {
-	return "default"
+	return "NULL"
 }
 
 func (d OracleDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
-	return " returning " + col.ColumnName
+	return ""
 }
 
 // Returns suffix
@@ -651,20 +661,27 @@ func (d OracleDialect) BindVar(i int) string {
 	return fmt.Sprintf(":%d", i+1)
 }
 
-func (d OracleDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
-	rows, err := exec.query(insertSql, params...)
+// After executing the insert uses the ColMap IdQuery to get the generated id
+func (d OracleDialect) InsertQueryToTarget(exec SqlExecutor, insertSql, idSql string, target interface{}, params ...interface{}) error {
+	_, err := exec.Exec(insertSql, params...)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	defer rows.Close()
-
-	if rows.Next() {
-		var id int64
-		err := rows.Scan(&id)
-		return id, err
+	id, err := exec.SelectInt(idSql)
+	if err != nil {
+		return err
 	}
-
-	return 0, errors.New("No serial value returned for insert: " + insertSql + " Encountered error: " + rows.Err().Error())
+	switch target.(type) {
+	case *int64:
+		*(target.(*int64)) = id
+	case *int32:
+		*(target.(*int32)) = int32(id)
+	case int:
+		*(target.(*int)) = int(id)
+	default:
+		return fmt.Errorf("Id field can be int, int32 or int64")
+	}
+	return nil
 }
 
 func (d OracleDialect) QuoteField(f string) string {
