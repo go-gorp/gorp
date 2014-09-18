@@ -614,6 +614,12 @@ type Transaction struct {
 	closed bool
 }
 
+// Executor exposes the sql.DB and sql.Tx Exec function so that it can be used
+// on internal functions that convert named parameters for the Exec function.
+type Executor interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+}
+
 // SqlExecutor exposes gorp operations that can be run from Pre/Post
 // hooks.  This hides whether the current operation that triggered the
 // hook is in a transaction.
@@ -1044,7 +1050,7 @@ func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]inte
 // This is equivalent to running:  Exec() using database/sql
 func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	m.trace(query, args...)
-	return m.Db.Exec(query, args...)
+	return exec(m, query, args...)
 }
 
 // SelectInt is a convenience wrapper around the gorp.SelectInt function
@@ -1216,7 +1222,7 @@ func (t *Transaction) Select(i interface{}, query string, args ...interface{}) (
 // Exec has the same behavior as DbMap.Exec(), but runs in a transaction.
 func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error) {
 	t.dbmap.trace(query, args...)
-	return t.tx.Exec(query, args...)
+	return exec(t, query, args...)
 }
 
 // SelectInt is a convenience wrapper around the gorp.SelectInt function.
@@ -1656,6 +1662,27 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	return list, nonFatalErr
+}
+
+// Calls the Exec function on the executor, but attempts to expand any eligible named
+// query arguments first.
+func exec(e SqlExecutor, query string, args ...interface{}) (sql.Result, error) {
+	var dbMap *DbMap
+	var executor Executor
+	switch m := e.(type) {
+	case *DbMap:
+		executor = m.Db
+		dbMap = m
+	case *Transaction:
+		executor = m.tx
+		dbMap = m.dbmap
+	}
+
+	if len(args) == 1 {
+		query, args = maybeExpandNamedQuery(dbMap, query, args)
+	}
+
+	return executor.Exec(query, args...)
 }
 
 // maybeExpandNamedQuery checks the given arg to see if it's eligible to be used
