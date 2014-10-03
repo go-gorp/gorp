@@ -277,7 +277,9 @@ func (t *TableMap) IdxMap(field string) *IndexMap {
 // This operation is idempotent. If index is already mapped, the
 // existing *IndexMap is returned
 // Function will panic if one of the given for index columns does not exists
-
+//
+// Automatically calls ResetSql() to ensure SQL statements are regenerated.
+//
 func (t *TableMap) AddIndex(name string, idxtype string, columns []string) *IndexMap {
 	// check if we have a index with this name already
 	for _, idx := range t.indexes {
@@ -294,6 +296,7 @@ func (t *TableMap) AddIndex(name string, idxtype string, columns []string) *Inde
 
 	idx := &IndexMap{IndexName: name, Unique: false, IndexType: idxtype, columns: columns}
 	t.indexes = append(t.indexes, idx)
+	t.ResetSql()
 	return idx
 }
 
@@ -744,6 +747,7 @@ func (t *TableMap) DropIndex(name string) error {
 			break
 		}
 	}
+	t.ResetSql()
 	return err
 }
 
