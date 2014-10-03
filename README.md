@@ -548,6 +548,28 @@ if ok {
 }
 ```
 
+### Adding INDEX(es) on column(s) beyond the primary key ###
+
+Indexes are frequently critical for performance. Here is how to add them to your tables.
+
+NB: SqlServer and Oracle need testing and possible adjustment to the 
+CreateIndexSuffix() and DropIndexSuffix() methods to make AddIndex()
+work for them.
+
+```
+	s.dbm = &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
+
+	// indexType (the 2nd param to AddIndex call) is "Btree" or "Hash" for MySQL.
+    // demonstrate adding a second index on AcctId, and constrain that field to have unique values.
+	s.dbm.AddTable(iptab.Account{}).SetKeys(true, "Id").AddIndex("AcctIdIndex", "Btree", []string{"AcctId"}).SetUnique(true)
+
+	err = s.dbm.CreateTablesIfNotExists()
+    checkErr(err, "CreateTablesIfNotExists failed")
+
+	err = s.dbm.CreateIndex()
+    checkErr(err, "CreateIndex failed")
+```
+
 ## Database Drivers ##
 
 gorp uses the Go 1 `database/sql` package.  A full list of compliant drivers is available here:
