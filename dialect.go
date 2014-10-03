@@ -600,6 +600,9 @@ func (d SqlServerDialect) IfTableNotExists(command, schema, table string) string
 	return s
 }
 
+func (d SqlServerDialect) CreateIndexSuffix() string { return "" }
+func (d SqlServerDialect) DropIndexSuffix() string   { return "" }
+
 ///////////////////////////////////////////////////////
 // Oracle //
 ///////////
@@ -608,6 +611,10 @@ func (d SqlServerDialect) IfTableNotExists(command, schema, table string) string
 type OracleDialect struct{}
 
 func (d OracleDialect) QuerySuffix() string { return "" }
+
+func (d OracleDialect) CreateIndexSuffix() string { return "using" }
+
+func (d OracleDialect) DropIndexSuffix() string { return "on" }
 
 func (d OracleDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
