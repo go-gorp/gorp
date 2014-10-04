@@ -612,9 +612,9 @@ type OracleDialect struct{}
 
 func (d OracleDialect) QuerySuffix() string { return "" }
 
-func (d OracleDialect) CreateIndexSuffix() string { return "using" }
+func (d OracleDialect) CreateIndexSuffix() string { return "" }
 
-func (d OracleDialect) DropIndexSuffix() string { return "on" }
+func (d OracleDialect) DropIndexSuffix() string { return "" }
 
 func (d OracleDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
