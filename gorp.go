@@ -362,15 +362,20 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 						plan.autoIncrIdx = y
 						plan.autoIncrFieldName = col.fieldName
 					} else {
-						s2.WriteString(t.dbmap.Dialect.BindVar(x))
-						if col == t.version {
-							plan.versField = col.fieldName
-							plan.argFields = append(plan.argFields, versFieldConst)
+						field := elem.Type().Field(y)
+						fieldDefault := field.Tag.Get("db_default")
+						if fieldDefault == "" {
+							s2.WriteString(t.dbmap.Dialect.BindVar(x))
+							if col == t.version {
+								plan.versField = col.fieldName
+								plan.argFields = append(plan.argFields, versFieldConst)
+							} else {
+								plan.argFields = append(plan.argFields, col.fieldName)
+							}
+							x++
 						} else {
-							plan.argFields = append(plan.argFields, col.fieldName)
+							s2.WriteString(fieldDefault)
 						}
-
-						x++
 					}
 					first = false
 				}
