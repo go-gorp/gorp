@@ -274,6 +274,49 @@ func (t *TableMap) SetVersionCol(field string) *ColumnMap {
 	return c
 }
 
+type fieldOptions struct {
+	transient  bool
+	selectonly bool
+	name       string
+}
+
+func parseField(field reflect.StructField) fieldOptions {
+	options := fieldOptions{
+		name:       field.Name,
+		transient:  false,
+		selectonly: false,
+	}
+
+	tag := field.Tag.Get("db")
+	if tag == "" {
+		return options
+	}
+
+	tags := strings.Split(tag, ",")
+
+	name := tags[0]
+	if name != "" {
+		options.name = name
+	}
+	if name == "-" {
+		options.transient = true
+	}
+
+	if len(tags) > 1 {
+		for _, option := range tags[1:] {
+			switch option {
+			case "selectonly":
+				options.selectonly = true
+				break
+			case "transient":
+				options.transient = true
+				break
+			}
+		}
+	}
+	return options
+}
+
 type bindPlan struct {
 	query             string
 	argFields         []string
@@ -350,7 +393,7 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 		for y := range t.Columns {
 			col := t.Columns[y]
 			if !(col.isAutoIncr && t.dbmap.Dialect.AutoIncrBindValue() == "") {
-				if !col.Transient {
+				if !col.Transient && !col.SelectOnly {
 					if !first {
 						s.WriteString(",")
 						s2.WriteString(",")
@@ -404,7 +447,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 
 		for y := range t.Columns {
 			col := t.Columns[y]
-			if !col.isAutoIncr && !col.Transient {
+			if !col.isAutoIncr && !col.Transient && !col.SelectOnly {
 				if x > 0 {
 					s.WriteString(", ")
 				}
@@ -461,7 +504,7 @@ func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 
 		for y := range t.Columns {
 			col := t.Columns[y]
-			if !col.Transient {
+			if !col.Transient && !col.SelectOnly {
 				if col == t.version {
 					plan.versField = col.fieldName
 				}
@@ -549,6 +592,9 @@ type ColumnMap struct {
 
 	// If true, this column is skipped in generated SQL statements
 	Transient bool
+
+	// If true, this column is used only in select statements
+	SelectOnly bool
 
 	// If true, " unique" is added to create table statements.
 	// Not used elsewhere
@@ -756,9 +802,11 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *C
 					gotype = reflect.TypeOf(scanner.Holder)
 				}
 			}
+			field := parseField(f)
 			cm := &ColumnMap{
-				ColumnName: columnName,
-				Transient:  columnName == "-",
+				ColumnName: field.name,
+				Transient:  field.transient,
+				SelectOnly: field.selectonly,
 				fieldName:  f.Name,
 				gotype:     gotype,
 			}
@@ -1722,13 +1770,12 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error
 		colName := strings.ToLower(cols[x])
 		field, found := t.FieldByNameFunc(func(fieldName string) bool {
 			field, _ := t.FieldByName(fieldName)
-			fieldName = field.Tag.Get("db")
+			fieldOptions := parseField(field)
 
-			if fieldName == "-" {
+			if fieldOptions.name == "-" {
 				return false
-			} else if fieldName == "" {
-				fieldName = field.Name
 			}
+			fieldName = fieldOptions.name
 			if tableMapped {
 				colMap := colMapOrNil(table, fieldName)
 				if colMap != nil {
