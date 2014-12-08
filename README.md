@@ -2,6 +2,23 @@
 
 [![build status](https://secure.travis-ci.org/coopernurse/gorp.png)](http://travis-ci.org/coopernurse/gorp)
 
+## Call for Maintainers
+
+Dec 7 2014
+
+I've been slacking on keeping up with issues and PRs.  I know there are 
+many of you out there who have active forks and some good ideas on how to
+push the project forward.  If you'd like to step up and either be added as
+a committer to this repo, or would like to become the new canonical fork
+of the project, please comment on #211 here:
+
+https://github.com/coopernurse/gorp/issues/211
+
+Thank you!
+
+
+----
+
 I hesitate to call gorp an ORM.  Go doesn't really have objects, at least 
 not in the classic Smalltalk/Java sense.  There goes the "O".  gorp doesn't 
 know anything about the relationships between your structs (at least not 
