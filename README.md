@@ -1,6 +1,6 @@
 # Go Relational Persistence #
 
-[![build status](https://secure.travis-ci.org/coopernurse/gorp.png)](http://travis-ci.org/coopernurse/gorp)
+[![build status](https://secure.travis-ci.org/go-gorp/gorp.png)](http://travis-ci.org/go-gorp/gorp)
 
 ## Call for Maintainers
 
@@ -12,7 +12,7 @@ push the project forward.  If you'd like to step up and either be added as
 a committer to this repo, or would like to become the new canonical fork
 of the project, please comment on #211 here:
 
-https://github.com/coopernurse/gorp/issues/211
+https://github.com/go-gorp/gorp/issues/211
 
 Thank you!
 
@@ -50,18 +50,18 @@ not infrastructure.
 ## Installation ##
 
     # install the library:
-    go get github.com/coopernurse/gorp
+    go get github.com/go-gorp/gorp
     
     // use in your .go code:
     import (
-        "github.com/coopernurse/gorp"
+        "github.com/go-gorp/gorp"
     )
 
 ## API Documentation ##
 
 Full godoc output from the latest code in master is available here:
 
-http://godoc.org/github.com/coopernurse/gorp
+http://godoc.org/github.com/go-gorp/gorp
 
 ## Quickstart
 
@@ -70,7 +70,7 @@ package main
 
 import (
     "database/sql"
-    "github.com/coopernurse/gorp"
+    "github.com/go-gorp/gorp"
     _ "github.com/mattn/go-sqlite3"
     "log"
     "time"
