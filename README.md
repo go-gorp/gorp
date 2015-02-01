@@ -638,7 +638,7 @@ gorp uses reflection to construct SQL queries and bind parameters.  See the Benc
 
 ## Help/Support ##
 
-IRC: #go-gorp
+IRC: #gorp
 Mailing list: gorp-dev@googlegroups.com
 Bugs/Enhancements: Create a github issue
 
