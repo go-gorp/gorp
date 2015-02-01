@@ -2,34 +2,17 @@
 
 [![build status](https://secure.travis-ci.org/go-gorp/gorp.png)](http://travis-ci.org/go-gorp/gorp)
 
-## Call for Maintainers
-
-Dec 7 2014
-
-I've been slacking on keeping up with issues and PRs.  I know there are 
-many of you out there who have active forks and some good ideas on how to
-push the project forward.  If you'd like to step up and either be added as
-a committer to this repo, or would like to become the new canonical fork
-of the project, please comment on #211 here:
-
-https://github.com/go-gorp/gorp/issues/211
-
-Thank you!
-
-
-----
-
-I hesitate to call gorp an ORM.  Go doesn't really have objects, at least 
-not in the classic Smalltalk/Java sense.  There goes the "O".  gorp doesn't 
-know anything about the relationships between your structs (at least not 
-yet).  So the "R" is questionable too (but I use it in the name because, 
+I hesitate to call gorp an ORM.  Go doesn't really have objects, at least
+not in the classic Smalltalk/Java sense.  There goes the "O".  gorp doesn't
+know anything about the relationships between your structs (at least not
+yet).  So the "R" is questionable too (but I use it in the name because,
 well, it seemed more clever).
 
 The "M" is alive and well.  Given some Go structs and a database, gorp
 should remove a fair amount of boilerplate busy-work from your code.
 
-I hope that gorp saves you time, minimizes the drudgery of getting data 
-in and out of your database, and helps your code focus on algorithms, 
+I hope that gorp saves you time, minimizes the drudgery of getting data
+in and out of your database, and helps your code focus on algorithms,
 not infrastructure.
 
 * Bind struct fields to table columns via API or tag
@@ -651,17 +634,22 @@ locally to test the library.
 
 ## Performance ##
 
-gorp uses reflection to construct SQL queries and bind parameters.  See the BenchmarkNativeCrud vs BenchmarkGorpCrud in gorp_test.go for a simple perf test.  On my MacBook Pro gorp is about 2-3% slower than hand written SQL. 
+gorp uses reflection to construct SQL queries and bind parameters.  See the BenchmarkNativeCrud vs BenchmarkGorpCrud in gorp_test.go for a simple perf test.  On my MacBook Pro gorp is about 2-3% slower than hand written SQL.
+
+## Help/Support ##
+
+IRC: #go-gorp
+Mailing list: gorp-dev@googlegroups.com
+Bugs/Enhancements: Create a github issue
 
 ## Pull requests / Contributions
 
 Contributions are very welcome.  Please follow these guidelines:
 
-* Fork the `develop` branch and issue pull requests targeting the `develop` branch
-  * If you don't do this, I'll likely cherry pick your commit into develop
-* If you are adding an enhancement, please open an issue first with your proposed change. 
+* Fork the `master` branch and issue pull requests targeting the `master` branch
+* If you are adding an enhancement, please open an issue first with your proposed change.
 * Changes that break backwards compatibility in the public API are only accepted after we
-  discuss on a GitHub issue for a while. 
+  discuss on a GitHub issue for a while.
 
 Thanks!
 
