@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"log"
 )
 
 // Oracle String (empty string is null)
@@ -776,6 +777,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *C
 				cols = append(cols, cm)
 			}
 			if cm.fieldName == "Version" {
+				log.Println("Warning: Automatic mapping of Version struct members to version columns will be deprecated in next version (V2) See: https://github.com/go-gorp/gorp/pull/214") 
 				version = cm
 			}
 		}
