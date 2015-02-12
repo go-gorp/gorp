@@ -616,7 +616,7 @@ type Transaction struct {
 
 // Executor exposes the sql.DB and sql.Tx Exec function so that it can be used
 // on internal functions that convert named parameters for the Exec function.
-type Executor interface {
+type executor interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 }
 
@@ -1668,7 +1668,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 // query arguments first.
 func exec(e SqlExecutor, query string, args ...interface{}) (sql.Result, error) {
 	var dbMap *DbMap
-	var executor Executor
+	var executor executor
 	switch m := e.(type) {
 	case *DbMap:
 		executor = m.Db
