@@ -655,6 +655,19 @@ select * from PersistentUser
 	if len(puArr) != 1 {
 		t.Errorf("Expected one persistentuser, found none")
 	}
+
+	// Test to delete with Exec and named params.
+	result, err := dbmap.Exec("delete from PersistentUser where mykey = :Key", map[string]interface{}{
+		"Key": 43,
+	})
+	count, err := result.RowsAffected()
+	if err != nil {
+		t.Errorf("Failed to exec: %s", err)
+		t.FailNow()
+	}
+	if count != 1 {
+		t.Errorf("Expected 1 persistentuser to be deleted, but %d deleted", count)
+	}
 }
 
 func TestNamedQueryStruct(t *testing.T) {
@@ -691,6 +704,21 @@ select * from PersistentUser
 	}
 	if !reflect.DeepEqual(pu, puArr[0]) {
 		t.Errorf("%v!=%v", pu, puArr[0])
+	}
+
+	// Test delete self.
+	result, err := dbmap.Exec(`
+delete from PersistentUser
+ where mykey = :Key
+   and PassedTraining = :PassedTraining
+   and Id = :Id`, pu)
+	count, err := result.RowsAffected()
+	if err != nil {
+		t.Errorf("Failed to exec: %s", err)
+		t.FailNow()
+	}
+	if count != 1 {
+		t.Errorf("Expected 1 persistentuser to be deleted, but %d deleted", count)
 	}
 }
 
