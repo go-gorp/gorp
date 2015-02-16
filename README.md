@@ -650,8 +650,8 @@ locally to test the library.
 
 gorp uses reflection to construct SQL queries and bind parameters.  See the BenchmarkNativeCrud vs BenchmarkGorpCrud in gorp_test.go for a simple perf test.  On my MacBook Pro gorp is about 2-3% slower than hand written SQL.
 
-## Migration guide (pre v2 -> v2)
-
+## Migration guide
+#### Pre-v2 to v2
 Automatic mapping of the version column used in optimistic locking has been removed as it could cause problems if the type was not int. The version column must now explicitly be set with tablemap.SetVersionCol().
 
 ## Help/Support
