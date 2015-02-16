@@ -1932,7 +1932,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(InvoiceTag{}, "invoice_tag_test").SetKeys(true, "myid")
 	dbmap.AddTableWithName(AliasTransientField{}, "alias_trans_field_test").SetKeys(true, "id")
 	dbmap.AddTableWithName(OverriddenInvoice{}, "invoice_override_test").SetKeys(false, "Id")
-	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id").SetVersionCol("Version")
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(IdCreated{}, "id_created_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")

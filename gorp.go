@@ -21,6 +21,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"log"
+	"os"
 )
 
 // Oracle String (empty string is null)
@@ -715,7 +717,7 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
-	tmap.Columns, tmap.version = m.readStructColumns(t)
+	tmap.Columns, _ = m.readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 
 	return tmap
@@ -782,6 +784,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *C
 				cols = append(cols, cm)
 			}
 			if cm.fieldName == "Version" {
+				log.New(os.Stderr, "", log.LstdFlags).Println("Warning: Automatic mapping of Version struct members to version columns (see optimistic locking) will be deprecated in next version (V2) See: https://github.com/go-gorp/gorp/pull/214")
 				version = cm
 			}
 		}
