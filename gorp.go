@@ -715,7 +715,7 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
-	tmap.Columns, tmap.version = m.readStructColumns(t)
+	tmap.Columns, _ = m.readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 
 	return tmap
