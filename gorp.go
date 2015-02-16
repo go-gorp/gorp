@@ -7,7 +7,7 @@
 // compliant database/sql driver.
 //
 // Source code and project home:
-// https://github.com/coopernurse/gorp
+// https://github.com/go-gorp/gorp
 //
 package gorp
 
@@ -614,6 +614,12 @@ type Transaction struct {
 	closed bool
 }
 
+// Executor exposes the sql.DB and sql.Tx Exec function so that it can be used
+// on internal functions that convert named parameters for the Exec function.
+type executor interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+}
+
 // SqlExecutor exposes gorp operations that can be run from Pre/Post
 // hooks.  This hides whether the current operation that triggered the
 // hook is in a transaction.
@@ -709,19 +715,19 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
-	tmap.Columns, tmap.version = m.readStructColumns(t)
+	tmap.Columns = m.readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 
 	return tmap
 }
 
-func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
+func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		if f.Anonymous && f.Type.Kind() == reflect.Struct {
 			// Recursively add nested fields in embedded structs.
-			subcols, subversion := m.readStructColumns(f.Type)
+			subcols := m.readStructColumns(f.Type)
 			// Don't append nested fields that have the same field
 			// name as an already-mapped field.
 			for _, subcol := range subcols {
@@ -735,9 +741,6 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *C
 				if shouldAppend {
 					cols = append(cols, subcol)
 				}
-			}
-			if subversion != nil {
-				version = subversion
 			}
 		} else {
 			columnName := f.Tag.Get("db")
@@ -774,9 +777,6 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *C
 			}
 			if shouldAppend {
 				cols = append(cols, cm)
-			}
-			if cm.fieldName == "Version" {
-				version = cm
 			}
 		}
 	}
@@ -1044,7 +1044,7 @@ func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]inte
 // This is equivalent to running:  Exec() using database/sql
 func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	m.trace(query, args...)
-	return m.Db.Exec(query, args...)
+	return exec(m, query, args...)
 }
 
 // SelectInt is a convenience wrapper around the gorp.SelectInt function
@@ -1216,7 +1216,7 @@ func (t *Transaction) Select(i interface{}, query string, args ...interface{}) (
 // Exec has the same behavior as DbMap.Exec(), but runs in a transaction.
 func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error) {
 	t.dbmap.trace(query, args...)
-	return t.tx.Exec(query, args...)
+	return exec(t, query, args...)
 }
 
 // SelectInt is a convenience wrapper around the gorp.SelectInt function.
@@ -1656,6 +1656,27 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	return list, nonFatalErr
+}
+
+// Calls the Exec function on the executor, but attempts to expand any eligible named
+// query arguments first.
+func exec(e SqlExecutor, query string, args ...interface{}) (sql.Result, error) {
+	var dbMap *DbMap
+	var executor executor
+	switch m := e.(type) {
+	case *DbMap:
+		executor = m.Db
+		dbMap = m
+	case *Transaction:
+		executor = m.tx
+		dbMap = m.dbmap
+	}
+
+	if len(args) == 1 {
+		query, args = maybeExpandNamedQuery(dbMap, query, args)
+	}
+
+	return executor.Exec(query, args...)
 }
 
 // maybeExpandNamedQuery checks the given arg to see if it's eligible to be used
