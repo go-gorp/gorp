@@ -239,6 +239,11 @@ type CustomDate struct {
 	time.Time
 }
 
+type Dates struct {
+	Start time.Time
+	End   time.Time
+}
+
 type WithCustomDate struct {
 	Id    int64
 	Added CustomDate
@@ -367,6 +372,45 @@ func TestCreateTablesIfNotExists(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+func TestDatesTypes(t *testing.T) {
+	dbmap := initDbMap()
+	defer dbmap.DropTables()
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+
+	// Insert some data
+	d1 := &Dates{time.Unix(time.Now().Unix(), 0), time.Unix(time.Now().Add(1*time.Hour).Unix(), 0)}
+	dbmap.Insert(d1)
+
+	arr, err := dbmap.Select(Dates{}, "select * from dates")
+	if err != nil {
+		panic(err)
+	}
+	if !reflect.DeepEqual(d1, arr[0]) {
+		t.Errorf("%v!=%v", d1, arr[0])
+	}
+
+	// create times without nanosecond precision
+	d2 := &Dates{time.Unix(time.Now().Add(2*time.Hour).Unix(), 0), time.Unix(time.Now().Add(3*time.Hour).Unix(), 0)}
+	dbmap.Insert(d2)
+
+	arr, err = dbmap.Select(Dates{}, "select * from dates order by \"start\"")
+	if err != nil {
+		panic(err)
+	}
+	if !reflect.DeepEqual(d1, arr[0]) {
+		t.Errorf("%v!=%v", d1, arr[0])
+	}
+	if !reflect.DeepEqual(d2, arr[1]) {
+		t.Errorf("%v!=%v", d2, arr[1])
+	}
+
+	err = dbmap.TruncateTables()
+	if err != nil {
+		t.Error(err)
+	}
+
 }
 
 func TestTruncateTables(t *testing.T) {
@@ -2079,6 +2123,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(WithEmbeddedAutoincr{}, "embedded_autoincr_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithTime{}, "time_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithNullTime{}, "nulltime_test").SetKeys(false, "Id")
+	dbmap.AddTableWithName(Dates{}, "dates")
 	dbmap.TypeConverter = testTypeConverter{}
 	err := dbmap.DropTablesIfExists()
 	if err != nil {
