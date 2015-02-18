@@ -1687,20 +1687,32 @@ func exec(e SqlExecutor, query string, args ...interface{}) (sql.Result, error) 
 // parameters by extracting data from the map / struct.
 // If not, returns the input values unchanged.
 func maybeExpandNamedQuery(m *DbMap, query string, args []interface{}) (string, []interface{}) {
-	arg := reflect.ValueOf(args[0])
-	for arg.Kind() == reflect.Ptr {
-		arg = arg.Elem()
+	var (
+		arg    = args[0]
+		argval = reflect.ValueOf(arg)
+	)
+	if argval.Kind() == reflect.Ptr {
+		argval = argval.Elem()
 	}
-	switch {
-	case arg.Kind() == reflect.Map && arg.Type().Key().Kind() == reflect.String:
+
+	if argval.Kind() == reflect.Map && argval.Type().Key().Kind() == reflect.String {
 		return expandNamedQuery(m, query, func(key string) reflect.Value {
-			return arg.MapIndex(reflect.ValueOf(key))
+			return argval.MapIndex(reflect.ValueOf(key))
 		})
-		// #84 - ignore time.Time structs here - there may be a cleaner way to do this
-	case arg.Kind() == reflect.Struct && !(arg.Type().PkgPath() == "time" && arg.Type().Name() == "Time"):
-		return expandNamedQuery(m, query, arg.FieldByName)
 	}
-	return query, args
+	if argval.Kind() != reflect.Struct {
+		return query, args
+	}
+	if _, ok := arg.(time.Time); ok {
+		// time.Time is driver.Value
+		return query, args
+	}
+	if _, ok := arg.(driver.Valuer); ok {
+		// driver.Valuer will be converted to driver.Value.
+		return query, args
+	}
+
+	return expandNamedQuery(m, query, argval.FieldByName)
 }
 
 var keyRegexp = regexp.MustCompile(`:[[:word:]]+`)
