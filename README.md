@@ -642,7 +642,7 @@ go test
 go test -bench="Bench" -benchtime 10
 ```
 
-Valid `GORP_TEST_DIALECT` values are: "mysql", "postgres", "sqlite3"
+Valid `GORP_TEST_DIALECT` values are: "mysql"(for mymysql), "gomysql"(for go-sql-driver), "postgres", "sqlite"
 See the `test_all.sh` script for examples of all 3 databases.  This is the script I run
 locally to test the library.
 
