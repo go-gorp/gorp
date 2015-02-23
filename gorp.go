@@ -715,19 +715,24 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
-	tmap.Columns, tmap.version = m.readStructColumns(t)
+	var primaryKey []*ColumnMap = nil
+	tmap.Columns, tmap.version, primaryKey = m.readStructColumns(t)
 	m.tables = append(m.tables, tmap)
+	if len(primaryKey) > 0 {
+		tmap.keys = append(tmap.keys, primaryKey...)
+	}
 
 	return tmap
 }
 
-func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap) {
+func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *ColumnMap, primaryKey []*ColumnMap) {
+	primaryKey = make([]*ColumnMap, 0)
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		if f.Anonymous && f.Type.Kind() == reflect.Struct {
 			// Recursively add nested fields in embedded structs.
-			subcols, subversion := m.readStructColumns(f.Type)
+			subcols, subversion, subpk := m.readStructColumns(f.Type)
 			// Don't append nested fields that have the same field
 			// name as an already-mapped field.
 			for _, subcol := range subcols {
@@ -742,11 +747,33 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *C
 					cols = append(cols, subcol)
 				}
 			}
+			if subpk != nil {
+				primaryKey = append(primaryKey, subpk...)
+			}
 			if subversion != nil {
 				version = subversion
 			}
 		} else {
-			columnName := f.Tag.Get("db")
+
+			columnName := ""
+			isAuto := false
+			isPK := false
+			sfl := f.Tag.Get("db")
+			if sfl != "" {
+				fl := strings.Split(sfl, ",")
+				for _, v := range fl {
+					v_trim := strings.TrimSpace(v)
+					fkey := strings.ToLower(v_trim)
+					switch fkey {
+					case "primarykey":
+						isPK = true
+					case "autoincrement":
+						isAuto = true
+					default:
+						columnName = v_trim
+					}
+				}
+			}
 			if columnName == "" {
 				columnName = f.Name
 			}
@@ -767,6 +794,11 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, version *C
 				Transient:  columnName == "-",
 				fieldName:  f.Name,
 				gotype:     gotype,
+				isPK:       isPK,
+				isAutoIncr: isAuto,
+			}
+			if isPK {
+				primaryKey = append(primaryKey, cm)
 			}
 			// Check for nested fields of the same field name and
 			// override them.
@@ -1749,7 +1781,23 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error
 		colName := strings.ToLower(cols[x])
 		field, found := t.FieldByNameFunc(func(fieldName string) bool {
 			field, _ := t.FieldByName(fieldName)
+
 			fieldName = field.Tag.Get("db")
+			if fieldName != "" {
+				fl := strings.Split(fieldName, ",")
+				for _, v := range fl {
+					v_trim := strings.TrimSpace(v)
+					fkey := strings.ToLower(v_trim)
+					switch fkey {
+					case "primarykey":
+						//skip
+					case "autoincrement":
+						//skip
+					default:
+						fieldName = v_trim
+					}
+				}
+			}
 
 			if fieldName == "-" {
 				return false
