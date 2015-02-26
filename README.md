@@ -58,6 +58,13 @@ For the latest code in master:
 
 https://godoc.org/github.com/go-gorp/gorp
 
+## Supported Go versions
+
+This package is compatible with the last 2 major versions of Go, at this time `1.3` and `1.4`.
+
+Any earlier versions are only supported on a best effort basis and can be dropped any time.
+Go has a great compatibility promise. Upgrading your program to a newer version of Go should never really be a problem.
+
 ## Quickstart
 
 ```go
@@ -642,7 +649,7 @@ go test
 go test -bench="Bench" -benchtime 10
 ```
 
-Valid `GORP_TEST_DIALECT` values are: "mysql", "postgres", "sqlite3"
+Valid `GORP_TEST_DIALECT` values are: "mysql"(for mymysql), "gomysql"(for go-sql-driver), "postgres", "sqlite"
 See the `test_all.sh` script for examples of all 3 databases.  This is the script I run
 locally to test the library.
 
