@@ -21,8 +21,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"log"
-	"os"
 )
 
 // Oracle String (empty string is null)
