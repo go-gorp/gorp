@@ -516,6 +516,8 @@ Full list of hooks that you can implement:
     
 ### Optimistic Locking
 
+#### Note that this behaviour has changed in v2. See [Migration Guide](#migration-guide).
+
 gorp provides a simple optimistic locking feature, similar to Java's JPA, that
 will raise an error if you try to update/delete a row whose `version` column
 has a value different than the one in memory.  This provides a safe way to do
@@ -654,6 +656,10 @@ locally to test the library.
 ## Performance
 
 gorp uses reflection to construct SQL queries and bind parameters.  See the BenchmarkNativeCrud vs BenchmarkGorpCrud in gorp_test.go for a simple perf test.  On my MacBook Pro gorp is about 2-3% slower than hand written SQL.
+
+## Migration guide
+#### Pre-v2 to v2
+Automatic mapping of the version column used in optimistic locking has been removed as it could cause problems if the type was not int. The version column must now explicitly be set with tablemap.SetVersionCol().
 
 ## Help/Support
 
