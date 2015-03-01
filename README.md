@@ -275,7 +275,7 @@ See the `TestWithEmbeddedStruct` function in `gorp_test.go` for a full example.
 
 Automatically create / drop registered tables.  This is useful for unit tests
 but is entirely optional.  You can of course use gorp with tables created manually,
-or with a separate migration tool (like goose: https://bitbucket.org/liamstask/goose).
+or with a separate migration tool (like [goose](https://bitbucket.org/liamstask/goose) or [migrate](https://github.com/mattes/migrate)).
 
 ```go
 // create all registered tables
