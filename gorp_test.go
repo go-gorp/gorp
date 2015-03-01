@@ -63,7 +63,7 @@ func (me *InvoiceTag) Rand() {
 	me.Updated = rand.Int63()
 }
 
-// See: https://github.com/coopernurse/gorp/issues/175
+// See: https://github.com/go-gorp/gorp/issues/175
 type AliasTransientField struct {
 	Id     int64  `db:"id"`
 	Bar    int64  `db:"-"`
@@ -192,6 +192,11 @@ type CustomDate struct {
 type WithCustomDate struct {
 	Id    int64
 	Added CustomDate
+}
+
+type WithNullTime struct {
+	Id   int64
+	Time NullTime
 }
 
 type testTypeConverter struct{}
@@ -655,6 +660,19 @@ select * from PersistentUser
 	if len(puArr) != 1 {
 		t.Errorf("Expected one persistentuser, found none")
 	}
+
+	// Test to delete with Exec and named params.
+	result, err := dbmap.Exec("delete from PersistentUser where mykey = :Key", map[string]interface{}{
+		"Key": 43,
+	})
+	count, err := result.RowsAffected()
+	if err != nil {
+		t.Errorf("Failed to exec: %s", err)
+		t.FailNow()
+	}
+	if count != 1 {
+		t.Errorf("Expected 1 persistentuser to be deleted, but %d deleted", count)
+	}
 }
 
 func TestNamedQueryStruct(t *testing.T) {
@@ -691,6 +709,21 @@ select * from PersistentUser
 	}
 	if !reflect.DeepEqual(pu, puArr[0]) {
 		t.Errorf("%v!=%v", pu, puArr[0])
+	}
+
+	// Test delete self.
+	result, err := dbmap.Exec(`
+delete from PersistentUser
+ where mykey = :Key
+   and PassedTraining = :PassedTraining
+   and Id = :Id`, pu)
+	count, err := result.RowsAffected()
+	if err != nil {
+		t.Errorf("Failed to exec: %s", err)
+		t.FailNow()
+	}
+	if count != 1 {
+		t.Errorf("Expected 1 persistentuser to be deleted, but %d deleted", count)
 	}
 }
 
@@ -1359,6 +1392,58 @@ func TestSqlExecutorInterfaceSelects(t *testing.T) {
 	}
 }
 
+func TestNullTime(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+
+	// if time is null
+	ent := &WithNullTime{
+		Id: 0,
+		Time: NullTime{
+			Valid: false,
+		}}
+	err := dbmap.Insert(ent)
+	if err != nil {
+		t.Error("failed insert on %s", err.Error())
+	}
+	err = dbmap.SelectOne(ent, `select * from nulltime_test where Id=:Id`, map[string]interface{}{
+		"Id": ent.Id,
+	})
+	if err != nil {
+		t.Error("failed select on %s", err.Error())
+	}
+	if ent.Time.Valid {
+		t.Error("NullTime returns valid but expected null.")
+	}
+
+	// if time is not null
+	ts, err := time.Parse(time.Stamp, "Jan 2 15:04:05")
+	ent = &WithNullTime{
+		Id: 1,
+		Time: NullTime{
+			Valid: true,
+			Time:  ts,
+		}}
+	err = dbmap.Insert(ent)
+	if err != nil {
+		t.Error("failed insert on %s", err.Error())
+	}
+	err = dbmap.SelectOne(ent, `select * from nulltime_test where Id=:Id`, map[string]interface{}{
+		"Id": ent.Id,
+	})
+	if err != nil {
+		t.Error("failed select on %s", err.Error())
+	}
+	if !ent.Time.Valid {
+		t.Error("NullTime returns invalid but expected valid.")
+	}
+	if ent.Time.Time.UTC() != ts.UTC() {
+		t.Errorf("expect %v but got %v.", ts, ent.Time.Time)
+	}
+
+	return
+}
+
 type WithTime struct {
 	Id   int64
 	Time time.Time
@@ -1402,7 +1487,7 @@ func testWithTime(t *testing.T) {
 	}
 }
 
-// See: https://github.com/coopernurse/gorp/issues/86
+// See: https://github.com/go-gorp/gorp/issues/86
 func testEmbeddedTime(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
@@ -1904,7 +1989,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(InvoiceTag{}, "invoice_tag_test").SetKeys(true, "myid")
 	dbmap.AddTableWithName(AliasTransientField{}, "alias_trans_field_test").SetKeys(true, "id")
 	dbmap.AddTableWithName(OverriddenInvoice{}, "invoice_override_test").SetKeys(false, "Id")
-	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id").SetVersionCol("Version")
 	dbmap.AddTableWithName(WithIgnoredColumn{}, "ignored_column_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(IdCreated{}, "id_created_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(TypeConversionExample{}, "type_conv_test").SetKeys(true, "Id")
@@ -1912,6 +1997,7 @@ func initDbMap() *DbMap {
 	dbmap.AddTableWithName(WithEmbeddedStructBeforeAutoincrField{}, "embedded_struct_before_autoincr_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedAutoincr{}, "embedded_autoincr_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithTime{}, "time_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(WithNullTime{}, "nulltime_test").SetKeys(false, "Id")
 	dbmap.TypeConverter = testTypeConverter{}
 	err := dbmap.DropTablesIfExists()
 	if err != nil {
