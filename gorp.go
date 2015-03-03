@@ -54,7 +54,28 @@ type NullTime struct {
 
 // Scan implements the Scanner interface.
 func (nt *NullTime) Scan(value interface{}) error {
-	nt.Time, nt.Valid = value.(time.Time)
+	switch t := value.(type) {
+	case time.Time:
+		nt.Time, nt.Valid = t, true
+	case []byte:
+		nt.Valid = false
+		for _, dtfmt := range []string {
+			"2006-01-02 15:04:05.999999999",
+			"2006-01-02T15:04:05.999999999",
+			"2006-01-02 15:04:05",
+			"2006-01-02T15:04:05",
+			"2006-01-02 15:04",
+			"2006-01-02T15:04",
+			"2006-01-02",
+			"2006-01-02 15:04:05-07:00",
+		} {
+			var err error
+			if nt.Time, err = time.Parse(dtfmt, string(t)); err == nil {
+				nt.Valid = true
+				break
+			}
+		}
+	}
 	return nil
 }
 
