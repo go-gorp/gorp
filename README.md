@@ -608,11 +608,6 @@ to a Dialect implementation for each database, and will generate portable SQL.
 Raw SQL strings passed to `Exec`, `Select`, `SelectOne`, `SelectInt`, etc will not be
 parsed.  Consequently you may have portability issues if you write a query like this:
 
-Additionally, when using Postgres as your database, you should utilize `$1` instead 
-of `?` placeholders as utilizing `?` placeholders when querying Postgres will result 
-in `pq: operator does not exist` errors. 
-
-
 ```go
 // works on MySQL and Sqlite3, but not with Postgresql
 err := dbmap.SelectOne(&val, "select * from foo where id = ?", 30)
@@ -625,6 +620,10 @@ The following is portable:
 err := dbmap.SelectOne(&val, "select * from foo where id = :id", 
    map[string]interface{} { "id": 30})
 ```
+
+Additionally, when using Postgres as your database, you should utilize `$1` instead 
+of `?` placeholders as utilizing `?` placeholders when querying Postgres will result 
+in `pq: operator does not exist` errors. 
 
 ### time.Time and time zones
 
