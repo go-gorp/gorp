@@ -623,7 +623,8 @@ err := dbmap.SelectOne(&val, "select * from foo where id = :id",
 
 Additionally, when using Postgres as your database, you should utilize `$1` instead 
 of `?` placeholders as utilizing `?` placeholders when querying Postgres will result 
-in `pq: operator does not exist` errors. 
+in `pq: operator does not exist` errors. Alternatively, use 
+`dbMap.Dialect.BindVar(varIdx)` to get the proper variable binding for your dialect.
 
 ### time.Time and time zones
 
