@@ -446,10 +446,13 @@ func (d MySQLDialect) IfTableNotExists(command, schema, table string) string {
 ////////////////
 
 // Implementation of Dialect for Microsoft SQL Server databases.
-// Tested on SQL Server 2008 with driver: github.com/denisenkom/go-mssqldb
+// Use gorp.SqlServerDialect{"2005"} for legacy datatypes.
+// Tested with driver: github.com/denisenkom/go-mssqldb
 
 type SqlServerDialect struct {
-	suffix string
+
+	// If set to "2005" legacy datatypes will be used
+	version string
 }
 
 func (d SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
@@ -473,7 +476,7 @@ func (d SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bo
 	case reflect.Int64:
 		return "bigint"
 	case reflect.Uint64:
-		return "bigint"
+		return "numeric(20,0)"
 	case reflect.Float32:
 		return "real"
 	case reflect.Float64:
@@ -490,15 +493,22 @@ func (d SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bo
 	case "NullFloat64":
 		return "float(53)"
 	case "NullBool":
-		return "tinyint"
-	case "Time":
-		return "datetime"
+		return "bit"
+	case "NullTime", "Time":
+		if d.version == "2005" {
+			return "datetime"
+		}
+		return "datetime2"
 	}
 
 	if maxsize < 1 {
-		maxsize = 255
+		if d.version == "2005" {
+			maxsize = 255
+		} else {
+			return fmt.Sprintf("nvarchar(max)")
+		}
 	}
-	return fmt.Sprintf("varchar(%d)", maxsize)
+	return fmt.Sprintf("nvarchar(%d)", maxsize)
 }
 
 // Returns auto_increment
@@ -515,14 +525,10 @@ func (d SqlServerDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return ""
 }
 
-// Returns suffix
-func (d SqlServerDialect) CreateTableSuffix() string {
-
-	return d.suffix
-}
+func (d SqlServerDialect) CreateTableSuffix() string { return ";" }
 
 func (d SqlServerDialect) TruncateClause() string {
-	return "delete from"
+	return "truncate table"
 }
 
 // Returns "?"
@@ -535,14 +541,14 @@ func (d SqlServerDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, par
 }
 
 func (d SqlServerDialect) QuoteField(f string) string {
-	return `"` + f + `"`
+	return "[" + strings.Replace(f, "]", "]]", -1) + "]"
 }
 
 func (d SqlServerDialect) QuotedTableForQuery(schema string, table string) string {
 	if strings.TrimSpace(schema) == "" {
-		return table
+		return d.QuoteField(table)
 	}
-	return schema + "." + table
+	return d.QuoteField(schema) + "." + d.QuoteField(table)
 }
 
 func (d SqlServerDialect) QuerySuffix() string { return ";" }
