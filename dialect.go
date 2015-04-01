@@ -478,7 +478,7 @@ func (d SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bo
 	case reflect.Uint64:
 		return "numeric(20,0)"
 	case reflect.Float32:
-		return "real"
+		return "float(24)"
 	case reflect.Float64:
 		return "float(53)"
 	case reflect.Slice:
@@ -554,25 +554,25 @@ func (d SqlServerDialect) QuotedTableForQuery(schema string, table string) strin
 func (d SqlServerDialect) QuerySuffix() string { return ";" }
 
 func (d SqlServerDialect) IfSchemaNotExists(command, schema string) string {
-	s := fmt.Sprintf("if not exists (select name from sys.schemas where name = '%s') %s", schema, command)
+	s := fmt.Sprintf("if schema_id(N'%s') is null %s", schema, command)
 	return s
 }
 
 func (d SqlServerDialect) IfTableExists(command, schema, table string) string {
 	var schema_clause string
 	if strings.TrimSpace(schema) != "" {
-		schema_clause = fmt.Sprintf("table_schema = '%s' and ", schema)
+		schema_clause = fmt.Sprintf("%s.", d.QuoteField(schema))
 	}
-	s := fmt.Sprintf("if exists (select * from information_schema.tables where %stable_name = '%s') %s", schema_clause, table, command)
+	s := fmt.Sprintf("if object_id('%s%s') is not null %s", schema_clause, d.QuoteField(table), command)
 	return s
 }
 
 func (d SqlServerDialect) IfTableNotExists(command, schema, table string) string {
 	var schema_clause string
 	if strings.TrimSpace(schema) != "" {
-		schema_clause = fmt.Sprintf("table_schema = '%s' and ", schema)
+		schema_clause = fmt.Sprintf("%s.", schema)
 	}
-	s := fmt.Sprintf("if not exists (select * from information_schema.tables where %stable_name = '%s') %s", schema_clause, table, command)
+	s := fmt.Sprintf("if object_id('%s%s') is null %s", schema_clause, table, command)
 	return s
 }
 
