@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -577,7 +578,6 @@ type ColumnMap struct {
 
 	// Passed to Dialect.ToSqlType() to assist in informing the
 	// correct column type to map to in CreateTables()
-	// Not used elsewhere
 	MaxSize int
 
 	fieldName  string
@@ -764,7 +764,14 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 				}
 			}
 		} else {
-			columnName := f.Tag.Get("db")
+			cArguments := strings.SplitN(f.Tag.Get("db"), ",", 2)
+			columnName := cArguments[0]
+			var maxSize int
+			// If there is a second argument in the tag,
+			// use it as column max size.
+			if len(cArguments) > 1 {
+				maxSize, _ = strconv.Atoi(cArguments[1])
+			}
 			if columnName == "" {
 				columnName = f.Name
 			}
@@ -785,6 +792,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 				Transient:  columnName == "-",
 				fieldName:  f.Name,
 				gotype:     gotype,
+				MaxSize:    maxSize,
 			}
 			// Check for nested fields of the same field name and
 			// override them.
