@@ -452,7 +452,7 @@ func (d MySQLDialect) IfTableNotExists(command, schema, table string) string {
 type SqlServerDialect struct {
 
 	// If set to "2005" legacy datatypes will be used
-	version string
+	Version string
 }
 
 func (d SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
@@ -495,14 +495,14 @@ func (d SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bo
 	case "NullBool":
 		return "bit"
 	case "NullTime", "Time":
-		if d.version == "2005" {
+		if d.Version == "2005" {
 			return "datetime"
 		}
 		return "datetime2"
 	}
 
 	if maxsize < 1 {
-		if d.version == "2005" {
+		if d.Version == "2005" {
 			maxsize = 255
 		} else {
 			return fmt.Sprintf("nvarchar(max)")
