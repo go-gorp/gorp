@@ -772,8 +772,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 			// The first argument key, if provided without an explicit value,
 			// and if not recognized as a named argument, is used as the field name,
 			// as long as there isn't a "name" argument.
-			cArguments := strings.Split(f.Tag.Get("db"), ",")
-			for i, argString := range strings.Split(cArguments, ",") {
+			for i, argString := range strings.Split(f.Tag.Get("db"), ",") {
 				arg := strings.SplitN(argString, ":", 2)
 				argK := strings.TrimSpace(arg[0])
 				var argV string
