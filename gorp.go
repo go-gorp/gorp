@@ -769,7 +769,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 			cArguments := strings.Split(f.Tag.Get("db"), ",")
 			columnName := cArguments[0]
 			var maxSize int
-			for i, argString := range cArguments[1:] {
+			for _, argString := range cArguments[1:] {
 				arg := strings.SplitN(argString, ":", 2)
 				switch arg[0] {
 				case "size":
