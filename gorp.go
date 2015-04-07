@@ -764,32 +764,18 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 				}
 			}
 		} else {
+			// Tag = Name { ','  Option }
+			// Option = OptionKey [ ':' OptionValue ]
+			cArguments := strings.Split(f.Tag.Get("db"), ",")
+			columnName := cArguments[0]
 			var maxSize int
-			var columnName string
-
-			// Split arguments using comma as separator.
-			// Boolean values should default to "true".
-			// The first argument key, if provided without an explicit value,
-			// and if not recognized as a named argument, is used as the field name,
-			// as long as there isn't a "name" argument.
-			for i, argString := range strings.Split(f.Tag.Get("db"), ",") {
+			for i, argString := range cArguments[1:] {
 				arg := strings.SplitN(argString, ":", 2)
-				argK := strings.TrimSpace(arg[0])
-				var argV string
-				if len(arg) > 1 {
-					argV = strings.TrimSpace(arg[1])
-				}
-				switch argK {
-				case "name":
-					columnName = argV
+				switch arg[0] {
 				case "size":
-					maxSize, _ = strconv.Atoi(argV)
+					maxSize, _ = strconv.Atoi(arg[1])
 				default:
-					if i == 0 && argV == "" {
-						columnName = argK
-					} else {
-						//log.Printf("Unrecognized argument key: %v\n", argK)
-					}
+					//log.Printf("Unrecognized argument: %v\n", arg)
 				}
 			}
 			if columnName == "" {
