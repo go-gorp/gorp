@@ -1,6 +1,7 @@
 # Go Relational Persistence
 
-[![build status](https://secure.travis-ci.org/go-gorp/gorp.png)](http://travis-ci.org/go-gorp/gorp)
+[![build status](https://travis-ci.org/go-gorp/gorp.svg)](http://travis-ci.org/go-gorp/gorp)
+[![Appveyor build status](https://ci.appveyor.com/api/projects/status/github/go-gorp/gorp?svg=true)](https://ci.appveyor.com/project/go-gorp/gorp)
 
 I hesitate to call gorp an ORM.  Go doesn't really have objects, at least
 not in the classic Smalltalk/Java sense.  There goes the "O".  gorp doesn't

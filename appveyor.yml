@@ -1,0 +1,74 @@
+# http://www.appveyor.com/docs/appveyor-yml
+version: "{branch} - {build}"
+
+#os: unstable
+os: Windows Server 2012
+
+init:
+  - git config --global core.autocrlf input
+  - choco install -y 7zip.install
+
+clone_folder: C:\gopath\src\github.com\go-gorp\gorp
+
+clone_depth: 5
+
+hosts:
+  mysql.db: 127.0.0.1
+  postgresql.db: 127.0.0.1
+  mssql2014.db: 127.0.0.1
+  mssql2012sp1.db: 127.0.0.1
+  mssql2008r2sp2.db: 127.0.0.1
+
+environment:
+ global:
+   GOPATH: C:\gopath
+   PATH: C:\mingw64\bin;%ProgramFiles(x86)%\7-Zip;%ProgramFiles%\MySql\MySQL Server 5.6\bin;%ProgramFiles%\PostgreSQL\9.3\bin;%PATH%
+   PGUSER: postgres
+   PGPASSWORD: Password12!
+ matrix:
+ - db: mssql2014
+   GORP_TEST_DSN: "Server=mssql2014.db\\SQL2014;Database=master;User ID=sa;Password=Password12!"
+   GORP_TEST_DIALECT: mssql
+ - db: mssql2012sp1
+   GORP_TEST_DSN: "Server=mssql2012sp1.db\\SQL2012SP1;Database=master;User ID=sa;Password=Password12!"
+   GORP_TEST_DIALECT: mssql
+ - db: mssql2008r2sp2
+   GORP_TEST_DSN: "Server=mssql2008r2sp2.db\\SQL2008R2SP2;Database=master;User ID=sa;Password=Password12!"
+   GORP_TEST_DIALECT: mssql
+ - db: mysql
+   GORP_TEST_DSN: gorptest/root/Password12!
+   GORP_TEST_DIALECT: mysql
+ - db: mysql
+   GORP_TEST_DSN: root:Password12!@/gorptest
+   GORP_TEST_DIALECT: gomysql
+ - db: postgresql
+   GORP_TEST_DSN: "user=postgres password=Password12! dbname=gorptest sslmode=disable"
+   GORP_TEST_DIALECT: postgres
+
+services:
+  - mssql2014           # start SQL Server 2014 Express
+  - mssql2012sp1        # start SQL Server 2012 SP1 Express
+  - mssql2008r2sp2      # start SQL Server 2008 R2 SP2 Express
+  - mysql               # start MySQL 5.6 service
+  - postgresql          # start PostgreSQL 9.3 service
+
+install:
+  - ps: wget http://www.qrawl.net/x86_64-4.9.2-release-win32-seh-rt_v4-rev2.7z -OutFile mingw64.7z
+  - "7z.exe x -y -oC: mingw64.7z > NULL"
+  - go get github.com/lib/pq
+  - go get github.com/ziutek/mymysql/godrv
+  - go get github.com/go-sql-driver/mysql
+  - go get github.com/denisenkom/go-mssqldb
+  - go get github.com/mattn/go-sqlite3
+
+before_build:
+  - mysqladmin -uroot -pPassword12! create gorptest
+  - createdb gorptest # Postgresql create db with ENV credentials
+
+build_script:
+  - go install github.com/go-gorp/gorp
+
+test_script:
+  - go test -v github.com/go-gorp/gorp
+
+deploy: off
