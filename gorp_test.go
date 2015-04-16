@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
@@ -2219,6 +2220,8 @@ func dialectAndDriver() (Dialect, string) {
 		return PostgresDialect{}, "postgres"
 	case "sqlite":
 		return SqliteDialect{}, "sqlite3"
+	case "mssql":
+		return SqlServerDialect{}, "mssql"
 	}
 	panic("GORP_TEST_DIALECT env variable is not set or is invalid. Please see README.md")
 }
