@@ -12,12 +12,12 @@ clone_folder: C:\gopath\src\github.com\go-gorp\gorp
 
 clone_depth: 5
 
-hosts:
-  mysql.db: 127.0.0.1
-  postgresql.db: 127.0.0.1
-  mssql2014.db: 127.0.0.1
-  mssql2012sp1.db: 127.0.0.1
-  mssql2008r2sp2.db: 127.0.0.1
+# hosts:
+#   mysql.db: 127.0.0.1
+#   postgresql.db: 127.0.0.1
+#   mssql2014.db: 127.0.0.1
+#   mssql2012sp1.db: 127.0.0.1
+#   mssql2008r2sp2.db: 127.0.0.1
 
 environment:
  global:
@@ -27,13 +27,13 @@ environment:
    PGPASSWORD: Password12!
  matrix:
  - db: mssql2014
-   GORP_TEST_DSN: "Server=mssql2014.db\\SQL2014;Database=master;User ID=sa;Password=Password12!"
+   GORP_TEST_DSN: "Server=(local)\\SQL2014;Database=master;User ID=sa;Password=Password12!"
    GORP_TEST_DIALECT: mssql
  - db: mssql2012sp1
-   GORP_TEST_DSN: "Server=mssql2012sp1.db\\SQL2012SP1;Database=master;User ID=sa;Password=Password12!"
+   GORP_TEST_DSN: "Server=(local)\\SQL2012SP1;Database=master;User ID=sa;Password=Password12!"
    GORP_TEST_DIALECT: mssql
  - db: mssql2008r2sp2
-   GORP_TEST_DSN: "Server=mssql2008r2sp2.db\\SQL2008R2SP2;Database=master;User ID=sa;Password=Password12!"
+   GORP_TEST_DSN: "Server=(local)\\SQL2008R2SP2;Database=master;User ID=sa;Password=Password12!"
    GORP_TEST_DIALECT: mssql
  - db: mysql
    GORP_TEST_DSN: gorptest/root/Password12!
