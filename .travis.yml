@@ -19,5 +19,6 @@ before_script:
  - go get github.com/mattn/go-sqlite3
  - go get github.com/ziutek/mymysql/godrv
  - go get github.com/go-sql-driver/mysql
+ - go get github.com/denisenkom/go-mssqldb
 
 script: ./test_all.sh
