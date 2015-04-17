@@ -58,6 +58,8 @@ func (nt *NullTime) Scan(value interface{}) error {
 	case time.Time:
 		nt.Time, nt.Valid = t, true
 	case []byte:
+		return nt.Scan(string(t))
+	case string:
 		nt.Valid = false
 		for _, dtfmt := range []string{
 			"2006-01-02 15:04:05.999999999",
@@ -70,7 +72,7 @@ func (nt *NullTime) Scan(value interface{}) error {
 			"2006-01-02 15:04:05-07:00",
 		} {
 			var err error
-			if nt.Time, err = time.Parse(dtfmt, string(t)); err == nil {
+			if nt.Time, err = time.Parse(dtfmt, t); err == nil {
 				nt.Valid = true
 				break
 			}
