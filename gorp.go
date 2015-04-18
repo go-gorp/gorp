@@ -775,7 +775,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 				case "size":
 					maxSize, _ = strconv.Atoi(arg[1])
 				default:
-					//log.Printf("Unrecognized argument: %v\n", arg)
+					panic(fmt.Sprintf("Unrecognized tag argument for field %v: %v", f.Name, arg))
 				}
 			}
 			if columnName == "" {
