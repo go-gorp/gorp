@@ -630,9 +630,10 @@ func (c *ColumnMap) SetMaxSize(size int) *ColumnMap {
 // of that transaction.  Transactions should be terminated with
 // a call to Commit() or Rollback()
 type Transaction struct {
-	dbmap  *DbMap
-	tx     *sql.Tx
-	closed bool
+	dbmap               *DbMap
+	tx                  *sql.Tx
+	closed              bool
+	postCommitCallbacks []func()
 }
 
 // Executor exposes the sql.DB and sql.Tx Exec function so that it can be used
@@ -988,7 +989,17 @@ func (m *DbMap) TruncateTables() error {
 //
 // Panics if any interface in the list has not been registered with AddTable
 func (m *DbMap) Insert(list ...interface{}) error {
-	return insert(m, m, list...)
+	err := insert(m, m, list...)
+	if err != nil {
+		return err
+	}
+
+	err = postCommitInsert(m, list)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Update runs a SQL UPDATE statement for each element in list.  List
@@ -1002,7 +1013,17 @@ func (m *DbMap) Insert(list ...interface{}) error {
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
 func (m *DbMap) Update(list ...interface{}) (int64, error) {
-	return update(m, m, list...)
+	i, err := update(m, m, list...)
+	if err != nil {
+		return -1, err
+	}
+
+	err = postCommitUpdate(m, list)
+	if err != nil {
+		return -1, err
+	}
+
+	return i, nil
 }
 
 // Delete runs a SQL DELETE statement for each element in list.  List
@@ -1016,7 +1037,17 @@ func (m *DbMap) Update(list ...interface{}) (int64, error) {
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
 func (m *DbMap) Delete(list ...interface{}) (int64, error) {
-	return delete(m, m, list...)
+	i, err := delete(m, m, list...)
+	if err != nil {
+		return -1, err
+	}
+
+	err = postCommitDelete(m, list)
+	if err != nil {
+		return -1, err
+	}
+
+	return i, nil
 }
 
 // Get runs a SQL SELECT to fetch a single row from the table based on the
@@ -1116,7 +1147,7 @@ func (m *DbMap) Begin() (*Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Transaction{m, tx, false}, nil
+	return &Transaction{m, tx, false, []func(){}}, nil
 }
 
 // TableFor returns the *TableMap corresponding to the given Go Type
@@ -1226,17 +1257,44 @@ func argsString(args ...interface{}) string {
 
 // Insert has the same behavior as DbMap.Insert(), but runs in a transaction.
 func (t *Transaction) Insert(list ...interface{}) error {
-	return insert(t.dbmap, t, list...)
+	err := insert(t.dbmap, t, list...)
+	if err != nil {
+		return err
+	}
+
+	t.postCommitCallbacks = append(t.postCommitCallbacks, func() {
+		postCommitInsert(t.dbmap, list)
+	})
+
+	return nil
 }
 
 // Update had the same behavior as DbMap.Update(), but runs in a transaction.
 func (t *Transaction) Update(list ...interface{}) (int64, error) {
-	return update(t.dbmap, t, list...)
+	i, err := update(t.dbmap, t, list...)
+	if err != nil {
+		return -1, err
+	}
+
+	t.postCommitCallbacks = append(t.postCommitCallbacks, func() {
+		postCommitUpdate(t.dbmap, list)
+	})
+
+	return i, nil
 }
 
 // Delete has the same behavior as DbMap.Delete(), but runs in a transaction.
 func (t *Transaction) Delete(list ...interface{}) (int64, error) {
-	return delete(t.dbmap, t, list...)
+	i, err := delete(t.dbmap, t, list...)
+	if err != nil {
+		return -1, err
+	}
+
+	t.postCommitCallbacks = append(t.postCommitCallbacks, func() {
+		postCommitDelete(t.dbmap, list)
+	})
+
+	return i, nil
 }
 
 // Get has the same behavior as DbMap.Get(), but runs in a transaction.
@@ -1301,7 +1359,14 @@ func (t *Transaction) Commit() error {
 			now := time.Now()
 			defer t.dbmap.trace(now, "commit;")
 		}
-		return t.tx.Commit()
+		err := t.tx.Commit()
+		if err != nil {
+			return err
+		}
+
+		for _, cb := range t.postCommitCallbacks {
+			cb()
+		}
 	}
 
 	return sql.ErrTxDone
@@ -2142,6 +2207,63 @@ func lockError(m *DbMap, exec SqlExecutor, tableName string,
 	return -1, ole
 }
 
+func postCommitInsert(m *DbMap, list ...interface{}) error {
+	for _, ptr := range list {
+		_, elem, err := m.tableForPointer(ptr, false)
+		if err != nil {
+			return err
+		}
+
+		eval := elem.Addr().Interface()
+		if v, ok := eval.(HasPostCommitInsert); ok {
+			err = v.PostCommitInsert(m)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func postCommitUpdate(m *DbMap, list ...interface{}) error {
+	for _, ptr := range list {
+		_, elem, err := m.tableForPointer(ptr, false)
+		if err != nil {
+			return err
+		}
+
+		eval := elem.Addr().Interface()
+		if v, ok := eval.(HasPostCommitUpdate); ok {
+			err = v.PostCommitUpdate(m)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func postCommitDelete(m *DbMap, list ...interface{}) error {
+	for _, ptr := range list {
+		_, elem, err := m.tableForPointer(ptr, false)
+		if err != nil {
+			return err
+		}
+
+		eval := elem.Addr().Interface()
+		if v, ok := eval.(HasPostCommitDelete); ok {
+			err = v.PostCommitDelete(m)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // PostUpdate() will be executed after the GET statement.
 type HasPostGet interface {
 	PostGet(SqlExecutor) error
@@ -2152,14 +2274,29 @@ type HasPostDelete interface {
 	PostDelete(SqlExecutor) error
 }
 
+// PostCommitDelete() will be executed after the DELETE statement has been committed.
+type HasPostCommitDelete interface {
+	PostCommitDelete(SqlExecutor) error
+}
+
 // PostUpdate() will be executed after the UPDATE statement
 type HasPostUpdate interface {
 	PostUpdate(SqlExecutor) error
 }
 
+// PostCommitUpdate() will be executed after the UPDATE statement has been committed.
+type HasPostCommitUpdate interface {
+	PostCommitUpdate(SqlExecutor) error
+}
+
 // PostInsert() will be executed after the INSERT statement
 type HasPostInsert interface {
 	PostInsert(SqlExecutor) error
+}
+
+// PostCommitInsert() will be executed after the INSERT statement has been committed.
+type HasPostCommitInsert interface {
+	PostCommitInsert(SqlExecutor) error
 }
 
 // PreDelete() will be executed before the DELETE statement.
