@@ -275,12 +275,16 @@ func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql stri
 	}
 	defer rows.Close()
 
-	if rows.Next() {
-		err := rows.Scan(target)
+	if !rows.Next() {
+		return fmt.Errorf("No serial value returned for insert: %s Encountered error: %s", insertSql, rows.Err())
+	}
+	if err := rows.Scan(target); err != nil {
 		return err
 	}
-
-	return errors.New("No serial value returned for insert: " + insertSql + " Encountered error: " + rows.Err().Error())
+	if rows.Next() {
+		return fmt.Errorf("more than two serial value returned for insert: %s", insertSql)
+	}
+	return rows.Err()
 }
 
 func (d PostgresDialect) QuoteField(f string) string {
