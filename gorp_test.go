@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -20,12 +21,23 @@ import (
 	_ "github.com/ziutek/mymysql/godrv"
 )
 
-// verify interface compliance
-var _ Dialect = SqliteDialect{}
-var _ Dialect = PostgresDialect{}
-var _ Dialect = MySQLDialect{}
-var _ Dialect = SqlServerDialect{}
-var _ Dialect = OracleDialect{}
+var (
+	// verify interface compliance
+	_ = []Dialect{
+		SqliteDialect{},
+		PostgresDialect{},
+		MySQLDialect{},
+		SqlServerDialect{},
+		OracleDialect{},
+	}
+
+	debug bool
+)
+
+func init() {
+	flag.BoolVar(&debug, "trace", true, "Turn on or off database tracing (DbMap.TraceOn)")
+	flag.Parse()
+}
 
 type testable interface {
 	GetId() int64
@@ -353,7 +365,6 @@ func TestTruncateTables(t *testing.T) {
 func TestCustomDateType(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.TypeConverter = testTypeConverter{}
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTable(WithCustomDate{}).SetKeys(true, "Id")
 	err := dbmap.CreateTables()
 	if err != nil {
@@ -389,7 +400,6 @@ func TestCustomDateType(t *testing.T) {
 
 func TestUIntPrimaryKey(t *testing.T) {
 	dbmap := newDbMap()
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTable(PersonUInt64{}).SetKeys(true, "Id")
 	dbmap.AddTable(PersonUInt32{}).SetKeys(true, "Id")
 	dbmap.AddTable(PersonUInt16{}).SetKeys(true, "Id")
@@ -419,7 +429,6 @@ func TestUIntPrimaryKey(t *testing.T) {
 
 func TestSetUniqueTogether(t *testing.T) {
 	dbmap := newDbMap()
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTable(UniqueColumns{}).SetUniqueTogether("FirstName", "LastName").SetUniqueTogether("City", "ZipCode")
 	err := dbmap.CreateTablesIfNotExists()
 	if err != nil {
@@ -468,7 +477,6 @@ func TestSetUniqueTogether(t *testing.T) {
 func TestPersistentUser(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.Exec("drop table if exists PersistentUser")
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
 	err := dbmap.CreateTablesIfNotExists()
@@ -581,7 +589,6 @@ func TestPersistentUser(t *testing.T) {
 func TestNamedQueryMap(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.Exec("drop table if exists PersistentUser")
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
 	err := dbmap.CreateTablesIfNotExists()
@@ -679,7 +686,6 @@ select * from PersistentUser
 func TestNamedQueryStruct(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.Exec("drop table if exists PersistentUser")
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
 	err := dbmap.CreateTablesIfNotExists()
@@ -861,7 +867,6 @@ func TestNullValues(t *testing.T) {
 
 func TestColumnProps(t *testing.T) {
 	dbmap := newDbMap()
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
 	t1.ColMap("Created").Rename("date_created")
 	t1.ColMap("Updated").SetTransient(true)
@@ -1359,7 +1364,6 @@ func TestVersionMultipleRows(t *testing.T) {
 
 func TestWithStringPk(t *testing.T) {
 	dbmap := newDbMap()
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTableWithName(WithStringPk{}, "string_pk_test").SetKeys(true, "Id")
 	_, err := dbmap.Exec("create table string_pk_test (Id varchar(255), Name varchar(255));")
 	if err != nil {
@@ -1491,7 +1495,6 @@ func testWithTime(t *testing.T) {
 // See: https://github.com/go-gorp/gorp/issues/86
 func testEmbeddedTime(t *testing.T) {
 	dbmap := newDbMap()
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTable(EmbeddedTime{}).SetKeys(false, "Id")
 	defer dropAndClose(dbmap)
 	err := dbmap.CreateTables()
@@ -2018,7 +2021,6 @@ func initDbMap() *DbMap {
 
 func initDbMapNulls() *DbMap {
 	dbmap := newDbMap()
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
 	err := dbmap.CreateTables()
 	if err != nil {
@@ -2030,7 +2032,9 @@ func initDbMapNulls() *DbMap {
 func newDbMap() *DbMap {
 	dialect, driver := dialectAndDriver()
 	dbmap := &DbMap{Db: connect(driver), Dialect: dialect}
-	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	if debug {
+		dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	}
 	return dbmap
 }
 
