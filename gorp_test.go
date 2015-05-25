@@ -3,6 +3,7 @@ package gorp
 import (
 	"bytes"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -11,6 +12,7 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -51,6 +53,15 @@ type Invoice struct {
 	Memo     string
 	PersonId int64
 	IsPaid   bool
+}
+
+type InvoiceWithValuer struct {
+	Id      int64
+	Created int64
+	Updated int64
+	Memo    string
+	Person  PersonValuerScanner `db:"personid"`
+	IsPaid  bool
 }
 
 func (me *Invoice) GetId() int64 { return me.Id }
@@ -100,6 +111,32 @@ type Person struct {
 	FName   string
 	LName   string
 	Version int64
+}
+
+type PersonValuerScanner struct {
+	Person
+}
+
+func (p PersonValuerScanner) Value() (driver.Value, error) {
+	return p.Id, nil
+}
+
+func (p *PersonValuerScanner) Scan(value interface{}) (err error) {
+	switch src := value.(type) {
+	case []byte:
+		// The mysql driver seems to return a []byte, even though the
+		// type in the database is bigint.  Note that this case is
+		// *only* used by the mysql driver.
+		p.Id, err = strconv.ParseInt(string(src), 10, 64)
+	case int64:
+		// postgres, gomysql, and sqlite drivers all return an int64,
+		// as you'd expect.
+		p.Id = src
+	default:
+		typ := reflect.TypeOf(value)
+		return fmt.Errorf("Expected person value to be convertible to int64, got %v (type %s)", value, typ)
+	}
+	return
 }
 
 type FNameOnly struct {
@@ -862,6 +899,46 @@ func TestNullValues(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expected, t1) {
 		t.Errorf("%v != %v", expected, t1)
+	}
+}
+
+func TestScannerValuer(t *testing.T) {
+	dbmap := newDbMap()
+	dbmap.AddTableWithName(PersonValuerScanner{}, "person_test").SetKeys(true, "Id")
+	dbmap.AddTableWithName(InvoiceWithValuer{}, "invoice_test").SetKeys(true, "Id")
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
+	defer dropAndClose(dbmap)
+
+	pv := PersonValuerScanner{}
+	pv.FName = "foo"
+	pv.LName = "bar"
+	err = dbmap.Insert(&pv)
+	if err != nil {
+		t.Errorf("Could not insert PersonValuerScanner using Person table: %v", err)
+		t.FailNow()
+	}
+
+	inv := InvoiceWithValuer{}
+	inv.Memo = "foo"
+	inv.Person = pv
+	err = dbmap.Insert(&inv)
+	if err != nil {
+		t.Errorf("Could not insert InvoiceWithValuer using Invoice table: %v", err)
+		t.FailNow()
+	}
+
+	res, err := dbmap.Get(InvoiceWithValuer{}, inv.Id)
+	if err != nil {
+		t.Errorf("Could not get InvoiceWithValuer: %v", err)
+		t.FailNow()
+	}
+	dbInv := res.(*InvoiceWithValuer)
+
+	if dbInv.Person.Id != pv.Id {
+		t.Errorf("InvoiceWithValuer got wrong person ID: %d (expected) != %d (actual)", pv.Id, dbInv.Person.Id)
 	}
 }
 
