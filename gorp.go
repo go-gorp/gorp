@@ -46,6 +46,14 @@ func (os OracleString) Value() (driver.Value, error) {
 	return os.String, nil
 }
 
+// SqlTyper is a type that returns its database type.  Most of the
+// time, the type can just use "database/sql/driver".Valuer; but when
+// it returns nil for its empty value, it needs to implement SqlTyper
+// to have its column type detected properly during table creation.
+type SqlTyper interface {
+	SqlType() driver.Valuer
+}
+
 // A nullable Time value
 type NullTime struct {
 	Time  time.Time
@@ -769,15 +777,26 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 				columnName = f.Name
 			}
 			gotype := f.Type
+			value := reflect.New(gotype).Interface()
 			if m.TypeConverter != nil {
 				// Make a new pointer to a value of type gotype and
 				// pass it to the TypeConverter's FromDb method to see
 				// if a different type should be used for the column
 				// type during table creation.
-				value := reflect.New(gotype).Interface()
 				scanner, useHolder := m.TypeConverter.FromDb(value)
 				if useHolder {
-					gotype = reflect.TypeOf(scanner.Holder)
+					value = scanner.Holder
+					gotype = reflect.TypeOf(value)
+				}
+			}
+			if typer, ok := value.(SqlTyper); ok {
+				gotype = reflect.TypeOf(typer.SqlType())
+			} else if valuer, ok := value.(driver.Valuer); ok {
+				// Only check for driver.Valuer if SqlTyper wasn't
+				// found.
+				v, err := valuer.Value()
+				if err == nil && v != nil {
+					gotype = reflect.TypeOf(v)
 				}
 			}
 			cm := &ColumnMap{
