@@ -240,8 +240,8 @@ type CustomDate struct {
 }
 
 type Dates struct {
-	Start time.Time
-	End   time.Time
+	Start time.Time // TODO: type date, not timestamp or datetime
+	End   time.Time // TODO: type date, not timestamp or datetime
 }
 
 type WithCustomDate struct {
@@ -374,6 +374,9 @@ func TestCreateTablesIfNotExists(t *testing.T) {
 	}
 }
 
+// TestDatesTypes tests if dates are inserted correctly into the database.
+// It ignores changes in timezone, both points in time need to be the same moment.
+// timezone saving needs to be investigated.
 func TestDatesTypes(t *testing.T) {
 	dbmap := initDbMap()
 	defer dbmap.DropTables()
@@ -382,33 +385,52 @@ func TestDatesTypes(t *testing.T) {
 	// Insert some data
 	d1 := &Dates{time.Unix(time.Now().Unix(), 0), time.Unix(time.Now().Add(1*time.Hour).Unix(), 0)}
 	dbmap.Insert(d1)
+	d1.Start = d1.Start.In(time.UTC)
+	d1.End = d1.End.In(time.UTC)
 
-	arr, err := dbmap.Select(Dates{}, "select * from dates")
+	arr, err := dbmap.Select(&Dates{}, "select * from dates")
 	if err != nil {
 		panic(err)
 	}
-	if !reflect.DeepEqual(d1, arr[0]) {
-		t.Errorf("%v!=%v", d1, arr[0])
+	if len(arr) != 1 {
+		t.Errorf("expected 1 row, got %d", len(arr))
+	}
+	r1 := arr[0].(*Dates)
+	r1.Start = r1.Start.In(time.UTC)
+	r1.End = r1.End.In(time.UTC)
+	if !reflect.DeepEqual(d1, r1) {
+		t.Errorf("error: %s!=%s", d1, r1)
 	}
 
 	// create times without nanosecond precision
 	d2 := &Dates{time.Unix(time.Now().Add(2*time.Hour).Unix(), 0), time.Unix(time.Now().Add(3*time.Hour).Unix(), 0)}
 	dbmap.Insert(d2)
+	d2.Start = d2.Start.In(time.UTC)
+	d2.End = d2.End.In(time.UTC)
 
-	arr, err = dbmap.Select(Dates{}, "select * from dates order by \"start\"")
+	arr, err = dbmap.Select(&Dates{}, "select * from dates order by \"start\"")
 	if err != nil {
 		panic(err)
 	}
-	if !reflect.DeepEqual(d1, arr[0]) {
-		t.Errorf("%v!=%v", d1, arr[0])
+	if len(arr) != 2 {
+		t.Errorf("expected 2 rows, got %d", len(arr))
 	}
-	if !reflect.DeepEqual(d2, arr[1]) {
-		t.Errorf("%v!=%v", d2, arr[1])
+	r1 = arr[0].(*Dates)
+	r1.Start = r1.Start.In(time.UTC)
+	r1.End = r1.End.In(time.UTC)
+	r2 := arr[1].(*Dates)
+	r2.Start = r2.Start.In(time.UTC)
+	r2.End = r2.End.In(time.UTC)
+	if !reflect.DeepEqual(d1, r1) {
+		t.Errorf("error: %s!=%s", d1, r1)
+	}
+	if !reflect.DeepEqual(d2, r2) {
+		t.Errorf("error: %s!=%s", d2, r2)
 	}
 
 	err = dbmap.TruncateTables()
 	if err != nil {
-		t.Error(err)
+		t.Errorf("error: %v", err)
 	}
 
 }
