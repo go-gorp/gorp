@@ -1114,7 +1114,7 @@ func (m *DbMap) SelectNullInt(query string, args ...interface{}) (sql.NullInt64,
 	return SelectNullInt(m, query, args...)
 }
 
-// SelectFloat is a convenience wrapper around the gorp.SelectFlot function
+// SelectFloat is a convenience wrapper around the gorp.SelectFloat function
 func (m *DbMap) SelectFloat(query string, args ...interface{}) (float64, error) {
 	return SelectFloat(m, query, args...)
 }
