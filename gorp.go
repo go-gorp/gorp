@@ -636,6 +636,7 @@ type SqlExecutor interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Select(i interface{}, query string,
 		args ...interface{}) ([]interface{}, error)
+	SelectIntoMaps(query string, args ...interface{}) ([]map[string]interface{}, error)
 	SelectInt(query string, args ...interface{}) (int64, error)
 	SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error)
 	SelectFloat(query string, args ...interface{}) (float64, error)
@@ -1216,6 +1217,10 @@ func (t *Transaction) Get(i interface{}, keys ...interface{}) (interface{}, erro
 	return get(t.dbmap, t, i, keys...)
 }
 
+func (t *Transaction) SelectIntoMaps(query string, args ...interface{}) ([]map[string]interface{}, error) {
+	return rawselectinmaps(t.dbmap, t, query, args...)
+}
+
 // Select has the same behavior as DbMap.Select(), but runs in a transaction.
 func (t *Transaction) Select(i interface{}, query string, args ...interface{}) ([]interface{}, error) {
 	return hookedselect(t.dbmap, t, i, query, args...)
@@ -1665,6 +1670,64 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 
 	return list, nonFatalErr
 }
+
+func (m *DbMap) SelectIntoMaps(query string, args ...interface{}) ([]map[string]interface{}, error) {
+	return rawselectinmaps(m, m, query, args...)
+}
+
+func rawselectinmaps(m *DbMap, exec SqlExecutor, query string, args ...interface{}) ([]map[string]interface{}, error) {
+	// If the caller supplied a single struct/map argument, assume a "named
+	// parameter" query.  Extract the named arguments from the struct/map, create
+	// the flat arg slice, and rewrite the query to use the dialect's placeholder.
+	if len(args) == 1 {
+		query, args = maybeExpandNamedQuery(m, query, args)
+	}
+
+	// Run the query
+	rows, err := exec.query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Fetch the column names as returned from db
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	var list = make([]map[string]interface{}, 0)
+	// TODO: Add TypeConverter to the loop if needed.
+	for {
+		if !rows.Next() {
+			// if error occured return rawselect
+			if rows.Err() != nil {
+				return nil, rows.Err()
+			}
+			// time to exit from outer "for" loop
+			break
+		}
+
+		values := make([]interface{}, len(cols))
+		for i := range values {
+			values[i] = new(interface{})
+		}
+
+		err = rows.Scan(values...)
+		if err != nil {
+			return nil, err
+		}
+
+		dest := make(map[string]interface{})
+		for i, column := range cols {
+			dest[column] = *(values[i].(*interface{}))
+		}
+		list = append(list, dest)
+	}
+
+	return list, nil
+}
+
 
 // maybeExpandNamedQuery checks the given arg to see if it's eligible to be used
 // as input to a named query.  If so, it rewrites the query to use

@@ -1210,6 +1210,54 @@ func TestWithEmbeddedAutoincr(t *testing.T) {
 	}
 }
 
+func TestSelectIntoMap(t *testing.T) {
+	dbmap := initDbMapNulls()
+	defer dropAndClose(dbmap)
+
+	t1 := TableWithNull{Str: sql.NullString{"abc", true},
+		Int64:   sql.NullInt64{78, true},
+		Float64: sql.NullFloat64{32.2, true},
+		Bool:    sql.NullBool{true, true},
+		Bytes:   []byte("hi")}
+	_insert(dbmap, &t1)
+
+	rows, err := dbmap.SelectIntoMaps("select * from TableWithNull")
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	if len(rows) != 1 {
+		t.Errorf("no rows returned")
+	}
+
+	row := rows[0]
+
+	str, isPresent := row["Str"]
+	if !isPresent {
+		t.Errorf("key 'Str' isn't present")
+	}
+	if string(str.([]byte)) != "abc" {
+		t.Errorf("string 'Str' %c != abc", str.([]byte))
+	}
+	if _, isPresent := row["Id"]; !isPresent {
+		t.Errorf("key 'Id' isn't present")
+	}
+	if _, isPresent := row["Int64"]; !isPresent {
+		t.Errorf("key 'Int64' isn't present")
+	}
+	if _, isPresent := row["Float64"]; !isPresent {
+		t.Errorf("key 'Float64' isn't present")
+	}
+	if _, isPresent := row["Bool"]; !isPresent {
+		t.Errorf("key 'Bool' isn't present")
+	}
+	if _, isPresent := row["Bytes"]; !isPresent {
+		t.Errorf("key 'Bytes' isn't present")
+	}
+	if len(row) != 6/*count of TableWithNull fields*/ {
+		t.Errorf("Wrong count of fields returned: %d", len(row))
+	}
+}
+
 func TestSelectVal(t *testing.T) {
 	dbmap := initDbMapNulls()
 	defer dropAndClose(dbmap)
