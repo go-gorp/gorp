@@ -636,7 +636,7 @@ type SqlExecutor interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Select(i interface{}, query string,
 		args ...interface{}) ([]interface{}, error)
-	SelectIntoMaps(query string, args ...interface{}) ([]map[string]interface{}, error)
+	SelectMapCollection(query string, args ...interface{}) ([]map[string]interface{}, error)
 	SelectInt(query string, args ...interface{}) (int64, error)
 	SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error)
 	SelectFloat(query string, args ...interface{}) (float64, error)
@@ -1218,7 +1218,7 @@ func (t *Transaction) Get(i interface{}, keys ...interface{}) (interface{}, erro
 }
 
 func (t *Transaction) SelectIntoMaps(query string, args ...interface{}) ([]map[string]interface{}, error) {
-	return rawselectinmaps(t.dbmap, t, query, args...)
+	return rawselectmapcollection(t.dbmap, t, query, args...)
 }
 
 // Select has the same behavior as DbMap.Select(), but runs in a transaction.
@@ -1671,11 +1671,11 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	return list, nonFatalErr
 }
 
-func (m *DbMap) SelectIntoMaps(query string, args ...interface{}) ([]map[string]interface{}, error) {
-	return rawselectinmaps(m, m, query, args...)
+func (m *DbMap) SelectMapCollection(query string, args ...interface{}) ([]map[string]interface{}, error) {
+	return rawselectmapcollection(m, m, query, args...)
 }
 
-func rawselectinmaps(m *DbMap, exec SqlExecutor, query string, args ...interface{}) ([]map[string]interface{}, error) {
+func rawselectmapcollection(m *DbMap, exec SqlExecutor, query string, args ...interface{}) ([]map[string]interface{}, error) {
 	// If the caller supplied a single struct/map argument, assume a "named
 	// parameter" query.  Extract the named arguments from the struct/map, create
 	// the flat arg slice, and rewrite the query to use the dialect's placeholder.

@@ -1221,11 +1221,11 @@ func TestSelectIntoMap(t *testing.T) {
 		Bytes:   []byte("hi")}
 	_insert(dbmap, &t1)
 
-	rows, err := dbmap.SelectIntoMaps("select * from TableWithNull")
+	rows, err := dbmap.SelectMapCollection("select * from TableWithNull")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	if len(rows) != 1 {
+	if len(rows) < 1 {
 		t.Errorf("no rows returned")
 	}
 
