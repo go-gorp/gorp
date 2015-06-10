@@ -1215,7 +1215,7 @@ func TestSelectIntoMap(t *testing.T) {
 	defer dropAndClose(dbmap)
 
 	t1 := TableWithNull{Str: sql.NullString{"abc", true},
-		Int64:   sql.NullInt64{78, true},
+		Int64:   sql.NullInt64{0, false},
 		Float64: sql.NullFloat64{32.2, true},
 		Bool:    sql.NullBool{true, true},
 		Bytes:   []byte("hi")}
@@ -1231,27 +1231,49 @@ func TestSelectIntoMap(t *testing.T) {
 
 	row := rows[0]
 
-	str, isPresent := row["Str"]
-	if !isPresent {
-		t.Errorf("key 'Str' isn't present")
-	}
-	if string(str.([]byte)) != "abc" {
-		t.Errorf("string 'Str' %c != abc", str.([]byte))
-	}
 	if _, isPresent := row["Id"]; !isPresent {
 		t.Errorf("key 'Id' isn't present")
 	}
-	if _, isPresent := row["Int64"]; !isPresent {
-		t.Errorf("key 'Int64' isn't present")
+
+	if v, isPresent := row["Str"]; true {
+		if !isPresent {
+			t.Errorf("key 'Str' isn't present")
+		}
+		if v != "abc" {
+			t.Errorf("'Str' %s != abc", v)
+		}
 	}
-	if _, isPresent := row["Float64"]; !isPresent {
-		t.Errorf("key 'Float64' isn't present")
+	if v, isPresent := row["Int64"]; true {
+		if !isPresent {
+			t.Errorf("key 'Int64' isn't present")
+		}
+		if v != nil {
+			t.Errorf("'Int64' %s is not nil", v)
+		}
 	}
-	if _, isPresent := row["Bool"]; !isPresent {
-		t.Errorf("key 'Bool' isn't present")
+	if v, isPresent := row["Float64"]; true {
+		if !isPresent {
+			t.Errorf("key 'Float64' isn't present")
+		}
+		if v != "32.2" {
+			t.Errorf("'Float64' %s != 32.2", v)
+		}
 	}
-	if _, isPresent := row["Bytes"]; !isPresent {
-		t.Errorf("key 'Bytes' isn't present")
+	if v, isPresent := row["Bool"]; true {
+		if !isPresent {
+			t.Errorf("key 'Bool' isn't present")
+		}
+		if v != "1" {
+			t.Errorf("'Bool' %s != true", v)
+		}
+	}
+	if v, isPresent := row["Bytes"]; true {
+		if !isPresent {
+			t.Errorf("key 'Bytes' isn't present")
+		}
+		if v != "hi" {
+			t.Errorf("'Bytes' %s != hi", v)
+		}
 	}
 	if len(row) != 6/*count of TableWithNull fields*/ {
 		t.Errorf("Wrong count of fields returned: %d", len(row))
