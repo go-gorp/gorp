@@ -1217,7 +1217,7 @@ func (t *Transaction) Get(i interface{}, keys ...interface{}) (interface{}, erro
 	return get(t.dbmap, t, i, keys...)
 }
 
-func (t *Transaction) SelectIntoMaps(query string, args ...interface{}) ([]map[string]interface{}, error) {
+func (t *Transaction) SelectMapCollection(query string, args ...interface{}) ([]map[string]interface{}, error) {
 	return rawselectmapcollection(t.dbmap, t, query, args...)
 }
 
