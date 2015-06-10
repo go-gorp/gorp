@@ -28,13 +28,6 @@ type OracleString struct {
 	sql.NullString
 }
 
-const (
-	MySQLDateFormat     = "2006-01-02"
-	MySQLDateTimeFormat = "2006-01-02 15:04:05"
-
-	EmptyPhpDateTime = "0000-00-00 00:00:00"
-)
-
 // Scan implements the Scanner interface.
 func (os *OracleString) Scan(value interface{}) error {
 	if value == nil {
@@ -1726,17 +1719,12 @@ func rawselectmapcollection(m *DbMap, exec SqlExecutor, query string, args ...in
 		}
 
 		dest := make(map[string]interface{})
-		emptyDate := time.Time{}
 		for i, column := range cols {
 			switch val := (*(values[i].(*interface{}))).(type) {
 			case nil:
 				dest[column] = nil
 			case time.Time:
-				if val == emptyDate {
-					dest[column] = EmptyPhpDateTime
-					break
-				}
-				dest[column] = val.Format(MySQLDateTimeFormat)
+				dest[column] = val
 			case []byte:
 				dest[column] = string(val)
 			default:
