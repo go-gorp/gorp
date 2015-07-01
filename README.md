@@ -2,6 +2,14 @@
 
 [![build status](https://secure.travis-ci.org/go-gorp/gorp.png)](http://travis-ci.org/go-gorp/gorp)
 
+### Update 2015-07-01 Cleanup & feature freeze
+
+We are currently cleaning up the backlog of issues and PR's. When this is done the codebase will be split into separate files and there will be breaking changes to the API's. We're also adding better tests and documentation. As a result of these changes the `master` branch will be unstable. Please use `gopkg.in/gorp.v1`. When the cleanup and changes are done, we will release `v2.0`.
+
+At this time we won't accept new feature-related pull-requests because of changes to the codebase. Please create an issue for your feature and wait until `v2.0` has been released.
+
+## Introduction
+
 I hesitate to call gorp an ORM.  Go doesn't really have objects, at least
 not in the classic Smalltalk/Java sense.  There goes the "O".  gorp doesn't
 know anything about the relationships between your structs (at least not
@@ -34,7 +42,7 @@ not infrastructure.
 
     # install the library:
     go get gopkg.in/gorp.v1
-    
+
     // use in your .go code:
     import (
         "gopkg.in/gorp.v1"
@@ -201,7 +209,7 @@ type Invoice struct {
 }
 
 type Person struct {
-    Id      int64    
+    Id      int64
     Created int64
     Updated int64
     FName   string
@@ -239,7 +247,7 @@ db, err := sql.Open("mymysql", "tcp:localhost:3306*mydb/myuser/mypassword")
 dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
 
 // register the structs you wish to use with gorp
-// you can also use the shorter dbmap.AddTable() if you 
+// you can also use the shorter dbmap.AddTable() if you
 // don't want to override the table name
 //
 // SetKeys(true) means we have a auto increment primary key, which
@@ -296,13 +304,13 @@ I recommend enabling this initially while you're getting the feel for what
 gorp is doing on your behalf.
 
 Gorp defines a `GorpLogger` interface that Go's built in `log.Logger` satisfies.
-However, you can write your own `GorpLogger` implementation, or use a package such 
+However, you can write your own `GorpLogger` implementation, or use a package such
 as `glog` if you want more control over how statements are logged.
 
 ```go
 // Will log all SQL statements + args as they are run
 // The first arg is a string prefix to prepend to all log messages
-dbmap.TraceOn("[gorp]", log.New(os.Stdout, "myapp:", log.Lmicroseconds)) 
+dbmap.TraceOn("[gorp]", log.New(os.Stdout, "myapp:", log.Lmicroseconds))
 
 // Turn off tracing
 dbmap.TraceOff()
@@ -435,7 +443,7 @@ only supported in SELECT queries.
 
 ```go
 _, err := dbm.Select(&dest, "select * from Foo where name = :name and age = :age", map[string]interface{}{
-  "name": "Rob", 
+  "name": "Rob",
   "age": 31,
 })
 ```
@@ -509,11 +517,11 @@ Full list of hooks that you can implement:
     PostUpdate
     PreDelete
     PostDelete
-    
+
     All have the same signature.  for example:
-    
+
     func (p *MyStruct) PostUpdate(s gorp.SqlExecutor) error
-    
+
 ### Optimistic Locking
 
 #### Note that this behaviour has changed in v2. See [Migration Guide](#migration-guide).
@@ -536,7 +544,7 @@ type Person struct {
     Updated  int64
     FName    string
     LName    string
-    
+
     // automatically used as the Version col
     // use table.SetVersionCol("columnName") to map a different
     // struct field as the version field
@@ -558,7 +566,7 @@ count, err := dbmap.Update(p1)
 _, ok := err.(gorp.OptimisticLockError)
 if ok {
     // should reach this statement
-    
+
     // in a real app you might reload the row and retry, or
     // you might propegate this to the user, depending on the desired
     // semantics
@@ -582,13 +590,13 @@ implemented per database vendor.  Dialects are provided for:
 * PostgreSQL
 * sqlite3
 
-Each of these three databases pass the test suite.  See `gorp_test.go` for example 
+Each of these three databases pass the test suite.  See `gorp_test.go` for example
 DSNs for these three databases.
 
 Support is also provided for:
 
 * Oracle (contributed by @klaidliadon)
-* SQL Server (contributed by @qrawl) - use driver: github.com/denisenkom/go-mssqldb 
+* SQL Server (contributed by @qrawl) - use driver: github.com/denisenkom/go-mssqldb
 
 Note that these databases are not covered by CI and I (@coopernurse) have no good way to
 test them locally.  So please try them and send patches as needed, but expect a bit more
@@ -598,7 +606,7 @@ unpredicability.
 
 ### SQL placeholder portability
 
-Different databases use different strings to indicate variable placeholders in 
+Different databases use different strings to indicate variable placeholders in
 prepared SQL statements.  Unlike some database abstraction layers (such as JDBC),
 Go's `database/sql` does not standardize this.
 
@@ -617,18 +625,18 @@ In `Select` and `SelectOne` you can use named parameters to work around this.
 The following is portable:
 
 ```go
-err := dbmap.SelectOne(&val, "select * from foo where id = :id", 
+err := dbmap.SelectOne(&val, "select * from foo where id = :id",
    map[string]interface{} { "id": 30})
 ```
 
-Additionally, when using Postgres as your database, you should utilize `$1` instead 
-of `?` placeholders as utilizing `?` placeholders when querying Postgres will result 
-in `pq: operator does not exist` errors. Alternatively, use 
+Additionally, when using Postgres as your database, you should utilize `$1` instead
+of `?` placeholders as utilizing `?` placeholders when querying Postgres will result
+in `pq: operator does not exist` errors. Alternatively, use
 `dbMap.Dialect.BindVar(varIdx)` to get the proper variable binding for your dialect.
 
 ### time.Time and time zones
 
-gorp will pass `time.Time` fields through to the `database/sql` driver, but note that 
+gorp will pass `time.Time` fields through to the `database/sql` driver, but note that
 the behavior of this type varies across database drivers.
 
 MySQL users should be especially cautious.  See: https://github.com/ziutek/mymysql/pull/77
