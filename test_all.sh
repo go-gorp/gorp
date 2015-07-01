@@ -3,15 +3,20 @@
 # on macs, you may need to:
 # export GOBUILDFLAG=-ldflags -linkmode=external
 
-set -e 
+set -e
 
 echo "Testing against mysql"
 export GORP_TEST_DSN=gorptest/gorptest/gorptest
 export GORP_TEST_DIALECT=mysql
 go test $GOBUILDFLAG $@ .
 
+echo "Testing against gomysql with parseTime enabled"
+export GORP_TEST_DSN="gorptest:gorptest@/gorptest?parseTime=true"
+export GORP_TEST_DIALECT=gomysql
+go test $GOBUILDFLAG $@ .
+
 echo "Testing against gomysql"
-export GORP_TEST_DSN=gorptest:gorptest@/gorptest
+export GORP_TEST_DSN="gorptest:gorptest@/gorptest"
 export GORP_TEST_DIALECT=gomysql
 go test $GOBUILDFLAG $@ .
 
