@@ -469,15 +469,18 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 						plan.autoIncrIdx = y
 						plan.autoIncrFieldName = col.fieldName
 					} else {
-						s2.WriteString(t.dbmap.Dialect.BindVar(x))
-						if col == t.version {
-							plan.versField = col.fieldName
-							plan.argFields = append(plan.argFields, versFieldConst)
+						if col.DefaultValue == "" {
+							s2.WriteString(t.dbmap.Dialect.BindVar(x))
+							if col == t.version {
+								plan.versField = col.fieldName
+								plan.argFields = append(plan.argFields, versFieldConst)
+							} else {
+								plan.argFields = append(plan.argFields, col.fieldName)
+							}
+							x++
 						} else {
-							plan.argFields = append(plan.argFields, col.fieldName)
+							s2.WriteString(col.DefaultValue)
 						}
-
-						x++
 					}
 					first = false
 				}
@@ -664,6 +667,8 @@ type ColumnMap struct {
 	// Passed to Dialect.ToSqlType() to assist in informing the
 	// correct column type to map to in CreateTables()
 	MaxSize int
+
+	DefaultValue string
 
 	fieldName  string
 	gotype     reflect.Type
@@ -866,6 +871,9 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 			if columnName == "" {
 				columnName = f.Name
 			}
+
+			fieldDefault := f.Tag.Get("db_default")
+
 			gotype := f.Type
 			value := reflect.New(gotype).Interface()
 			if m.TypeConverter != nil {
@@ -890,11 +898,12 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 				}
 			}
 			cm := &ColumnMap{
-				ColumnName: columnName,
-				Transient:  columnName == "-",
-				fieldName:  f.Name,
-				gotype:     gotype,
-				MaxSize:    maxSize,
+				ColumnName:   columnName,
+				DefaultValue: fieldDefault,
+				Transient:    columnName == "-",
+				fieldName:    f.Name,
+				gotype:       gotype,
+				MaxSize:      maxSize,
 			}
 			// Check for nested fields of the same field name and
 			// override them.
@@ -910,6 +919,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 				cols = append(cols, cm)
 			}
 		}
+
 	}
 	return
 }
