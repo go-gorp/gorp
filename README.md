@@ -2,11 +2,13 @@
 
 [![build status](https://secure.travis-ci.org/go-gorp/gorp.png)](http://travis-ci.org/go-gorp/gorp)
 
-### Update 2015-07-01 Cleanup & feature freeze
+### Update 2015-07-01 Cleanup & feature freeze ([#270](https://github.com/go-gorp/gorp/issues/270))
 
 We are currently cleaning up the backlog of issues and PR's. When this is done the codebase will be split into separate files and there will be breaking changes to the API's. We're also adding better tests and documentation. As a result of these changes the `master` branch will be unstable. Please use `gopkg.in/gorp.v1`. When the cleanup and changes are done, we will release `v2.0`.
 
 At this time we won't accept new feature-related pull-requests because of changes to the codebase. Please create an issue for your feature and wait until `v2.0` has been released.
+
+For more information, please read [#270](https://github.com/go-gorp/gorp/issues/270).
 
 ## Introduction
 
