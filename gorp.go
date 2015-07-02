@@ -859,20 +859,36 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 			cArguments := strings.Split(f.Tag.Get("db"), ",")
 			columnName := cArguments[0]
 			var maxSize int
+			var defaultValue string
 			for _, argString := range cArguments[1:] {
 				arg := strings.SplitN(argString, ":", 2)
+
+				// check mandatory/unexpected option values
+				switch arg[0] {
+				case "size", "default":
+					// options requiring value
+					if len(arg) == 1 {
+						panic(fmt.Sprintf("missing option value for option %v on field %v", arg[0], f.Name))
+					}
+				default:
+					// options where value is invalid (currently all other options)
+					if len(arg) == 2 {
+						panic(fmt.Sprintf("unexpected option value for option %v on field %v", arg[0], f.Name))
+					}
+				}
+
 				switch arg[0] {
 				case "size":
 					maxSize, _ = strconv.Atoi(arg[1])
+				case "default":
+					defaultValue = arg[1]
 				default:
-					panic(fmt.Sprintf("Unrecognized tag argument for field %v: %v", f.Name, arg))
+					panic(fmt.Sprintf("Unrecognized tag option for field %v: %v", f.Name, arg))
 				}
 			}
 			if columnName == "" {
 				columnName = f.Name
 			}
-
-			fieldDefault := f.Tag.Get("db_default")
 
 			gotype := f.Type
 			value := reflect.New(gotype).Interface()
@@ -899,7 +915,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 			}
 			cm := &ColumnMap{
 				ColumnName:   columnName,
-				DefaultValue: fieldDefault,
+				DefaultValue: defaultValue,
 				Transient:    columnName == "-",
 				fieldName:    f.Name,
 				gotype:       gotype,
