@@ -826,19 +826,24 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
-	tmap.Columns = m.readStructColumns(t)
+	var primaryKey []*ColumnMap = nil
+	tmap.Columns, primaryKey = m.readStructColumns(t)
 	m.tables = append(m.tables, tmap)
+	if len(primaryKey) > 0 {
+		tmap.keys = append(tmap.keys, primaryKey...)
+	}
 
 	return tmap
 }
 
-func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
+func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey []*ColumnMap) {
+	primaryKey = make([]*ColumnMap, 0)
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		if f.Anonymous && f.Type.Kind() == reflect.Struct {
 			// Recursively add nested fields in embedded structs.
-			subcols := m.readStructColumns(f.Type)
+			subcols, subpk := m.readStructColumns(f.Type)
 			// Don't append nested fields that have the same field
 			// name as an already-mapped field.
 			for _, subcol := range subcols {
@@ -853,6 +858,9 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 					cols = append(cols, subcol)
 				}
 			}
+			if subpk != nil {
+				primaryKey = append(primaryKey, subpk...)
+			}
 		} else {
 			// Tag = Name { ','  Option }
 			// Option = OptionKey [ ':' OptionValue ]
@@ -860,7 +868,10 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 			columnName := cArguments[0]
 			var maxSize int
 			var defaultValue string
+			var isAuto bool
+			var isPK bool
 			for _, argString := range cArguments[1:] {
+				argString = strings.TrimSpace(argString)
 				arg := strings.SplitN(argString, ":", 2)
 
 				// check mandatory/unexpected option values
@@ -882,6 +893,10 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 					maxSize, _ = strconv.Atoi(arg[1])
 				case "default":
 					defaultValue = arg[1]
+				case "primarykey":
+					isPK = true
+				case "autoincrement":
+					isAuto = true
 				default:
 					panic(fmt.Sprintf("Unrecognized tag option for field %v: %v", f.Name, arg))
 				}
@@ -919,7 +934,12 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap) {
 				Transient:    columnName == "-",
 				fieldName:    f.Name,
 				gotype:       gotype,
+				isPK:         isPK,
+				isAutoIncr:   isAuto,
 				MaxSize:      maxSize,
+			}
+			if isPK {
+				primaryKey = append(primaryKey, cm)
 			}
 			// Check for nested fields of the same field name and
 			// override them.
@@ -1704,7 +1724,8 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 
 	var colToFieldIndex [][]int
 	if intoStruct {
-		if colToFieldIndex, err = columnToFieldIndex(m, t, cols); err != nil {
+		colToFieldIndex, err = columnToFieldIndex(m, t, cols)
+		if err != nil {
 			if !NonFatalError(err) {
 				return nil, err
 			}
