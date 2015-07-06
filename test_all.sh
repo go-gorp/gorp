@@ -1,10 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 
 # on macs, you may need to:
 # export GOBUILDFLAG=-ldflags -linkmode=external
 
 coveralls_testflags="-v -covermode=count -coverprofile=coverage.out"
-goveralls_exec="$HOME/gopath/bin/goveralls -covermode=count -coverprofile=coverage.out -service=travis-ci -repotoken"
 
 set -e
 
@@ -28,4 +27,7 @@ export GORP_TEST_DSN=/tmp/gorptest.bin
 export GORP_TEST_DIALECT=sqlite
 go test $coveralls_testflags $GOBUILDFLAG $@ .
 
-$goveralls_exec $COVERALLS_TOKEN
+if [[ `go version` == *"1.4"* ]]
+then
+	$HOME/gopath/bin/goveralls -covermode=count -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+fi
