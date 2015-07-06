@@ -27,10 +27,7 @@ export GORP_TEST_DSN=/tmp/gorptest.bin
 export GORP_TEST_DIALECT=sqlite
 go test $coveralls_testflags $GOBUILDFLAG $@ .
 
-if [ -z ${COVERALLS_TOKEN+x} ]
+if [[ `go version` == *"1.4"* ]]
 then
-	if [[ `go version` == *"1.4"* ]]
-	then
-		$HOME/gopath/bin/goveralls -covermode=count -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
-	fi
+	$HOME/gopath/bin/goveralls -covermode=count -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
 fi
