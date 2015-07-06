@@ -1,6 +1,7 @@
 # Go Relational Persistence
 
 [![build status](https://img.shields.io/travis/go-gorp/gorp.svg)](http://travis-ci.org/go-gorp/gorp)
+[![code coverage](https://img.shields.io/coveralls/go-gorp/gorp.svg)](https://coveralls.io/r/go-gorp/gorp)
 [![issues](https://img.shields.io/github/issues/go-gorp/gorp.svg)](https://github.com/go-gorp/gorp/issues)
 [![godoc v1](https://img.shields.io/badge/godoc-v1-375EAB.svg)](https://godoc.org/gopkg.in/gorp.v1)
 [![godoc bleeding edge](https://img.shields.io/badge/godoc-bleeding--edge-375EAB.svg)](https://godoc.org/github.com/go-gorp/gorp)
@@ -15,18 +16,11 @@ For more information, please read [#270](https://github.com/go-gorp/gorp/issues/
 
 ## Introduction
 
-I hesitate to call gorp an ORM.  Go doesn't really have objects, at least
-not in the classic Smalltalk/Java sense.  There goes the "O".  gorp doesn't
-know anything about the relationships between your structs (at least not
-yet).  So the "R" is questionable too (but I use it in the name because,
-well, it seemed more clever).
+I hesitate to call gorp an ORM.  Go doesn't really have objects, at least not in the classic Smalltalk/Java sense.  There goes the "O".  gorp doesn't know anything about the relationships between your structs (at least not yet).  So the "R" is questionable too (but I use it in the name because, well, it seemed more clever).
 
-The "M" is alive and well.  Given some Go structs and a database, gorp
-should remove a fair amount of boilerplate busy-work from your code.
+The "M" is alive and well.  Given some Go structs and a database, gorp should remove a fair amount of boilerplate busy-work from your code.
 
-I hope that gorp saves you time, minimizes the drudgery of getting data
-in and out of your database, and helps your code focus on algorithms,
-not infrastructure.
+I hope that gorp saves you time, minimizes the drudgery of getting data in and out of your database, and helps your code focus on algorithms, not infrastructure.
 
 * Bind struct fields to table columns via API or tag
 * Support for embedded structs
