@@ -27,7 +27,7 @@ export GORP_TEST_DSN=/tmp/gorptest.bin
 export GORP_TEST_DIALECT=sqlite
 go test $coveralls_testflags $GOBUILDFLAG $@ .
 
-if [ -z ${COVERALLS_TOKEN+x} ]
+if [ -z "$COVERALLS_TOKEN" ]
 then
 	if [[ `go version` == *"1.4"* ]]
 	then
