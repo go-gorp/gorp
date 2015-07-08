@@ -664,6 +664,9 @@ type ColumnMap struct {
 	// Not used elsewhere
 	Unique bool
 
+	// Query used for getting generated id after insert
+	GeneratedIdQuery string
+
 	// Passed to Dialect.ToSqlType() to assist in informing the
 	// correct column type to map to in CreateTables()
 	MaxSize int
@@ -2191,6 +2194,15 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 				}
 			case TargetedAutoIncrInserter:
 				err := inserter.InsertAutoIncrToTarget(exec, bi.query, f.Addr().Interface(), bi.args...)
+				if err != nil {
+					return err
+				}
+			case TargetQueryInserter:
+				var idQuery = table.ColMap(bi.autoIncrFieldName).GeneratedIdQuery
+				if idQuery == "" {
+					return fmt.Errorf("gorp: Cannot set %s value if its ColumnMap.GeneratedIdQuery is empty", bi.autoIncrFieldName)
+				}
+				err := inserter.InsertQueryToTarget(exec, bi.query, idQuery, f.Addr().Interface(), bi.args...)
 				if err != nil {
 					return err
 				}
