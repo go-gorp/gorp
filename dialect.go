@@ -33,6 +33,12 @@ type Dialect interface {
 	// table attributes
 	CreateTableSuffix() string
 
+	// string to append to "create index" statement
+	CreateIndexSuffix() string
+
+	// string to append to "drop index" statement
+	DropIndexSuffix() string
+
 	// string to truncate tables
 	TruncateClause() string
 
@@ -158,6 +164,14 @@ func (d SqliteDialect) CreateTableSuffix() string {
 	return d.suffix
 }
 
+func (d SqliteDialect) CreateIndexSuffix() string {
+	return ""
+}
+
+func (d SqliteDialect) DropIndexSuffix() string {
+	return ""
+}
+
 // With sqlite, there technically isn't a TRUNCATE statement,
 // but a DELETE FROM uses a truncate optimization:
 // http://www.sqlite.org/lang_delete.html
@@ -266,6 +280,14 @@ func (d PostgresDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 // Returns suffix
 func (d PostgresDialect) CreateTableSuffix() string {
 	return d.suffix
+}
+
+func (d PostgresDialect) CreateIndexSuffix() string {
+	return "using"
+}
+
+func (d PostgresDialect) DropIndexSuffix() string {
+	return ""
 }
 
 func (d PostgresDialect) TruncateClause() string {
@@ -432,7 +454,15 @@ func (d MySQLDialect) CreateTableSuffix() string {
 	return fmt.Sprintf(" engine=%s charset=%s", d.Engine, d.Encoding)
 }
 
-func (d MySQLDialect) TruncateClause() string {
+func (m MySQLDialect) CreateIndexSuffix() string {
+	return "using"
+}
+
+func (m MySQLDialect) DropIndexSuffix() string {
+	return "on"
+}
+
+func (m MySQLDialect) TruncateClause() string {
 	return "truncate"
 }
 
@@ -604,6 +634,9 @@ func (d SqlServerDialect) IfTableNotExists(command, schema, table string) string
 	return s
 }
 
+func (d SqlServerDialect) CreateIndexSuffix() string { return "" }
+func (d SqlServerDialect) DropIndexSuffix() string   { return "" }
+
 ///////////////////////////////////////////////////////
 // Oracle //
 ///////////
@@ -612,6 +645,10 @@ func (d SqlServerDialect) IfTableNotExists(command, schema, table string) string
 type OracleDialect struct{}
 
 func (d OracleDialect) QuerySuffix() string { return "" }
+
+func (d OracleDialect) CreateIndexSuffix() string { return "" }
+
+func (d OracleDialect) DropIndexSuffix() string { return "" }
 
 func (d OracleDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {

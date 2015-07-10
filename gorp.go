@@ -200,6 +200,7 @@ type TableMap struct {
 	gotype         reflect.Type
 	Columns        []*ColumnMap
 	keys           []*ColumnMap
+	indexes        []*IndexMap
 	uniqueTogether [][]string
 	version        *ColumnMap
 	insertPlan     bindPlan
@@ -290,6 +291,43 @@ func colMapOrNil(t *TableMap, field string) *ColumnMap {
 		}
 	}
 	return nil
+}
+
+// IdxMap returns the IndexMap pointer matching the given index name.
+func (t *TableMap) IdxMap(field string) *IndexMap {
+	for _, idx := range t.indexes {
+		if idx.IndexName == field {
+			return idx
+		}
+	}
+	return nil
+}
+
+// AddIndex registers the index with gorp for specified table with given parameters.
+// This operation is idempotent. If index is already mapped, the
+// existing *IndexMap is returned
+// Function will panic if one of the given for index columns does not exists
+//
+// Automatically calls ResetSql() to ensure SQL statements are regenerated.
+//
+func (t *TableMap) AddIndex(name string, idxtype string, columns []string) *IndexMap {
+	// check if we have a index with this name already
+	for _, idx := range t.indexes {
+		if idx.IndexName == name {
+			return idx
+		}
+	}
+	for _, icol := range columns {
+		if res := t.ColMap(icol); res == nil {
+			e := fmt.Sprintf("No ColumnName in table %s to create index on", t.TableName)
+			panic(e)
+		}
+	}
+
+	idx := &IndexMap{IndexName: name, Unique: false, IndexType: idxtype, columns: columns}
+	t.indexes = append(t.indexes, idx)
+	t.ResetSql()
+	return idx
 }
 
 // SetVersionCol sets the column to use as the Version field.  By default
@@ -716,6 +754,115 @@ func (c *ColumnMap) SetNotNull(nn bool) *ColumnMap {
 func (c *ColumnMap) SetMaxSize(size int) *ColumnMap {
 	c.MaxSize = size
 	return c
+}
+
+// IndexMap represents a mapping between a Go struct field and a single
+// index in a table.
+// Unique and MaxSize only inform the
+// CreateTables() function and are not used by Insert/Update/Delete/Get.
+type IndexMap struct {
+	// Index name in db table
+	IndexName string
+
+	// If true, " unique" is added to create index statements.
+	// Not used elsewhere
+	Unique bool
+
+	// Index type supported by Dialect
+	// Postgres:  B-tree, Hash, GiST and GIN.
+	// Mysql: Btree, Hash.
+	// Sqlite: nil.
+	IndexType string
+
+	// Columns name for single and multiple indexes
+	columns []string
+}
+
+// Rename allows you to specify the index name in the table
+//
+// Example:  table.IndMap("customer_test_idx").Rename("customer_idx")
+//
+func (idx *IndexMap) Rename(indname string) *IndexMap {
+	idx.IndexName = indname
+	return idx
+}
+
+// SetUnique adds "unique" to the create index statements for this
+// index, if b is true.
+func (idx *IndexMap) SetUnique(b bool) *IndexMap {
+	idx.Unique = b
+	return idx
+}
+
+// SetIndexType specifies the index type supported by chousen SQL Dialect
+func (idx *IndexMap) SetIndexType(indtype string) *IndexMap {
+	idx.IndexType = indtype
+	return idx
+}
+
+func (m *DbMap) CreateIndex() error {
+
+	var err error
+	dialect := reflect.TypeOf(m.Dialect)
+	for _, table := range m.tables {
+		for _, index := range table.indexes {
+
+			s := bytes.Buffer{}
+			s.WriteString("create")
+			if index.Unique {
+				s.WriteString(" unique")
+			}
+			s.WriteString(" index")
+			s.WriteString(fmt.Sprintf(" %s on %s", index.IndexName,
+				table.TableName))
+			if dname := dialect.Name(); dname == "PostgresDialect" && index.IndexType != "" {
+				s.WriteString(fmt.Sprintf(" %s %s", m.Dialect.CreateIndexSuffix(), index.IndexType))
+			}
+			s.WriteString(" (")
+			x := 0
+			for _, col := range index.columns {
+				if x > 0 {
+					s.WriteString(", ")
+				}
+				s.WriteString(m.Dialect.QuoteField(col))
+			}
+			s.WriteString(")")
+
+			if dname := dialect.Name(); dname == "MySQLDialect" && index.IndexType != "" {
+				s.WriteString(fmt.Sprintf(" %s %s", m.Dialect.CreateIndexSuffix(), index.IndexType))
+			}
+			s.WriteString(";")
+			_, err = m.Exec(s.String())
+			if err != nil {
+				break
+			}
+		}
+	}
+	return err
+}
+
+func (t *TableMap) DropIndex(name string) error {
+
+	var err error
+	dialect := reflect.TypeOf(t.dbmap.Dialect)
+	for _, idx := range t.indexes {
+		if idx.IndexName == name {
+			s := bytes.Buffer{}
+			s.WriteString(fmt.Sprintf("DROP INDEX %s", idx.IndexName))
+
+			if dname := dialect.Name(); dname == "MySQLDialect" {
+				s.WriteString(fmt.Sprintf(" %s %s", t.dbmap.Dialect.DropIndexSuffix(), t.TableName))
+			}
+			s.WriteString(";")
+			_, e := t.dbmap.Exec(s.String())
+			if e != nil {
+				err = e
+			}
+			break
+		}
+	}
+	t.ResetSql()
+	return err
 }
 
 // Transaction represents a database transaction.

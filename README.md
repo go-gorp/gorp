@@ -577,6 +577,49 @@ if ok {
     fmt.Printf("Unknown db err: %v\n", err)
 }
 ```
+### Adding INDEX(es) on column(s) beyond the primary key ###
+
+Indexes are frequently critical for performance. Here is how to add them to your tables.
+
+NB: SqlServer and Oracle need testing and possible adjustment to the 
+CreateIndexSuffix() and DropIndexSuffix() methods to make AddIndex()
+work for them.
+
+In the example below we put an index both on the Id field, and on the AcctId field.
+
+```
+type Account struct {
+	Id      int64
+	AcctId  string // e.g. this might be a long uuid for portability
+}
+
+// indexType (the 2nd param to AddIndex call) is "Btree" or "Hash" for MySQL.
+// demonstrate adding a second index on AcctId, and constrain that field to have unique values.
+dbm.AddTable(iptab.Account{}).SetKeys(true, "Id").AddIndex("AcctIdIndex", "Btree", []string{"AcctId"}).SetUnique(true)
+
+err = dbm.CreateTablesIfNotExists()
+checkErr(err, "CreateTablesIfNotExists failed")
+
+err = dbm.CreateIndex()
+checkErr(err, "CreateIndex failed")
+
+```
+Check the effect of the CreateIndex() call in mysql:
+```
+$ mysql
+
+MariaDB [test]> show create table Account;
++---------+--------------------------+
+| Account | CREATE TABLE `Account` (
+  `Id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `AcctId` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`Id`),
+  UNIQUE KEY `AcctIdIndex` (`AcctId`) USING BTREE   <<<--- yes! index added.
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 
++---------+--------------------------+
+
+```
+
 
 ## Database Drivers
 
