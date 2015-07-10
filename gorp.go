@@ -96,6 +96,14 @@ func (nt NullTime) Value() (driver.Value, error) {
 	return nt.Time, nil
 }
 
+// for fields that exists in DB table, but not exists in struct
+type dummyField struct{}
+
+// Scan implements the Scanner interface.
+func (nt *dummyField) Scan(value interface{}) error {
+	return nil
+}
+
 var zeroVal reflect.Value
 var versFieldConst = "[gorp_ver_field]"
 
@@ -1912,7 +1920,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 				if index == nil {
 					// this field is not present in the struct, so create a dummy
 					// value for rows.Scan to scan into
-					var dummy sql.RawBytes
+					var dummy dummyField
 					dest[x] = &dummy
 					continue
 				}
