@@ -11,7 +11,7 @@
 //
 package gorp
 
-//++ TODO v2-phase3: HasPostGet > PostGetter, HasPostDelete > PostDeleter, etc.
+//++ TODO v2-phase3: HasPostGet => PostGetter, HasPostDelete => PostDeleter, etc.
 
 // PostUpdate() will be executed after the GET statement.
 type HasPostGet interface {

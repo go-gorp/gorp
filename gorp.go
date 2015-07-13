@@ -21,7 +21,8 @@ import (
 	"time"
 )
 
-// Oracle String (empty string is null)
+// OracleString (empty string is null)
+// TODO: move to dialect/oracle?, rename to String?
 type OracleString struct {
 	sql.NullString
 }
@@ -302,7 +303,7 @@ func toSliceType(i interface{}) (reflect.Type, error) {
 	if t.Kind() != reflect.Ptr {
 		// If it's a slice, return a more helpful error message
 		if t.Kind() == reflect.Slice {
-			return nil, fmt.Errorf("gorp: Cannot SELECT into a non-pointer slice: %v", t)
+			return nil, fmt.Errorf("gorp: cannot SELECT into a non-pointer slice: %v", t)
 		}
 		return nil, nil
 	}
@@ -321,7 +322,7 @@ func toType(i interface{}) (reflect.Type, error) {
 	}
 
 	if t.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("gorp: Cannot SELECT into this type: %v", reflect.TypeOf(i))
+		return nil, fmt.Errorf("gorp: cannot SELECT into this type: %v", reflect.TypeOf(i))
 	}
 	return t, nil
 }
@@ -520,7 +521,7 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 				} else if (k == reflect.Uint) || (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
 					f.SetUint(uint64(id))
 				} else {
-					return fmt.Errorf("gorp: Cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d autoIncrFieldName=%s", bi.query, bi.autoIncrIdx, bi.autoIncrFieldName)
+					return fmt.Errorf("gorp: cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d autoIncrFieldName=%s", bi.query, bi.autoIncrIdx, bi.autoIncrFieldName)
 				}
 			case TargetedAutoIncrInserter:
 				err := inserter.InsertAutoIncrToTarget(exec, bi.query, f.Addr().Interface(), bi.args...)
@@ -530,14 +531,14 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 			case TargetQueryInserter:
 				var idQuery = table.ColMap(bi.autoIncrFieldName).GeneratedIdQuery
 				if idQuery == "" {
-					return fmt.Errorf("gorp: Cannot set %s value if its ColumnMap.GeneratedIdQuery is empty", bi.autoIncrFieldName)
+					return fmt.Errorf("gorp: cannot set %s value if its ColumnMap.GeneratedIdQuery is empty", bi.autoIncrFieldName)
 				}
 				err := inserter.InsertQueryToTarget(exec, bi.query, idQuery, f.Addr().Interface(), bi.args...)
 				if err != nil {
 					return err
 				}
 			default:
-				return fmt.Errorf("gorp: Cannot use autoincrement fields on dialects that do not implement an autoincrementing interface")
+				return fmt.Errorf("gorp: cannot use autoincrement fields on dialects that do not implement an autoincrementing interface")
 			}
 		} else {
 			_, err := exec.Exec(bi.query, bi.args...)

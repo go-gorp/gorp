@@ -132,6 +132,8 @@ func (p PersonValuerScanner) Value() (driver.Value, error) {
 	return p.Id, nil
 }
 
+// FIXME: this Scan is never actually used in the tests?
+// Also: if the comments below on the mysql driver are true, then that should be fixed by the dialect when scanning values into structs.
 func (p *PersonValuerScanner) Scan(value interface{}) (err error) {
 	switch src := value.(type) {
 	case []byte:

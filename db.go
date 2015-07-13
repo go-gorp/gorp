@@ -59,8 +59,7 @@ func (m *DbMap) CreateIndex() error {
 				s.WriteString(" unique")
 			}
 			s.WriteString(" index")
-			s.WriteString(fmt.Sprintf(" %s on %s", index.IndexName,
-				table.TableName))
+			s.WriteString(fmt.Sprintf(" %s on %s", index.IndexName, table.TableName))
 			if dname := dialect.Name(); dname == "PostgresDialect" && index.IndexType != "" {
 				s.WriteString(fmt.Sprintf(" %s %s", m.Dialect.CreateIndexSuffix(), index.IndexType))
 			}
@@ -147,7 +146,7 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 	}
 
 	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
-	var primaryKey []*ColumnMap = nil
+	var primaryKey []*ColumnMap
 	tmap.Columns, primaryKey = m.readStructColumns(t)
 	m.tables = append(m.tables, tmap)
 	if len(primaryKey) > 0 {
@@ -310,15 +309,14 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 	return err
 }
 
-// DropTable drops an individual table.  Will throw an error
-// if the table does not exist.
+// DropTable drops an individual table.
+// Returns an error when the table does not exist.
 func (m *DbMap) DropTable(table interface{}) error {
 	t := reflect.TypeOf(table)
 	return m.dropTable(t, false)
 }
 
-// DropTable drops an individual table.  Will NOT throw an error
-// if the table does not exist.
+// DropTableIfExists drops an individual table when the table exists.
 func (m *DbMap) DropTableIfExists(table interface{}) error {
 	t := reflect.TypeOf(table)
 	return m.dropTable(t, true)
@@ -343,7 +341,7 @@ func (m *DbMap) dropTables(addIfExists bool) (err error) {
 	for _, table := range m.tables {
 		err = m.dropTableImpl(table, addIfExists)
 		if err != nil {
-			return
+			return err
 		}
 	}
 	return err
@@ -353,7 +351,7 @@ func (m *DbMap) dropTables(addIfExists bool) (err error) {
 func (m *DbMap) dropTable(t reflect.Type, addIfExists bool) error {
 	table := tableOrNil(m, t)
 	if table == nil {
-		return errors.New(fmt.Sprintf("table %s was not registered!", table.TableName))
+		return fmt.Errorf("table %s was not registered", table.TableName)
 	}
 
 	return m.dropTableImpl(table, addIfExists)
@@ -532,11 +530,11 @@ func (m *DbMap) Begin() (*Transaction, error) {
 func (m *DbMap) TableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 	table := tableOrNil(m, t)
 	if table == nil {
-		return nil, errors.New(fmt.Sprintf("No table found for type: %v", t.Name()))
+		return nil, fmt.Errorf("no table found for type: %v", t.Name())
 	}
 
 	if checkPK && len(table.keys) < 1 {
-		e := fmt.Sprintf("gorp: No keys defined for table: %s",
+		e := fmt.Sprintf("gorp: no keys defined for table: %s",
 			table.TableName)
 		return nil, errors.New(e)
 	}

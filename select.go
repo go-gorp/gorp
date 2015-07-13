@@ -117,7 +117,7 @@ func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args .
 
 		list, err := hookedselect(m, e, holder, query, args...)
 		if err != nil {
-			if !NonFatalError(err) {
+			if !NonFatalError(err) { // FIXME: double negative, rename NonFatalError to FatalError
 				return err
 			}
 			nonFatalErr = err
@@ -128,7 +128,7 @@ func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args .
 			dest = dest.Elem()
 		}
 
-		if list != nil && len(list) > 0 {
+		if list != nil && len(list) > 0 { // FIXME: invert if/else
 			// check for multiple rows
 			if len(list) > 1 {
 				return fmt.Errorf("gorp: multiple rows returned for: %s - %v", query, args)
