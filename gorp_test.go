@@ -1,3 +1,14 @@
+// Copyright 2012 James Cooper. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+// Package gorp provides a simple way to marshal Go structs to and from
+// SQL databases.  It uses the database/sql package, and should work with any
+// compliant database/sql driver.
+//
+// Source code and project home:
+// https://github.com/go-gorp/gorp
+//
 package gorp
 
 import (
@@ -237,7 +248,7 @@ type Names struct {
 
 type NamesConflict struct {
 	FirstName string
-	Surname string
+	Surname   string
 }
 
 type SameName struct {
@@ -2141,7 +2152,7 @@ func initDbMapBench() *DbMap {
 func initDbMap() *DbMap {
 	dbmap := newDbMap()
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
-	dbmap.AddTableWithName(InvoiceTag{}, "invoice_tag_test")    //key is set via primarykey attribute
+	dbmap.AddTableWithName(InvoiceTag{}, "invoice_tag_test") //key is set via primarykey attribute
 	dbmap.AddTableWithName(AliasTransientField{}, "alias_trans_field_test").SetKeys(true, "id")
 	dbmap.AddTableWithName(OverriddenInvoice{}, "invoice_override_test").SetKeys(false, "Id")
 	dbmap.AddTableWithName(Person{}, "person_test").SetKeys(true, "Id").SetVersionCol("Version")
