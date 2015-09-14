@@ -64,8 +64,7 @@ func (m *DbMap) CreateIndex() error {
 				s.WriteString(fmt.Sprintf(" %s %s", m.Dialect.CreateIndexSuffix(), index.IndexType))
 			}
 			s.WriteString(" (")
-			x := 0
-			for _, col := range index.columns {
+			for x, col := range index.columns {
 				if x > 0 {
 					s.WriteString(", ")
 				}
