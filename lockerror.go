@@ -8,7 +8,7 @@
 //
 // Source code and project home:
 // https://github.com/go-gorp/gorp
-//
+
 package gorp
 
 import (

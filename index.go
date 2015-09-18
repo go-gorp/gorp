@@ -8,7 +8,7 @@
 //
 // Source code and project home:
 // https://github.com/go-gorp/gorp
-//
+
 package gorp
 
 // IndexMap represents a mapping between a Go struct field and a single
