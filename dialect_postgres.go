@@ -123,7 +123,7 @@ func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql stri
 }
 
 func (d PostgresDialect) QuoteField(f string) string {
-	return `"` + strings.ToLower(f) + `"`
+	return `"` + f + `"`
 }
 
 func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string {
