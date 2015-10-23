@@ -58,12 +58,12 @@ type testable interface {
 }
 
 type Invoice struct {
-	Id       int64 `db:"id"`
+	Id       int64
 	Created  int64
 	Updated  int64
-	Memo     string `db:"memo"`
-	PersonId int64  `db:"personid"`
-	IsPaid   bool   `db:"ispaid"`
+	Memo     string
+	PersonId int64
+	IsPaid   bool
 }
 
 type InvoiceWithValuer struct {
@@ -116,10 +116,10 @@ type OverriddenInvoice struct {
 }
 
 type Person struct {
-	Id      int64 `db:"id"`
+	Id      int64
 	Created int64
 	Updated int64
-	FName   string `db:"fname"`
+	FName   string
 	LName   string
 	Version int64
 }
@@ -165,10 +165,10 @@ type InvoicePersonView struct {
 }
 
 type TableWithNull struct {
-	Id      int64           `db:"id"`
-	Str     sql.NullString  `db:"str"`
-	Int64   sql.NullInt64   `db:"int64"`
-	Float64 sql.NullFloat64 `db:"float64"`
+	Id      int64
+	Str     sql.NullString
+	Int64   sql.NullInt64
+	Float64 sql.NullFloat64
 	Bool    sql.NullBool
 	Bytes   []byte
 }
@@ -180,7 +180,7 @@ type WithIgnoredColumn struct {
 }
 
 type IdCreated struct {
-	Id      int64 `db:"id"`
+	Id      int64
 	Created int64
 }
 
@@ -278,7 +278,7 @@ type WithCustomDate struct {
 }
 
 type WithNullTime struct {
-	Id   int64 `db:"id"`
+	Id   int64
 	Time NullTime
 }
 
@@ -388,8 +388,8 @@ func (p *Person) PostGet(s SqlExecutor) error {
 
 type PersistentUser struct {
 	Key            int32
-	Id             string `db:"id"`
-	PassedTraining bool   `db:"passedtraining"`
+	Id             string
+	PassedTraining bool
 }
 
 func TestCreateTablesIfNotExists(t *testing.T) {
@@ -547,7 +547,7 @@ func TestSetUniqueTogether(t *testing.T) {
 func TestPersistentUser(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.Exec("drop table if exists PersistentUser")
-	table := dbmap.AddTableWithName(PersistentUser{}, "persistentuser").SetKeys(false, "Key")
+	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
 	err := dbmap.CreateTablesIfNotExists()
 	if err != nil {
@@ -659,7 +659,7 @@ func TestPersistentUser(t *testing.T) {
 func TestNamedQueryMap(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.Exec("drop table if exists PersistentUser")
-	table := dbmap.AddTableWithName(PersistentUser{}, "persistentuser").SetKeys(false, "Key")
+	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
 	err := dbmap.CreateTablesIfNotExists()
 	if err != nil {
@@ -756,7 +756,7 @@ select * from PersistentUser
 func TestNamedQueryStruct(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.Exec("drop table if exists PersistentUser")
-	table := dbmap.AddTableWithName(PersistentUser{}, "persistentuser").SetKeys(false, "Key")
+	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
 	err := dbmap.CreateTablesIfNotExists()
 	if err != nil {
@@ -1637,8 +1637,8 @@ func TestNullTime(t *testing.T) {
 }
 
 type WithTime struct {
-	Id   int64     `db:"id"`
-	Time time.Time `db:"time"`
+	Id   int64
+	Time time.Time
 }
 
 type Times struct {
@@ -2210,7 +2210,7 @@ func initDbMap() *DbMap {
 
 func initDbMapNulls() *DbMap {
 	dbmap := newDbMap()
-	dbmap.AddTableWithName(TableWithNull{}, "tablewithnull").SetKeys(false, "Id")
+	dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
 	err := dbmap.CreateTables()
 	if err != nil {
 		panic(err)
