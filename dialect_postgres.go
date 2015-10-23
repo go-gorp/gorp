@@ -78,7 +78,7 @@ func (d PostgresDialect) AutoIncrBindValue() string {
 }
 
 func (d PostgresDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
-	return " returning " + col.ColumnName
+	return " returning " + d.QuoteField(col.ColumnName)
 }
 
 // Returns suffix
