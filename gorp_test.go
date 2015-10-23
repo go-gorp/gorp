@@ -2369,3 +2369,21 @@ func _rawselect(dbmap *DbMap, i interface{}, query string, args ...interface{}) 
 	}
 	return list
 }
+
+func _tableName(dbmap *DbMap, i interface{}) string {
+	t := reflect.TypeOf(i)
+	if table, err := dbmap.TableFor(t, false); table != nil && err == nil {
+		return dbmap.Dialect.QuoteField(table.TableName)
+	} else {
+		return t.Name()
+	}
+}
+
+func _columnName(dbmap *DbMap, i interface{}, fieldName string) string {
+	t := reflect.TypeOf(i)
+	if table, err := dbmap.TableFor(t, false); table != nil && err == nil {
+		return dbmap.Dialect.QuoteField(table.ColMap(fieldName).ColumnName)
+	} else {
+		return fieldName
+	}
+}
