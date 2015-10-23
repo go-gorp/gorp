@@ -569,7 +569,7 @@ func TestPersistentUser(t *testing.T) {
 		t.Errorf("%v!=%v", pu, pu2)
 	}
 
-	arr, err := dbmap.Select(pu, "select * from PersistentUser")
+	arr, err := dbmap.Select(pu, "select * from "+_tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -579,7 +579,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in a slice
 	var puArr []*PersistentUser
-	_, err = dbmap.Select(&puArr, "select * from PersistentUser")
+	_, err = dbmap.Select(&puArr, "select * from "+_tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -592,7 +592,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in a non-pointer slice
 	var puValues []PersistentUser
-	_, err = dbmap.Select(&puValues, "select * from PersistentUser")
+	_, err = dbmap.Select(&puValues, "select * from "+_tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -605,7 +605,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in a string slice
 	var idArr []*string
-	_, err = dbmap.Select(&idArr, "select Id from PersistentUser")
+	_, err = dbmap.Select(&idArr, "select "+_columnName(dbmap, PersistentUser{}, "Id")+" from "+_tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -618,7 +618,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in an int slice
 	var keyArr []*int32
-	_, err = dbmap.Select(&keyArr, "select mykey from PersistentUser")
+	_, err = dbmap.Select(&keyArr, "select mykey from "+_tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -631,7 +631,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in a bool slice
 	var passedArr []*bool
-	_, err = dbmap.Select(&passedArr, "select PassedTraining from PersistentUser")
+	_, err = dbmap.Select(&passedArr, "select "+_columnName(dbmap, PersistentUser{}, "PassedTraining")+" from "+_tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -644,7 +644,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in a non-pointer slice
 	var stringArr []string
-	_, err = dbmap.Select(&stringArr, "select Id from PersistentUser")
+	_, err = dbmap.Select(&stringArr, "select "+_columnName(dbmap, PersistentUser{}, "Id")+" from "+_tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -675,7 +675,7 @@ func TestNamedQueryMap(t *testing.T) {
 
 	// Test simple case
 	var puArr []*PersistentUser
-	_, err = dbmap.Select(&puArr, "select * from PersistentUser where mykey = :Key", map[string]interface{}{
+	_, err = dbmap.Select(&puArr, "select * from "+_tableName(dbmap, PersistentUser{})+" where mykey = :Key", map[string]interface{}{
 		"Key": 43,
 	})
 	if err != nil {
@@ -691,7 +691,7 @@ func TestNamedQueryMap(t *testing.T) {
 
 	// Test more specific map value type is ok
 	puArr = nil
-	_, err = dbmap.Select(&puArr, "select * from PersistentUser where mykey = :Key", map[string]int{
+	_, err = dbmap.Select(&puArr, "select * from "+_tableName(dbmap, PersistentUser{})+" where mykey = :Key", map[string]int{
 		"Key": 43,
 	})
 	if err != nil {
@@ -705,10 +705,10 @@ func TestNamedQueryMap(t *testing.T) {
 	// Test multiple parameters set.
 	puArr = nil
 	_, err = dbmap.Select(&puArr, `
-select * from PersistentUser
+select * from `+_tableName(dbmap, PersistentUser{})+`
  where mykey = :Key
-   and PassedTraining = :PassedTraining
-   and Id = :Id`, map[string]interface{}{
+   and `+_columnName(dbmap, PersistentUser{}, "PassedTraining")+` = :PassedTraining
+   and `+_columnName(dbmap, PersistentUser{}, "Id")+` = :Id`, map[string]interface{}{
 		"Key":            43,
 		"PassedTraining": false,
 		"Id":             "33r",
@@ -725,9 +725,9 @@ select * from PersistentUser
 	// Test having extra, unused properties in the map.
 	puArr = nil
 	_, err = dbmap.Select(&puArr, `
-select * from PersistentUser
+select * from `+_tableName(dbmap, PersistentUser{})+`
  where mykey = :Key
-   and Id != 'abc:def'`, map[string]interface{}{
+   and `+_columnName(dbmap, PersistentUser{}, "Id")+` != 'abc:def'`, map[string]interface{}{
 		"Key":            43,
 		"PassedTraining": false,
 	})
@@ -740,7 +740,7 @@ select * from PersistentUser
 	}
 
 	// Test to delete with Exec and named params.
-	result, err := dbmap.Exec("delete from PersistentUser where mykey = :Key", map[string]interface{}{
+	result, err := dbmap.Exec("delete from "+_tableName(dbmap, PersistentUser{})+" where mykey = :Key", map[string]interface{}{
 		"Key": 43,
 	})
 	count, err := result.RowsAffected()
@@ -773,10 +773,10 @@ func TestNamedQueryStruct(t *testing.T) {
 	// Test select self
 	var puArr []*PersistentUser
 	_, err = dbmap.Select(&puArr, `
-select * from PersistentUser
+select * from `+_tableName(dbmap, PersistentUser{})+`
  where mykey = :Key
-   and PassedTraining = :PassedTraining
-   and Id = :Id`, pu)
+   and `+_columnName(dbmap, PersistentUser{}, "PassedTraining")+` = :PassedTraining
+   and `+_columnName(dbmap, PersistentUser{}, "Id")+` = :Id`, pu)
 	if err != nil {
 		t.Errorf("Failed to select: %s", err)
 		t.FailNow()
@@ -790,10 +790,10 @@ select * from PersistentUser
 
 	// Test delete self.
 	result, err := dbmap.Exec(`
-delete from PersistentUser
+delete from `+_tableName(dbmap, PersistentUser{})+`
  where mykey = :Key
-   and PassedTraining = :PassedTraining
-   and Id = :Id`, pu)
+   and `+_columnName(dbmap, PersistentUser{}, "PassedTraining")+` = :PassedTraining
+   and `+_columnName(dbmap, PersistentUser{}, "Id")+` = :Id`, pu)
 	count, err := result.RowsAffected()
 	if err != nil {
 		t.Errorf("Failed to exec: %s", err)
