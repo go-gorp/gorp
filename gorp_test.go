@@ -1851,7 +1851,7 @@ func TestSelectSingleVal(t *testing.T) {
 	}
 
 	var p2 Person
-	err := dbmap.SelectOne(&p2, "select * from person_test where Id=:Id", params)
+	err := dbmap.SelectOne(&p2, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1862,7 +1862,7 @@ func TestSelectSingleVal(t *testing.T) {
 
 	// verify SelectOne allows non-struct holders
 	var s string
-	err = dbmap.SelectOne(&s, "select FName from person_test where Id=:Id", params)
+	err = dbmap.SelectOne(&s, "select "+_columnName(dbmap, Person{}, "FName")+" from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1871,14 +1871,14 @@ func TestSelectSingleVal(t *testing.T) {
 	}
 
 	// verify SelectOne requires pointer receiver
-	err = dbmap.SelectOne(s, "select FName from person_test where Id=:Id", params)
+	err = dbmap.SelectOne(s, "select "+_columnName(dbmap, Person{}, "FName")+" from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err == nil {
 		t.Error("SelectOne should have returned error for non-pointer holder")
 	}
 
 	// verify SelectOne works with uninitialized pointers
 	var p3 *Person
-	err = dbmap.SelectOne(&p3, "select * from person_test where Id=:Id", params)
+	err = dbmap.SelectOne(&p3, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1889,13 +1889,13 @@ func TestSelectSingleVal(t *testing.T) {
 
 	// verify that the receiver is still nil if nothing was found
 	var p4 *Person
-	dbmap.SelectOne(&p3, "select * from person_test where 2<1 AND Id=:Id", params)
+	dbmap.SelectOne(&p3, "select * from person_test where 2<1 AND "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if p4 != nil {
 		t.Error("SelectOne should not have changed a nil receiver when no rows were found")
 	}
 
 	// verify that the error is set to sql.ErrNoRows if not found
-	err = dbmap.SelectOne(&p2, "select * from person_test where Id=:Id", map[string]interface{}{
+	err = dbmap.SelectOne(&p2, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", map[string]interface{}{
 		"Id": -2222,
 	})
 	if err == nil || err != sql.ErrNoRows {
@@ -1903,7 +1903,7 @@ func TestSelectSingleVal(t *testing.T) {
 	}
 
 	_insert(dbmap, &Person{0, 0, 0, "bob", "smith", 0})
-	err = dbmap.SelectOne(&p2, "select * from person_test where Fname='bob'")
+	err = dbmap.SelectOne(&p2, "select * from person_test where "+_columnName(dbmap, Person{}, "FName")+"='bob'")
 	if err == nil {
 		t.Error("Expected error when two rows found")
 	}
@@ -1915,7 +1915,7 @@ func TestSelectSingleVal(t *testing.T) {
 	var tFloat float64
 	primVals := []interface{}{tInt, tStr, tBool, tFloat}
 	for _, prim := range primVals {
-		err = dbmap.SelectOne(&prim, "select * from person_test where Id=-123")
+		err = dbmap.SelectOne(&prim, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+"=-123")
 		if err == nil || err != sql.ErrNoRows {
 			t.Error("primVals: SelectOne should have returned sql.ErrNoRows")
 		}
@@ -1934,7 +1934,7 @@ func TestSelectAlias(t *testing.T) {
 	// Select into IdCreatedExternal type, which includes some fields not present
 	// in id_created_test
 	var p2 IdCreatedExternal
-	err := dbmap.SelectOne(&p2, "select * from id_created_test where Id=1")
+	err := dbmap.SelectOne(&p2, "select * from id_created_test where "+_columnName(dbmap, IdCreatedExternal{}, "Id")+"=1")
 	if err != nil {
 		t.Error(err)
 	}
@@ -2026,7 +2026,7 @@ func TestPrepare(t *testing.T) {
 
 	bindVar0 := dbmap.Dialect.BindVar(0)
 	bindVar1 := dbmap.Dialect.BindVar(1)
-	stmt, err := dbmap.Prepare(fmt.Sprintf("UPDATE invoice_test SET Memo=%s WHERE Id=%s", bindVar0, bindVar1))
+	stmt, err := dbmap.Prepare(fmt.Sprintf("UPDATE invoice_test SET "+_columnName(dbmap, Invoice{}, "Memo")+"=%s WHERE "+_columnName(dbmap, Invoice{}, "Id")+"=%s", bindVar0, bindVar1))
 	if err != nil {
 		t.Error(err)
 	}
@@ -2035,7 +2035,7 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = dbmap.SelectOne(inv1, "SELECT * from invoice_test WHERE Memo='prepare-baz'")
+	err = dbmap.SelectOne(inv1, "SELECT * from invoice_test WHERE "+_columnName(dbmap, Invoice{}, "Memo")+"='prepare-baz'")
 	if err != nil {
 		t.Error(err)
 	}
@@ -2044,7 +2044,7 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	transStmt, err := trans.Prepare(fmt.Sprintf("UPDATE invoice_test SET IsPaid=%s WHERE Id=%s", bindVar0, bindVar1))
+	transStmt, err := trans.Prepare(fmt.Sprintf("UPDATE invoice_test SET "+_columnName(dbmap, Invoice{}, "IsPaid")+"=%s WHERE "+_columnName(dbmap, Invoice{}, "Id")+"=%s", bindVar0, bindVar1))
 	if err != nil {
 		t.Error(err)
 	}
@@ -2053,11 +2053,11 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE IsPaid=%s", bindVar0), true)
+	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE "+_columnName(dbmap, Invoice{}, "IsPaid")+"=%s", bindVar0), true)
 	if err == nil || err != sql.ErrNoRows {
 		t.Error("SelectOne should have returned an sql.ErrNoRows")
 	}
-	err = trans.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE IsPaid=%s", bindVar0), true)
+	err = trans.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE "+_columnName(dbmap, Invoice{}, "IsPaid")+"=%s", bindVar0), true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -2065,7 +2065,7 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE IsPaid=%s", bindVar0), true)
+	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE "+_columnName(dbmap, Invoice{}, "IsPaid")+"=%s", bindVar0), true)
 	if err != nil {
 		t.Error(err)
 	}
