@@ -1598,7 +1598,7 @@ func TestNullTime(t *testing.T) {
 	if err != nil {
 		t.Error("failed insert on %s", err.Error())
 	}
-	err = dbmap.SelectOne(ent, `select * from nulltime_test where Id=:Id`, map[string]interface{}{
+	err = dbmap.SelectOne(ent, `select * from nulltime_test where `+_columnName(dbmap, WithNullTime{}, "Id")+`=:Id`, map[string]interface{}{
 		"Id": ent.Id,
 	})
 	if err != nil {
@@ -1620,7 +1620,7 @@ func TestNullTime(t *testing.T) {
 	if err != nil {
 		t.Error("failed insert on %s", err.Error())
 	}
-	err = dbmap.SelectOne(ent, `select * from nulltime_test where Id=:Id`, map[string]interface{}{
+	err = dbmap.SelectOne(ent, `select * from nulltime_test where `+_columnName(dbmap, WithNullTime{}, "Id")+`=:Id`, map[string]interface{}{
 		"Id": ent.Id,
 	})
 	if err != nil {
@@ -1712,7 +1712,7 @@ func TestWithTimeSelect(t *testing.T) {
 	_insert(dbmap, &w1, &w2)
 
 	var caseIds []int64
-	_, err := dbmap.Select(&caseIds, "SELECT id FROM time_test WHERE Time < "+dbmap.Dialect.BindVar(0), halfhourago)
+	_, err := dbmap.Select(&caseIds, "SELECT "+_columnName(dbmap, WithTime{}, "Id")+" FROM time_test WHERE "+_columnName(dbmap, WithTime{}, "Time")+" < "+dbmap.Dialect.BindVar(0), halfhourago)
 
 	if err != nil {
 		t.Error(err)
@@ -1738,9 +1738,9 @@ func TestInvoicePersonView(t *testing.T) {
 	dbmap.Insert(inv1)
 
 	// Run your query
-	query := "select i.Id InvoiceId, p.Id PersonId, i.Memo, p.FName " +
+	query := "select i." + _columnName(dbmap, Invoice{}, "Id") + " InvoiceId, p." + _columnName(dbmap, Person{}, "Id") + " PersonId, i." + _columnName(dbmap, Invoice{}, "Memo") + ", p." + _columnName(dbmap, Person{}, "FName") + " " +
 		"from invoice_test i, person_test p " +
-		"where i.PersonId = p.Id"
+		"where i." + _columnName(dbmap, Invoice{}, "PersonId") + " = p." + _columnName(dbmap, Person{}, "Id")
 
 	// pass a slice of pointers to Select()
 	// this avoids the need to type assert after the query is run
@@ -1805,7 +1805,7 @@ func TestSelectTooManyCols(t *testing.T) {
 	}
 
 	var p3 FNameOnly
-	err := dbmap.SelectOne(&p3, "select * from person_test where Id=:Id", params)
+	err := dbmap.SelectOne(&p3, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err != nil {
 		if !NonFatalError(err) {
 			t.Error(err)
@@ -1819,7 +1819,7 @@ func TestSelectTooManyCols(t *testing.T) {
 	}
 
 	var pSlice []FNameOnly
-	_, err = dbmap.Select(&pSlice, "select * from person_test order by fname asc")
+	_, err = dbmap.Select(&pSlice, "select * from person_test order by "+_columnName(dbmap, Person{}, "FName")+" asc")
 	if err != nil {
 		if !NonFatalError(err) {
 			t.Error(err)
