@@ -2069,7 +2069,7 @@ func BenchmarkNativeCrud(b *testing.B) {
 		insert = "insert into invoice_test (" + columnCreated + ", " + columnUpdated + ", " + columnMemo + ", " + columnPersonId + ") values ($1, $2, $3, $4)"
 		sel = "select " + columnId + ", " + columnCreated + ", " + columnUpdated + ", " + columnMemo + ", " + columnPersonId + " from invoice_test where " + columnId + "=$1"
 		update = "update invoice_test set " + columnCreated + "=$1, " + columnUpdated + "=$2, " + columnMemo + "=$3, " + columnPersonId + "=$4 where " + columnId + "=$5"
-		delete = "delete from invoice_test where " + columnId + "=?"
+		delete = "delete from invoice_test where " + columnId + "=$1"
 	}
 
 	inv := &Invoice{0, 100, 200, "my memo", 0, false}
