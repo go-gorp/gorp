@@ -808,7 +808,7 @@ delete from `+_tableName(dbmap, PersistentUser{})+`
 func TestReturnsNonNilSlice(t *testing.T) {
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
-	noResultsSQL := "select * from invoice_test where id=99999"
+	noResultsSQL := "select * from invoice_test where " + _columnName(dbmap, Invoice{}, "Id") + "=99999"
 	var r1 []*Invoice
 	_rawselect(dbmap, &r1, noResultsSQL)
 	if r1 == nil {
@@ -901,7 +901,7 @@ func TestNullValues(t *testing.T) {
 	defer dropAndClose(dbmap)
 
 	// insert a row directly
-	_rawexec(dbmap, "insert into TableWithNull values (10, null, "+
+	_rawexec(dbmap, "insert into "+_tableName(dbmap, TableWithNull{})+" values (10, null, "+
 		"null, null, null, null)")
 
 	// try to load it
@@ -1025,9 +1025,9 @@ func TestRawSelect(t *testing.T) {
 
 	expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName, 0}
 
-	query := "select i.Id InvoiceId, p.Id PersonId, i.Memo, p.FName " +
+	query := "select i." + _columnName(dbmap, Invoice{}, "Id") + " InvoiceId, p." + _columnName(dbmap, Person{}, "Id") + " PersonId, i." + _columnName(dbmap, Invoice{}, "Memo") + ", p." + _columnName(dbmap, Person{}, "FName") + " " +
 		"from invoice_test i, person_test p " +
-		"where i.PersonId = p.Id"
+		"where i." + _columnName(dbmap, Invoice{}, "PersonId") + " = p." + _columnName(dbmap, Person{}, "Id")
 	list := _rawselect(dbmap, InvoicePersonView{}, query)
 	if len(list) != 1 {
 		t.Errorf("len(list) != 1: %d", len(list))
@@ -1063,7 +1063,7 @@ func TestHooks(t *testing.T) {
 
 	var persons []*Person
 	bindVar := dbmap.Dialect.BindVar(0)
-	_rawselect(dbmap, &persons, "select * from person_test where id = "+bindVar, p1.Id)
+	_rawselect(dbmap, &persons, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+" = "+bindVar, p1.Id)
 	if persons[0].LName != "postget" {
 		t.Errorf("p1.PostGet() didn't run after select: %v", p1)
 	}
@@ -1129,7 +1129,7 @@ func TestSavepoint(t *testing.T) {
 	trans.Insert(inv1)
 
 	var checkMemo = func(want string) {
-		memo, err := trans.SelectStr("select memo from invoice_test")
+		memo, err := trans.SelectStr("select " + _columnName(dbmap, Invoice{}, "Memo") + " from invoice_test")
 		if err != nil {
 			panic(err)
 		}
@@ -1232,11 +1232,11 @@ func testCrudInternal(t *testing.T, dbmap *DbMap, val testable) {
 	}
 
 	// Select *
-	rows, err := dbmap.Select(val, "select * from "+table.TableName)
+	rows, err := dbmap.Select(val, "select * from "+dbmap.Dialect.QuoteField(table.TableName))
 	if err != nil {
-		t.Errorf("couldn't select * from %s err=%v", table.TableName, err)
+		t.Errorf("couldn't select * from %s err=%v", dbmap.Dialect.QuoteField(table.TableName), err)
 	} else if len(rows) != 1 {
-		t.Errorf("unexpected row count in %s: %d", table.TableName, len(rows))
+		t.Errorf("unexpected row count in %s: %d", dbmap.Dialect.QuoteField(table.TableName), len(rows))
 	} else if !reflect.DeepEqual(val, rows[0]) {
 		t.Errorf("select * result: %v != %v", val, rows[0])
 	}
@@ -1450,81 +1450,81 @@ func TestSelectVal(t *testing.T) {
 	_insert(dbmap, &t1)
 
 	// SelectInt
-	i64 := selectInt(dbmap, "select Int64 from TableWithNull where Str='abc'")
+	i64 := selectInt(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Int64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
 	if i64 != 78 {
 		t.Errorf("int64 %d != 78", i64)
 	}
-	i64 = selectInt(dbmap, "select count(*) from TableWithNull")
+	i64 = selectInt(dbmap, "select count(*) from "+_tableName(dbmap, TableWithNull{}))
 	if i64 != 1 {
 		t.Errorf("int64 count %d != 1", i64)
 	}
-	i64 = selectInt(dbmap, "select count(*) from TableWithNull where Str="+bindVar, "asdfasdf")
+	i64 = selectInt(dbmap, "select count(*) from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"="+bindVar, "asdfasdf")
 	if i64 != 0 {
 		t.Errorf("int64 no rows %d != 0", i64)
 	}
 
 	// SelectNullInt
-	n := selectNullInt(dbmap, "select Int64 from TableWithNull where Str='notfound'")
+	n := selectNullInt(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Int64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='notfound'")
 	if !reflect.DeepEqual(n, sql.NullInt64{0, false}) {
 		t.Errorf("nullint %v != 0,false", n)
 	}
 
-	n = selectNullInt(dbmap, "select Int64 from TableWithNull where Str='abc'")
+	n = selectNullInt(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Int64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
 	if !reflect.DeepEqual(n, sql.NullInt64{78, true}) {
 		t.Errorf("nullint %v != 78, true", n)
 	}
 
 	// SelectFloat
-	f64 := selectFloat(dbmap, "select Float64 from TableWithNull where Str='abc'")
+	f64 := selectFloat(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Float64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
 	if f64 != 32.2 {
 		t.Errorf("float64 %d != 32.2", f64)
 	}
-	f64 = selectFloat(dbmap, "select min(Float64) from TableWithNull")
+	f64 = selectFloat(dbmap, "select min("+_columnName(dbmap, TableWithNull{}, "Float64")+") from "+_tableName(dbmap, TableWithNull{}))
 	if f64 != 32.2 {
 		t.Errorf("float64 min %d != 32.2", f64)
 	}
-	f64 = selectFloat(dbmap, "select count(*) from TableWithNull where Str="+bindVar, "asdfasdf")
+	f64 = selectFloat(dbmap, "select count(*) from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"="+bindVar, "asdfasdf")
 	if f64 != 0 {
 		t.Errorf("float64 no rows %d != 0", f64)
 	}
 
 	// SelectNullFloat
-	nf := selectNullFloat(dbmap, "select Float64 from TableWithNull where Str='notfound'")
+	nf := selectNullFloat(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Float64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='notfound'")
 	if !reflect.DeepEqual(nf, sql.NullFloat64{0, false}) {
 		t.Errorf("nullfloat %v != 0,false", nf)
 	}
 
-	nf = selectNullFloat(dbmap, "select Float64 from TableWithNull where Str='abc'")
+	nf = selectNullFloat(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Float64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
 	if !reflect.DeepEqual(nf, sql.NullFloat64{32.2, true}) {
 		t.Errorf("nullfloat %v != 32.2, true", nf)
 	}
 
 	// SelectStr
-	s := selectStr(dbmap, "select Str from TableWithNull where Int64="+bindVar, 78)
+	s := selectStr(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Str")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Int64")+"="+bindVar, 78)
 	if s != "abc" {
 		t.Errorf("s %s != abc", s)
 	}
-	s = selectStr(dbmap, "select Str from TableWithNull where Str='asdfasdf'")
+	s = selectStr(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Str")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='asdfasdf'")
 	if s != "" {
 		t.Errorf("s no rows %s != ''", s)
 	}
 
 	// SelectNullStr
-	ns := selectNullStr(dbmap, "select Str from TableWithNull where Int64="+bindVar, 78)
+	ns := selectNullStr(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Str")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Int64")+"="+bindVar, 78)
 	if !reflect.DeepEqual(ns, sql.NullString{"abc", true}) {
 		t.Errorf("nullstr %v != abc,true", ns)
 	}
-	ns = selectNullStr(dbmap, "select Str from TableWithNull where Str='asdfasdf'")
+	ns = selectNullStr(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Str")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='asdfasdf'")
 	if !reflect.DeepEqual(ns, sql.NullString{"", false}) {
 		t.Errorf("nullstr no rows %v != '',false", ns)
 	}
 
 	// SelectInt/Str with named parameters
-	i64 = selectInt(dbmap, "select Int64 from TableWithNull where Str=:abc", map[string]string{"abc": "abc"})
+	i64 = selectInt(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Int64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"=:abc", map[string]string{"abc": "abc"})
 	if i64 != 78 {
 		t.Errorf("int64 %d != 78", i64)
 	}
-	ns = selectNullStr(dbmap, "select Str from TableWithNull where Int64=:num", map[string]int{"num": 78})
+	ns = selectNullStr(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Str")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Int64")+"=:num", map[string]int{"num": 78})
 	if !reflect.DeepEqual(ns, sql.NullString{"abc", true}) {
 		t.Errorf("nullstr %v != abc,true", ns)
 	}
