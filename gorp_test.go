@@ -2075,12 +2075,17 @@ func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
 	defer dropAndClose(dbmap)
+	columnId := _columnName(dbmap, Invoice{}, "Id")
+	columnCreated := _columnName(dbmap, Invoice{}, "Created")
+	columnUpdated := _columnName(dbmap, Invoice{}, "Updated")
+	columnMemo := _columnName(dbmap, Invoice{}, "Memo")
+	columnPersonId := _columnName(dbmap, Invoice{}, "PersonId")
 	b.StartTimer()
 
-	insert := "insert into invoice_test (Created, Updated, Memo, PersonId) values (?, ?, ?, ?)"
-	sel := "select Id, Created, Updated, Memo, PersonId from invoice_test where Id=?"
-	update := "update invoice_test set Created=?, Updated=?, Memo=?, PersonId=? where Id=?"
-	delete := "delete from invoice_test where Id=?"
+	insert := "insert into invoice_test (" + columnCreated + ", " + columnUpdated + ", " + columnMemo + ", " + columnPersonId + ") values (?, ?, ?, ?)"
+	sel := "select " + columnId + ", " + columnCreated + ", " + columnUpdated + ", " + columnMemo + ", " + columnPersonId + " from invoice_test where " + columnId + "=?"
+	update := "update invoice_test set " + columnCreated + "=?, " + columnUpdated + "=?, " + columnMemo + "=?, " + columnPersonId + "=? where " + columnId + "=?"
+	delete := "delete from invoice_test where " + columnId + "=?"
 
 	inv := &Invoice{0, 100, 200, "my memo", 0, false}
 
