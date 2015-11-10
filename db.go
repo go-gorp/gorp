@@ -406,7 +406,23 @@ func (m *DbMap) Insert(list ...interface{}) error {
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
 func (m *DbMap) Update(list ...interface{}) (int64, error) {
-	return update(m, m, list...)
+	return update(m, m, nil, list...)
+}
+
+// UpdateColumns runs a SQL UPDATE statement for each element in list.  List
+// items must be pointers.
+//
+// Only the columns accepted by filter are included in the UPDATE.
+//
+// The hook functions PreUpdate() and/or PostUpdate() will be executed
+// before/after the UPDATE statement if the interface defines them.
+//
+// Returns the number of rows updated.
+//
+// Returns an error if SetKeys has not been called on the TableMap
+// Panics if any interface in the list has not been registered with AddTable
+func (m *DbMap) UpdateColumns(filter ColumnFilter, list ...interface{}) (int64, error) {
+	return update(m, m, filter, list...)
 }
 
 // Delete runs a SQL DELETE statement for each element in list.  List

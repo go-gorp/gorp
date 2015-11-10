@@ -32,6 +32,13 @@ type CustomScanner struct {
 	Binder func(holder interface{}, target interface{}) error
 }
 
+// Used to filter columns when selectively updating
+type ColumnFilter func(*ColumnMap) bool
+
+func acceptAllFilter(col *ColumnMap) bool {
+	return true
+}
+
 // Bind is called automatically by gorp after Scan()
 func (me CustomScanner) Bind() error {
 	return me.Binder(me.Holder, me.Target)
@@ -160,7 +167,11 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
-func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
+func (t *TableMap) bindUpdate(elem reflect.Value, colFilter ColumnFilter) (bindInstance, error) {
+	if colFilter == nil {
+		colFilter = acceptAllFilter
+	}
+
 	plan := t.updatePlan
 	if plan.query == "" {
 
@@ -170,7 +181,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 
 		for y := range t.Columns {
 			col := t.Columns[y]
-			if !col.isAutoIncr && !col.Transient {
+			if !col.isAutoIncr && !col.Transient && colFilter(col) {
 				if x > 0 {
 					s.WriteString(", ")
 				}

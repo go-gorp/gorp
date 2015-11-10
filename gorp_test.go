@@ -1276,6 +1276,29 @@ func TestWithIgnoredColumn(t *testing.T) {
 	}
 }
 
+func TestColumnFilter(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+
+	inv1 := &Invoice{0, 100, 200, "a", 0, false}
+	_insert(dbmap, inv1)
+
+	inv1.Memo = "c"
+	inv1.IsPaid = true
+	_updateColumns(dbmap, func(col *ColumnMap) bool {
+		return col.ColumnName == "Memo"
+	}, inv1)
+
+	inv2 := &Invoice{}
+	inv2 = _get(dbmap, inv2, inv1.Id).(*Invoice)
+	if inv2.Memo != "c" {
+		t.Errorf("Expected column to be updated (%#v)", inv2)
+	}
+	if inv2.IsPaid {
+		t.Error("IsPaid shouldn't have been updated")
+	}
+}
+
 func TestTypeConversionExample(t *testing.T) {
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
@@ -2245,6 +2268,14 @@ func _insert(dbmap *DbMap, list ...interface{}) {
 
 func _update(dbmap *DbMap, list ...interface{}) int64 {
 	count, err := dbmap.Update(list...)
+	if err != nil {
+		panic(err)
+	}
+	return count
+}
+
+func _updateColumns(dbmap *DbMap, filter ColumnFilter, list ...interface{}) int64 {
+	count, err := dbmap.UpdateColumns(filter, list...)
 	if err != nil {
 		panic(err)
 	}

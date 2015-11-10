@@ -33,7 +33,12 @@ func (t *Transaction) Insert(list ...interface{}) error {
 
 // Update had the same behavior as DbMap.Update(), but runs in a transaction.
 func (t *Transaction) Update(list ...interface{}) (int64, error) {
-	return update(t.dbmap, t, list...)
+	return update(t.dbmap, t, nil, list...)
+}
+
+// UpdateColumns had the same behavior as DbMap.UpdateColumns(), but runs in a transaction.
+func (t *Transaction) UpdateColumns(filter ColumnFilter, list ...interface{}) (int64, error) {
+	return update(t.dbmap, t, filter, list...)
 }
 
 // Delete has the same behavior as DbMap.Delete(), but runs in a transaction.
