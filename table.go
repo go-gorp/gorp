@@ -214,6 +214,9 @@ func (t *TableMap) SqlForCreate(ifNotExists bool) string {
 			if col.isAutoIncr {
 				s.WriteString(fmt.Sprintf(" %s", dialect.AutoIncrStr()))
 			}
+			if col.DefaultValue != "" {
+				s.WriteString(fmt.Sprintf(" %s", col.DefaultValue))
+			}
 
 			x++
 		}
