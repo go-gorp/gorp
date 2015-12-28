@@ -569,7 +569,7 @@ func TestPersistentUser(t *testing.T) {
 		t.Errorf("%v!=%v", pu, pu2)
 	}
 
-	arr, err := dbmap.Select(pu, "select * from "+_tableName(dbmap, PersistentUser{}))
+	arr, err := dbmap.Select(pu, "select * from "+tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -579,7 +579,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in a slice
 	var puArr []*PersistentUser
-	_, err = dbmap.Select(&puArr, "select * from "+_tableName(dbmap, PersistentUser{}))
+	_, err = dbmap.Select(&puArr, "select * from "+tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -592,7 +592,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in a non-pointer slice
 	var puValues []PersistentUser
-	_, err = dbmap.Select(&puValues, "select * from "+_tableName(dbmap, PersistentUser{}))
+	_, err = dbmap.Select(&puValues, "select * from "+tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -605,7 +605,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in a string slice
 	var idArr []*string
-	_, err = dbmap.Select(&idArr, "select "+_columnName(dbmap, PersistentUser{}, "Id")+" from "+_tableName(dbmap, PersistentUser{}))
+	_, err = dbmap.Select(&idArr, "select "+columnName(dbmap, PersistentUser{}, "Id")+" from "+tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -618,7 +618,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in an int slice
 	var keyArr []*int32
-	_, err = dbmap.Select(&keyArr, "select mykey from "+_tableName(dbmap, PersistentUser{}))
+	_, err = dbmap.Select(&keyArr, "select mykey from "+tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -631,7 +631,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in a bool slice
 	var passedArr []*bool
-	_, err = dbmap.Select(&passedArr, "select "+_columnName(dbmap, PersistentUser{}, "PassedTraining")+" from "+_tableName(dbmap, PersistentUser{}))
+	_, err = dbmap.Select(&passedArr, "select "+columnName(dbmap, PersistentUser{}, "PassedTraining")+" from "+tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -644,7 +644,7 @@ func TestPersistentUser(t *testing.T) {
 
 	// prove we can get the results back in a non-pointer slice
 	var stringArr []string
-	_, err = dbmap.Select(&stringArr, "select "+_columnName(dbmap, PersistentUser{}, "Id")+" from "+_tableName(dbmap, PersistentUser{}))
+	_, err = dbmap.Select(&stringArr, "select "+columnName(dbmap, PersistentUser{}, "Id")+" from "+tableName(dbmap, PersistentUser{}))
 	if err != nil {
 		panic(err)
 	}
@@ -675,7 +675,7 @@ func TestNamedQueryMap(t *testing.T) {
 
 	// Test simple case
 	var puArr []*PersistentUser
-	_, err = dbmap.Select(&puArr, "select * from "+_tableName(dbmap, PersistentUser{})+" where mykey = :Key", map[string]interface{}{
+	_, err = dbmap.Select(&puArr, "select * from "+tableName(dbmap, PersistentUser{})+" where mykey = :Key", map[string]interface{}{
 		"Key": 43,
 	})
 	if err != nil {
@@ -691,7 +691,7 @@ func TestNamedQueryMap(t *testing.T) {
 
 	// Test more specific map value type is ok
 	puArr = nil
-	_, err = dbmap.Select(&puArr, "select * from "+_tableName(dbmap, PersistentUser{})+" where mykey = :Key", map[string]int{
+	_, err = dbmap.Select(&puArr, "select * from "+tableName(dbmap, PersistentUser{})+" where mykey = :Key", map[string]int{
 		"Key": 43,
 	})
 	if err != nil {
@@ -705,10 +705,10 @@ func TestNamedQueryMap(t *testing.T) {
 	// Test multiple parameters set.
 	puArr = nil
 	_, err = dbmap.Select(&puArr, `
-select * from `+_tableName(dbmap, PersistentUser{})+`
+select * from `+tableName(dbmap, PersistentUser{})+`
  where mykey = :Key
-   and `+_columnName(dbmap, PersistentUser{}, "PassedTraining")+` = :PassedTraining
-   and `+_columnName(dbmap, PersistentUser{}, "Id")+` = :Id`, map[string]interface{}{
+   and `+columnName(dbmap, PersistentUser{}, "PassedTraining")+` = :PassedTraining
+   and `+columnName(dbmap, PersistentUser{}, "Id")+` = :Id`, map[string]interface{}{
 		"Key":            43,
 		"PassedTraining": false,
 		"Id":             "33r",
@@ -725,9 +725,9 @@ select * from `+_tableName(dbmap, PersistentUser{})+`
 	// Test having extra, unused properties in the map.
 	puArr = nil
 	_, err = dbmap.Select(&puArr, `
-select * from `+_tableName(dbmap, PersistentUser{})+`
+select * from `+tableName(dbmap, PersistentUser{})+`
  where mykey = :Key
-   and `+_columnName(dbmap, PersistentUser{}, "Id")+` != 'abc:def'`, map[string]interface{}{
+   and `+columnName(dbmap, PersistentUser{}, "Id")+` != 'abc:def'`, map[string]interface{}{
 		"Key":            43,
 		"PassedTraining": false,
 	})
@@ -740,7 +740,7 @@ select * from `+_tableName(dbmap, PersistentUser{})+`
 	}
 
 	// Test to delete with Exec and named params.
-	result, err := dbmap.Exec("delete from "+_tableName(dbmap, PersistentUser{})+" where mykey = :Key", map[string]interface{}{
+	result, err := dbmap.Exec("delete from "+tableName(dbmap, PersistentUser{})+" where mykey = :Key", map[string]interface{}{
 		"Key": 43,
 	})
 	count, err := result.RowsAffected()
@@ -773,10 +773,10 @@ func TestNamedQueryStruct(t *testing.T) {
 	// Test select self
 	var puArr []*PersistentUser
 	_, err = dbmap.Select(&puArr, `
-select * from `+_tableName(dbmap, PersistentUser{})+`
+select * from `+tableName(dbmap, PersistentUser{})+`
  where mykey = :Key
-   and `+_columnName(dbmap, PersistentUser{}, "PassedTraining")+` = :PassedTraining
-   and `+_columnName(dbmap, PersistentUser{}, "Id")+` = :Id`, pu)
+   and `+columnName(dbmap, PersistentUser{}, "PassedTraining")+` = :PassedTraining
+   and `+columnName(dbmap, PersistentUser{}, "Id")+` = :Id`, pu)
 	if err != nil {
 		t.Errorf("Failed to select: %s", err)
 		t.FailNow()
@@ -790,10 +790,10 @@ select * from `+_tableName(dbmap, PersistentUser{})+`
 
 	// Test delete self.
 	result, err := dbmap.Exec(`
-delete from `+_tableName(dbmap, PersistentUser{})+`
+delete from `+tableName(dbmap, PersistentUser{})+`
  where mykey = :Key
-   and `+_columnName(dbmap, PersistentUser{}, "PassedTraining")+` = :PassedTraining
-   and `+_columnName(dbmap, PersistentUser{}, "Id")+` = :Id`, pu)
+   and `+columnName(dbmap, PersistentUser{}, "PassedTraining")+` = :PassedTraining
+   and `+columnName(dbmap, PersistentUser{}, "Id")+` = :Id`, pu)
 	count, err := result.RowsAffected()
 	if err != nil {
 		t.Errorf("Failed to exec: %s", err)
@@ -808,14 +808,14 @@ delete from `+_tableName(dbmap, PersistentUser{})+`
 func TestReturnsNonNilSlice(t *testing.T) {
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
-	noResultsSQL := "select * from invoice_test where " + _columnName(dbmap, Invoice{}, "Id") + "=99999"
+	noResultsSQL := "select * from invoice_test where " + columnName(dbmap, Invoice{}, "Id") + "=99999"
 	var r1 []*Invoice
-	_rawselect(dbmap, &r1, noResultsSQL)
+	rawSelect(dbmap, &r1, noResultsSQL)
 	if r1 == nil {
 		t.Errorf("r1==nil")
 	}
 
-	r2 := _rawselect(dbmap, Invoice{}, noResultsSQL)
+	r2 := rawSelect(dbmap, Invoice{}, noResultsSQL)
 	if r2 == nil {
 		t.Errorf("r2==nil")
 	}
@@ -901,7 +901,7 @@ func TestNullValues(t *testing.T) {
 	defer dropAndClose(dbmap)
 
 	// insert a row directly
-	_rawexec(dbmap, "insert into "+_tableName(dbmap, TableWithNull{})+" values (10, null, "+
+	rawExec(dbmap, "insert into "+tableName(dbmap, TableWithNull{})+" values (10, null, "+
 		"null, null, null, null)")
 
 	// try to load it
@@ -1025,10 +1025,10 @@ func TestRawSelect(t *testing.T) {
 
 	expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName, 0}
 
-	query := "select i." + _columnName(dbmap, Invoice{}, "Id") + " InvoiceId, p." + _columnName(dbmap, Person{}, "Id") + " PersonId, i." + _columnName(dbmap, Invoice{}, "Memo") + ", p." + _columnName(dbmap, Person{}, "FName") + " " +
+	query := "select i." + columnName(dbmap, Invoice{}, "Id") + " InvoiceId, p." + columnName(dbmap, Person{}, "Id") + " PersonId, i." + columnName(dbmap, Invoice{}, "Memo") + ", p." + columnName(dbmap, Person{}, "FName") + " " +
 		"from invoice_test i, person_test p " +
-		"where i." + _columnName(dbmap, Invoice{}, "PersonId") + " = p." + _columnName(dbmap, Person{}, "Id")
-	list := _rawselect(dbmap, InvoicePersonView{}, query)
+		"where i." + columnName(dbmap, Invoice{}, "PersonId") + " = p." + columnName(dbmap, Person{}, "Id")
+	list := rawSelect(dbmap, InvoicePersonView{}, query)
 	if len(list) != 1 {
 		t.Errorf("len(list) != 1: %d", len(list))
 	} else if !reflect.DeepEqual(expected, list[0]) {
@@ -1063,7 +1063,7 @@ func TestHooks(t *testing.T) {
 
 	var persons []*Person
 	bindVar := dbmap.Dialect.BindVar(0)
-	_rawselect(dbmap, &persons, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+" = "+bindVar, p1.Id)
+	rawSelect(dbmap, &persons, "select * from person_test where "+columnName(dbmap, Person{}, "Id")+" = "+bindVar, p1.Id)
 	if persons[0].LName != "postget" {
 		t.Errorf("p1.PostGet() didn't run after select: %v", p1)
 	}
@@ -1129,7 +1129,7 @@ func TestSavepoint(t *testing.T) {
 	trans.Insert(inv1)
 
 	var checkMemo = func(want string) {
-		memo, err := trans.SelectStr("select " + _columnName(dbmap, Invoice{}, "Memo") + " from invoice_test")
+		memo, err := trans.SelectStr("select " + columnName(dbmap, Invoice{}, "Memo") + " from invoice_test")
 		if err != nil {
 			panic(err)
 		}
@@ -1349,7 +1349,7 @@ func TestWithEmbeddedStruct(t *testing.T) {
 		t.Errorf("%v != %v", expected, es2)
 	}
 
-	ess := _rawselect(dbmap, WithEmbeddedStruct{}, "select * from embedded_struct_test")
+	ess := rawSelect(dbmap, WithEmbeddedStruct{}, "select * from embedded_struct_test")
 	if !reflect.DeepEqual(es2, ess[0]) {
 		t.Errorf("%v != %v", es2, ess[0])
 	}
@@ -1376,7 +1376,7 @@ func TestWithEmbeddedStructConflictingEmbeddedMemberNames(t *testing.T) {
 		t.Errorf("%v != %v", expected, es2)
 	}
 
-	ess := _rawselect(dbmap, WithEmbeddedStructConflictingEmbeddedMemberNames{}, "select * from embedded_struct_conflict_name_test")
+	ess := rawSelect(dbmap, WithEmbeddedStructConflictingEmbeddedMemberNames{}, "select * from embedded_struct_conflict_name_test")
 	if !reflect.DeepEqual(es2, ess[0]) {
 		t.Errorf("%v != %v", es2, ess[0])
 	}
@@ -1402,7 +1402,7 @@ func TestWithEmbeddedStructSameMemberName(t *testing.T) {
 		t.Errorf("%v != %v", expected, es2)
 	}
 
-	ess := _rawselect(dbmap, WithEmbeddedStructSameMemberName{}, "select * from embedded_struct_same_member_name_test")
+	ess := rawSelect(dbmap, WithEmbeddedStructSameMemberName{}, "select * from embedded_struct_same_member_name_test")
 	if !reflect.DeepEqual(es2, ess[0]) {
 		t.Errorf("%v != %v", es2, ess[0])
 	}
@@ -1450,81 +1450,81 @@ func TestSelectVal(t *testing.T) {
 	_insert(dbmap, &t1)
 
 	// SelectInt
-	i64 := selectInt(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Int64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
+	i64 := selectInt(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Int64")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
 	if i64 != 78 {
 		t.Errorf("int64 %d != 78", i64)
 	}
-	i64 = selectInt(dbmap, "select count(*) from "+_tableName(dbmap, TableWithNull{}))
+	i64 = selectInt(dbmap, "select count(*) from "+tableName(dbmap, TableWithNull{}))
 	if i64 != 1 {
 		t.Errorf("int64 count %d != 1", i64)
 	}
-	i64 = selectInt(dbmap, "select count(*) from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"="+bindVar, "asdfasdf")
+	i64 = selectInt(dbmap, "select count(*) from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"="+bindVar, "asdfasdf")
 	if i64 != 0 {
 		t.Errorf("int64 no rows %d != 0", i64)
 	}
 
 	// SelectNullInt
-	n := selectNullInt(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Int64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='notfound'")
+	n := selectNullInt(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Int64")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"='notfound'")
 	if !reflect.DeepEqual(n, sql.NullInt64{0, false}) {
 		t.Errorf("nullint %v != 0,false", n)
 	}
 
-	n = selectNullInt(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Int64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
+	n = selectNullInt(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Int64")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
 	if !reflect.DeepEqual(n, sql.NullInt64{78, true}) {
 		t.Errorf("nullint %v != 78, true", n)
 	}
 
 	// SelectFloat
-	f64 := selectFloat(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Float64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
+	f64 := selectFloat(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Float64")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
 	if f64 != 32.2 {
 		t.Errorf("float64 %d != 32.2", f64)
 	}
-	f64 = selectFloat(dbmap, "select min("+_columnName(dbmap, TableWithNull{}, "Float64")+") from "+_tableName(dbmap, TableWithNull{}))
+	f64 = selectFloat(dbmap, "select min("+columnName(dbmap, TableWithNull{}, "Float64")+") from "+tableName(dbmap, TableWithNull{}))
 	if f64 != 32.2 {
 		t.Errorf("float64 min %d != 32.2", f64)
 	}
-	f64 = selectFloat(dbmap, "select count(*) from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"="+bindVar, "asdfasdf")
+	f64 = selectFloat(dbmap, "select count(*) from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"="+bindVar, "asdfasdf")
 	if f64 != 0 {
 		t.Errorf("float64 no rows %d != 0", f64)
 	}
 
 	// SelectNullFloat
-	nf := selectNullFloat(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Float64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='notfound'")
+	nf := selectNullFloat(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Float64")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"='notfound'")
 	if !reflect.DeepEqual(nf, sql.NullFloat64{0, false}) {
 		t.Errorf("nullfloat %v != 0,false", nf)
 	}
 
-	nf = selectNullFloat(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Float64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
+	nf = selectNullFloat(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Float64")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
 	if !reflect.DeepEqual(nf, sql.NullFloat64{32.2, true}) {
 		t.Errorf("nullfloat %v != 32.2, true", nf)
 	}
 
 	// SelectStr
-	s := selectStr(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Str")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Int64")+"="+bindVar, 78)
+	s := selectStr(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Str")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Int64")+"="+bindVar, 78)
 	if s != "abc" {
 		t.Errorf("s %s != abc", s)
 	}
-	s = selectStr(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Str")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='asdfasdf'")
+	s = selectStr(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Str")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"='asdfasdf'")
 	if s != "" {
 		t.Errorf("s no rows %s != ''", s)
 	}
 
 	// SelectNullStr
-	ns := selectNullStr(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Str")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Int64")+"="+bindVar, 78)
+	ns := selectNullStr(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Str")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Int64")+"="+bindVar, 78)
 	if !reflect.DeepEqual(ns, sql.NullString{"abc", true}) {
 		t.Errorf("nullstr %v != abc,true", ns)
 	}
-	ns = selectNullStr(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Str")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"='asdfasdf'")
+	ns = selectNullStr(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Str")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"='asdfasdf'")
 	if !reflect.DeepEqual(ns, sql.NullString{"", false}) {
 		t.Errorf("nullstr no rows %v != '',false", ns)
 	}
 
 	// SelectInt/Str with named parameters
-	i64 = selectInt(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Int64")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Str")+"=:abc", map[string]string{"abc": "abc"})
+	i64 = selectInt(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Int64")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"=:abc", map[string]string{"abc": "abc"})
 	if i64 != 78 {
 		t.Errorf("int64 %d != 78", i64)
 	}
-	ns = selectNullStr(dbmap, "select "+_columnName(dbmap, TableWithNull{}, "Str")+" from "+_tableName(dbmap, TableWithNull{})+" where "+_columnName(dbmap, TableWithNull{}, "Int64")+"=:num", map[string]int{"num": 78})
+	ns = selectNullStr(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Str")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Int64")+"=:num", map[string]int{"num": 78})
 	if !reflect.DeepEqual(ns, sql.NullString{"abc", true}) {
 		t.Errorf("nullstr %v != abc,true", ns)
 	}
@@ -1598,7 +1598,7 @@ func TestNullTime(t *testing.T) {
 	if err != nil {
 		t.Error("failed insert on %s", err.Error())
 	}
-	err = dbmap.SelectOne(ent, `select * from nulltime_test where `+_columnName(dbmap, WithNullTime{}, "Id")+`=:Id`, map[string]interface{}{
+	err = dbmap.SelectOne(ent, `select * from nulltime_test where `+columnName(dbmap, WithNullTime{}, "Id")+`=:Id`, map[string]interface{}{
 		"Id": ent.Id,
 	})
 	if err != nil {
@@ -1620,7 +1620,7 @@ func TestNullTime(t *testing.T) {
 	if err != nil {
 		t.Error("failed insert on %s", err.Error())
 	}
-	err = dbmap.SelectOne(ent, `select * from nulltime_test where `+_columnName(dbmap, WithNullTime{}, "Id")+`=:Id`, map[string]interface{}{
+	err = dbmap.SelectOne(ent, `select * from nulltime_test where `+columnName(dbmap, WithNullTime{}, "Id")+`=:Id`, map[string]interface{}{
 		"Id": ent.Id,
 	})
 	if err != nil {
@@ -1712,7 +1712,7 @@ func TestWithTimeSelect(t *testing.T) {
 	_insert(dbmap, &w1, &w2)
 
 	var caseIds []int64
-	_, err := dbmap.Select(&caseIds, "SELECT "+_columnName(dbmap, WithTime{}, "Id")+" FROM time_test WHERE "+_columnName(dbmap, WithTime{}, "Time")+" < "+dbmap.Dialect.BindVar(0), halfhourago)
+	_, err := dbmap.Select(&caseIds, "SELECT "+columnName(dbmap, WithTime{}, "Id")+" FROM time_test WHERE "+columnName(dbmap, WithTime{}, "Time")+" < "+dbmap.Dialect.BindVar(0), halfhourago)
 
 	if err != nil {
 		t.Error(err)
@@ -1738,9 +1738,9 @@ func TestInvoicePersonView(t *testing.T) {
 	dbmap.Insert(inv1)
 
 	// Run your query
-	query := "select i." + _columnName(dbmap, Invoice{}, "Id") + " InvoiceId, p." + _columnName(dbmap, Person{}, "Id") + " PersonId, i." + _columnName(dbmap, Invoice{}, "Memo") + ", p." + _columnName(dbmap, Person{}, "FName") + " " +
+	query := "select i." + columnName(dbmap, Invoice{}, "Id") + " InvoiceId, p." + columnName(dbmap, Person{}, "Id") + " PersonId, i." + columnName(dbmap, Invoice{}, "Memo") + ", p." + columnName(dbmap, Person{}, "FName") + " " +
 		"from invoice_test i, person_test p " +
-		"where i." + _columnName(dbmap, Invoice{}, "PersonId") + " = p." + _columnName(dbmap, Person{}, "Id")
+		"where i." + columnName(dbmap, Invoice{}, "PersonId") + " = p." + columnName(dbmap, Person{}, "Id")
 
 	// pass a slice of pointers to Select()
 	// this avoids the need to type assert after the query is run
@@ -1805,7 +1805,7 @@ func TestSelectTooManyCols(t *testing.T) {
 	}
 
 	var p3 FNameOnly
-	err := dbmap.SelectOne(&p3, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
+	err := dbmap.SelectOne(&p3, "select * from person_test where "+columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err != nil {
 		if !NonFatalError(err) {
 			t.Error(err)
@@ -1819,7 +1819,7 @@ func TestSelectTooManyCols(t *testing.T) {
 	}
 
 	var pSlice []FNameOnly
-	_, err = dbmap.Select(&pSlice, "select * from person_test order by "+_columnName(dbmap, Person{}, "FName")+" asc")
+	_, err = dbmap.Select(&pSlice, "select * from person_test order by "+columnName(dbmap, Person{}, "FName")+" asc")
 	if err != nil {
 		if !NonFatalError(err) {
 			t.Error(err)
@@ -1851,7 +1851,7 @@ func TestSelectSingleVal(t *testing.T) {
 	}
 
 	var p2 Person
-	err := dbmap.SelectOne(&p2, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
+	err := dbmap.SelectOne(&p2, "select * from person_test where "+columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1862,7 +1862,7 @@ func TestSelectSingleVal(t *testing.T) {
 
 	// verify SelectOne allows non-struct holders
 	var s string
-	err = dbmap.SelectOne(&s, "select "+_columnName(dbmap, Person{}, "FName")+" from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
+	err = dbmap.SelectOne(&s, "select "+columnName(dbmap, Person{}, "FName")+" from person_test where "+columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1871,14 +1871,14 @@ func TestSelectSingleVal(t *testing.T) {
 	}
 
 	// verify SelectOne requires pointer receiver
-	err = dbmap.SelectOne(s, "select "+_columnName(dbmap, Person{}, "FName")+" from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
+	err = dbmap.SelectOne(s, "select "+columnName(dbmap, Person{}, "FName")+" from person_test where "+columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err == nil {
 		t.Error("SelectOne should have returned error for non-pointer holder")
 	}
 
 	// verify SelectOne works with uninitialized pointers
 	var p3 *Person
-	err = dbmap.SelectOne(&p3, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
+	err = dbmap.SelectOne(&p3, "select * from person_test where "+columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1889,13 +1889,13 @@ func TestSelectSingleVal(t *testing.T) {
 
 	// verify that the receiver is still nil if nothing was found
 	var p4 *Person
-	dbmap.SelectOne(&p3, "select * from person_test where 2<1 AND "+_columnName(dbmap, Person{}, "Id")+"=:Id", params)
+	dbmap.SelectOne(&p3, "select * from person_test where 2<1 AND "+columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if p4 != nil {
 		t.Error("SelectOne should not have changed a nil receiver when no rows were found")
 	}
 
 	// verify that the error is set to sql.ErrNoRows if not found
-	err = dbmap.SelectOne(&p2, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+"=:Id", map[string]interface{}{
+	err = dbmap.SelectOne(&p2, "select * from person_test where "+columnName(dbmap, Person{}, "Id")+"=:Id", map[string]interface{}{
 		"Id": -2222,
 	})
 	if err == nil || err != sql.ErrNoRows {
@@ -1903,7 +1903,7 @@ func TestSelectSingleVal(t *testing.T) {
 	}
 
 	_insert(dbmap, &Person{0, 0, 0, "bob", "smith", 0})
-	err = dbmap.SelectOne(&p2, "select * from person_test where "+_columnName(dbmap, Person{}, "FName")+"='bob'")
+	err = dbmap.SelectOne(&p2, "select * from person_test where "+columnName(dbmap, Person{}, "FName")+"='bob'")
 	if err == nil {
 		t.Error("Expected error when two rows found")
 	}
@@ -1915,7 +1915,7 @@ func TestSelectSingleVal(t *testing.T) {
 	var tFloat float64
 	primVals := []interface{}{tInt, tStr, tBool, tFloat}
 	for _, prim := range primVals {
-		err = dbmap.SelectOne(&prim, "select * from person_test where "+_columnName(dbmap, Person{}, "Id")+"=-123")
+		err = dbmap.SelectOne(&prim, "select * from person_test where "+columnName(dbmap, Person{}, "Id")+"=-123")
 		if err == nil || err != sql.ErrNoRows {
 			t.Error("primVals: SelectOne should have returned sql.ErrNoRows")
 		}
@@ -1934,7 +1934,7 @@ func TestSelectAlias(t *testing.T) {
 	// Select into IdCreatedExternal type, which includes some fields not present
 	// in id_created_test
 	var p2 IdCreatedExternal
-	err := dbmap.SelectOne(&p2, "select * from id_created_test where "+_columnName(dbmap, IdCreatedExternal{}, "Id")+"=1")
+	err := dbmap.SelectOne(&p2, "select * from id_created_test where "+columnName(dbmap, IdCreatedExternal{}, "Id")+"=1")
 	if err != nil {
 		t.Error(err)
 	}
@@ -2026,7 +2026,7 @@ func TestPrepare(t *testing.T) {
 
 	bindVar0 := dbmap.Dialect.BindVar(0)
 	bindVar1 := dbmap.Dialect.BindVar(1)
-	stmt, err := dbmap.Prepare(fmt.Sprintf("UPDATE invoice_test SET "+_columnName(dbmap, Invoice{}, "Memo")+"=%s WHERE "+_columnName(dbmap, Invoice{}, "Id")+"=%s", bindVar0, bindVar1))
+	stmt, err := dbmap.Prepare(fmt.Sprintf("UPDATE invoice_test SET "+columnName(dbmap, Invoice{}, "Memo")+"=%s WHERE "+columnName(dbmap, Invoice{}, "Id")+"=%s", bindVar0, bindVar1))
 	if err != nil {
 		t.Error(err)
 	}
@@ -2035,7 +2035,7 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = dbmap.SelectOne(inv1, "SELECT * from invoice_test WHERE "+_columnName(dbmap, Invoice{}, "Memo")+"='prepare-baz'")
+	err = dbmap.SelectOne(inv1, "SELECT * from invoice_test WHERE "+columnName(dbmap, Invoice{}, "Memo")+"='prepare-baz'")
 	if err != nil {
 		t.Error(err)
 	}
@@ -2044,7 +2044,7 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	transStmt, err := trans.Prepare(fmt.Sprintf("UPDATE invoice_test SET "+_columnName(dbmap, Invoice{}, "IsPaid")+"=%s WHERE "+_columnName(dbmap, Invoice{}, "Id")+"=%s", bindVar0, bindVar1))
+	transStmt, err := trans.Prepare(fmt.Sprintf("UPDATE invoice_test SET "+columnName(dbmap, Invoice{}, "IsPaid")+"=%s WHERE "+columnName(dbmap, Invoice{}, "Id")+"=%s", bindVar0, bindVar1))
 	if err != nil {
 		t.Error(err)
 	}
@@ -2053,11 +2053,11 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE "+_columnName(dbmap, Invoice{}, "IsPaid")+"=%s", bindVar0), true)
+	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE "+columnName(dbmap, Invoice{}, "IsPaid")+"=%s", bindVar0), true)
 	if err == nil || err != sql.ErrNoRows {
 		t.Error("SelectOne should have returned an sql.ErrNoRows")
 	}
-	err = trans.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE "+_columnName(dbmap, Invoice{}, "IsPaid")+"=%s", bindVar0), true)
+	err = trans.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE "+columnName(dbmap, Invoice{}, "IsPaid")+"=%s", bindVar0), true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -2065,7 +2065,7 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE "+_columnName(dbmap, Invoice{}, "IsPaid")+"=%s", bindVar0), true)
+	err = dbmap.SelectOne(inv2, fmt.Sprintf("SELECT * from invoice_test WHERE "+columnName(dbmap, Invoice{}, "IsPaid")+"=%s", bindVar0), true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -2075,11 +2075,11 @@ func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
 	defer dropAndClose(dbmap)
-	columnId := _columnName(dbmap, Invoice{}, "Id")
-	columnCreated := _columnName(dbmap, Invoice{}, "Created")
-	columnUpdated := _columnName(dbmap, Invoice{}, "Updated")
-	columnMemo := _columnName(dbmap, Invoice{}, "Memo")
-	columnPersonId := _columnName(dbmap, Invoice{}, "PersonId")
+	columnId := columnName(dbmap, Invoice{}, "Id")
+	columnCreated := columnName(dbmap, Invoice{}, "Created")
+	columnUpdated := columnName(dbmap, Invoice{}, "Updated")
+	columnMemo := columnName(dbmap, Invoice{}, "Memo")
+	columnPersonId := columnName(dbmap, Invoice{}, "PersonId")
 	b.StartTimer()
 
 	var insert, sel, update, delete string
@@ -2367,7 +2367,7 @@ func selectNullStr(dbmap *DbMap, query string, args ...interface{}) sql.NullStri
 	return s
 }
 
-func _rawexec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
+func rawExec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
 	res, err := dbmap.Exec(query, args...)
 	if err != nil {
 		panic(err)
@@ -2375,7 +2375,7 @@ func _rawexec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
 	return res
 }
 
-func _rawselect(dbmap *DbMap, i interface{}, query string, args ...interface{}) []interface{} {
+func rawSelect(dbmap *DbMap, i interface{}, query string, args ...interface{}) []interface{} {
 	list, err := dbmap.Select(i, query, args...)
 	if err != nil {
 		panic(err)
@@ -2383,20 +2383,18 @@ func _rawselect(dbmap *DbMap, i interface{}, query string, args ...interface{}) 
 	return list
 }
 
-func _tableName(dbmap *DbMap, i interface{}) string {
+func tableName(dbmap *DbMap, i interface{}) string {
 	t := reflect.TypeOf(i)
 	if table, err := dbmap.TableFor(t, false); table != nil && err == nil {
 		return dbmap.Dialect.QuoteField(table.TableName)
-	} else {
-		return t.Name()
 	}
+	return t.Name()
 }
 
-func _columnName(dbmap *DbMap, i interface{}, fieldName string) string {
+func columnName(dbmap *DbMap, i interface{}, fieldName string) string {
 	t := reflect.TypeOf(i)
 	if table, err := dbmap.TableFor(t, false); table != nil && err == nil {
 		return dbmap.Dialect.QuoteField(table.ColMap(fieldName).ColumnName)
-	} else {
-		return fieldName
 	}
+	return fieldName
 }
