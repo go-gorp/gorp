@@ -9,7 +9,7 @@
 // Source code and project home:
 // https://github.com/go-gorp/gorp
 
-package gorp
+package gorp_test
 
 import (
 	"bytes"
@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-gorp/gorp"
+
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
@@ -36,12 +38,12 @@ import (
 
 var (
 	// verify interface compliance
-	_ = []Dialect{
-		SqliteDialect{},
-		PostgresDialect{},
-		MySQLDialect{},
-		SqlServerDialect{},
-		OracleDialect{},
+	_ = []gorp.Dialect{
+		gorp.SqliteDialect{},
+		gorp.PostgresDialect{},
+		gorp.MySQLDialect{},
+		gorp.SqlServerDialect{},
+		gorp.OracleDialect{},
 	}
 
 	debug bool
@@ -279,7 +281,7 @@ type WithCustomDate struct {
 
 type WithNullTime struct {
 	Id   int64
-	Time NullTime
+	Time gorp.NullTime
 }
 
 type testTypeConverter struct{}
@@ -302,7 +304,7 @@ func (me testTypeConverter) ToDb(val interface{}) (interface{}, error) {
 	return val, nil
 }
 
-func (me testTypeConverter) FromDb(target interface{}) (CustomScanner, bool) {
+func (me testTypeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 	switch target.(type) {
 	case *Person:
 		binder := func(holder, target interface{}) error {
@@ -313,7 +315,7 @@ func (me testTypeConverter) FromDb(target interface{}) (CustomScanner, bool) {
 			b := []byte(*s)
 			return json.Unmarshal(b, target)
 		}
-		return CustomScanner{new(string), target, binder}, true
+		return gorp.CustomScanner{new(string), target, binder}, true
 	case *CustomStringType:
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*string)
@@ -327,7 +329,7 @@ func (me testTypeConverter) FromDb(target interface{}) (CustomScanner, bool) {
 			*st = CustomStringType(*s)
 			return nil
 		}
-		return CustomScanner{new(string), target, binder}, true
+		return gorp.CustomScanner{new(string), target, binder}, true
 	case *CustomDate:
 		binder := func(holder, target interface{}) error {
 			t, ok := holder.(*time.Time)
@@ -341,13 +343,13 @@ func (me testTypeConverter) FromDb(target interface{}) (CustomScanner, bool) {
 			dateTarget.Time = *t
 			return nil
 		}
-		return CustomScanner{new(time.Time), target, binder}, true
+		return gorp.CustomScanner{new(time.Time), target, binder}, true
 	}
 
-	return CustomScanner{}, false
+	return gorp.CustomScanner{}, false
 }
 
-func (p *Person) PreInsert(s SqlExecutor) error {
+func (p *Person) PreInsert(s gorp.SqlExecutor) error {
 	p.Created = time.Now().UnixNano()
 	p.Updated = p.Created
 	if p.FName == "badname" {
@@ -356,32 +358,32 @@ func (p *Person) PreInsert(s SqlExecutor) error {
 	return nil
 }
 
-func (p *Person) PostInsert(s SqlExecutor) error {
+func (p *Person) PostInsert(s gorp.SqlExecutor) error {
 	p.LName = "postinsert"
 	return nil
 }
 
-func (p *Person) PreUpdate(s SqlExecutor) error {
+func (p *Person) PreUpdate(s gorp.SqlExecutor) error {
 	p.FName = "preupdate"
 	return nil
 }
 
-func (p *Person) PostUpdate(s SqlExecutor) error {
+func (p *Person) PostUpdate(s gorp.SqlExecutor) error {
 	p.LName = "postupdate"
 	return nil
 }
 
-func (p *Person) PreDelete(s SqlExecutor) error {
+func (p *Person) PreDelete(s gorp.SqlExecutor) error {
 	p.FName = "predelete"
 	return nil
 }
 
-func (p *Person) PostDelete(s SqlExecutor) error {
+func (p *Person) PostDelete(s gorp.SqlExecutor) error {
 	p.LName = "postdelete"
 	return nil
 }
 
-func (p *Person) PostGet(s SqlExecutor) error {
+func (p *Person) PostGet(s gorp.SqlExecutor) error {
 	p.LName = "postget"
 	return nil
 }
@@ -869,16 +871,16 @@ func TestOptimisticLocking(t *testing.T) {
 
 	p1.LName = "Howard"
 	count, err := dbmap.Update(p1)
-	if _, ok := err.(OptimisticLockError); !ok {
-		t.Errorf("update - Expected OptimisticLockError, got: %v", err)
+	if _, ok := err.(gorp.OptimisticLockError); !ok {
+		t.Errorf("update - Expected gorp.OptimisticLockError, got: %v", err)
 	}
 	if count != -1 {
 		t.Errorf("update - Expected -1 count, got: %d", count)
 	}
 
 	count, err = dbmap.Delete(p1)
-	if _, ok := err.(OptimisticLockError); !ok {
-		t.Errorf("delete - Expected OptimisticLockError, got: %v", err)
+	if _, ok := err.(gorp.OptimisticLockError); !ok {
+		t.Errorf("delete - Expected gorp.OptimisticLockError, got: %v", err)
 	}
 	if count != -1 {
 		t.Errorf("delete - Expected -1 count, got: %d", count)
@@ -1196,8 +1198,8 @@ func TestCrud(t *testing.T) {
 	testCrudInternal(t, dbmap, foo)
 }
 
-func testCrudInternal(t *testing.T, dbmap *DbMap, val testable) {
-	table, _, err := dbmap.tableForPointer(val, false)
+func testCrudInternal(t *testing.T, dbmap *gorp.DbMap, val testable) {
+	table, err := dbmap.TableFor(reflect.TypeOf(val).Elem(), false)
 	if err != nil {
 		t.Errorf("couldn't call TableFor: val=%v err=%v", val, err)
 	}
@@ -1285,7 +1287,7 @@ func TestColumnFilter(t *testing.T) {
 
 	inv1.Memo = "c"
 	inv1.IsPaid = true
-	_updateColumns(dbmap, func(col *ColumnMap) bool {
+	_updateColumns(dbmap, func(col *gorp.ColumnMap) bool {
 		return col.ColumnName == "Memo"
 	}, inv1)
 
@@ -1565,12 +1567,12 @@ func TestWithStringPk(t *testing.T) {
 	}
 }
 
-// TestSqlExecutorInterfaceSelects ensures that all DbMap methods starting with Select...
-// are also exposed in the SqlExecutor interface. Select...  functions can always
+// TestSqlExecutorInterfaceSelects ensures that all gorp.DbMap methods starting with Select...
+// are also exposed in the gorp.SqlExecutor interface. Select...  functions can always
 // run on Pre/Post hooks.
 func TestSqlExecutorInterfaceSelects(t *testing.T) {
-	dbMapType := reflect.TypeOf(&DbMap{})
-	sqlExecutorType := reflect.TypeOf((*SqlExecutor)(nil)).Elem()
+	dbMapType := reflect.TypeOf(&gorp.DbMap{})
+	sqlExecutorType := reflect.TypeOf((*gorp.SqlExecutor)(nil)).Elem()
 	numDbMapMethods := dbMapType.NumMethod()
 	for i := 0; i < numDbMapMethods; i += 1 {
 		dbMapMethod := dbMapType.Method(i)
@@ -1578,7 +1580,7 @@ func TestSqlExecutorInterfaceSelects(t *testing.T) {
 			continue
 		}
 		if _, found := sqlExecutorType.MethodByName(dbMapMethod.Name); !found {
-			t.Errorf("Method %s is defined on DbMap but not implemented in SqlExecutor",
+			t.Errorf("Method %s is defined on gorp.DbMap but not implemented in gorp.SqlExecutor",
 				dbMapMethod.Name)
 		}
 	}
@@ -1591,7 +1593,7 @@ func TestNullTime(t *testing.T) {
 	// if time is null
 	ent := &WithNullTime{
 		Id: 0,
-		Time: NullTime{
+		Time: gorp.NullTime{
 			Valid: false,
 		}}
 	err := dbmap.Insert(ent)
@@ -1605,14 +1607,14 @@ func TestNullTime(t *testing.T) {
 		t.Error("failed select on %s", err.Error())
 	}
 	if ent.Time.Valid {
-		t.Error("NullTime returns valid but expected null.")
+		t.Error("gorp.NullTime returns valid but expected null.")
 	}
 
 	// if time is not null
 	ts, err := time.Parse(time.Stamp, "Jan 2 15:04:05")
 	ent = &WithNullTime{
 		Id: 1,
-		Time: NullTime{
+		Time: gorp.NullTime{
 			Valid: true,
 			Time:  ts,
 		}}
@@ -1627,7 +1629,7 @@ func TestNullTime(t *testing.T) {
 		t.Error("failed select on %s", err.Error())
 	}
 	if !ent.Time.Valid {
-		t.Error("NullTime returns invalid but expected valid.")
+		t.Error("gorp.NullTime returns invalid but expected valid.")
 	}
 	if ent.Time.Time.UTC() != ts.UTC() {
 		t.Errorf("expect %v but got %v.", ts, ent.Time.Time)
@@ -1807,7 +1809,7 @@ func TestSelectTooManyCols(t *testing.T) {
 	var p3 FNameOnly
 	err := dbmap.SelectOne(&p3, "select * from person_test where "+columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err != nil {
-		if !NonFatalError(err) {
+		if !gorp.NonFatalError(err) {
 			t.Error(err)
 		}
 	} else {
@@ -1821,7 +1823,7 @@ func TestSelectTooManyCols(t *testing.T) {
 	var pSlice []FNameOnly
 	_, err = dbmap.Select(&pSlice, "select * from person_test order by "+columnName(dbmap, Person{}, "FName")+" asc")
 	if err != nil {
-		if !NonFatalError(err) {
+		if !gorp.NonFatalError(err) {
 			t.Error(err)
 		}
 	} else {
@@ -1973,13 +1975,13 @@ func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
 	defer func() {
 		r := recover()
 		if r == nil {
-			t.Error("db.CreateTables() should panic if db is initialized with an incorrect MySQLDialect")
+			t.Error("db.CreateTables() should panic if db is initialized with an incorrect gorp.MySQLDialect")
 		}
 	}()
 
 	// invalid MySQLDialect : does not contain Engine or Encoding specification
-	dialect := MySQLDialect{}
-	db := &DbMap{Db: connect(driver), Dialect: dialect}
+	dialect := gorp.MySQLDialect{}
+	db := &gorp.DbMap{Db: connect(driver), Dialect: dialect}
 	db.AddTableWithName(Invoice{}, "invoice")
 	// the following call should panic :
 	db.CreateTables()
@@ -2176,7 +2178,7 @@ func BenchmarkGorpCrud(b *testing.B) {
 	}
 }
 
-func initDbMapBench() *DbMap {
+func initDbMapBench() *gorp.DbMap {
 	dbmap := newDbMap()
 	dbmap.Db.Exec("drop table if exists invoice_test")
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
@@ -2187,7 +2189,7 @@ func initDbMapBench() *DbMap {
 	return dbmap
 }
 
-func initDbMap() *DbMap {
+func initDbMap() *gorp.DbMap {
 	dbmap := newDbMap()
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(InvoiceTag{}, "invoice_tag_test") //key is set via primarykey attribute
@@ -2221,7 +2223,7 @@ func initDbMap() *DbMap {
 	return dbmap
 }
 
-func initDbMapNulls() *DbMap {
+func initDbMapNulls() *gorp.DbMap {
 	dbmap := newDbMap()
 	dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
 	err := dbmap.CreateTables()
@@ -2231,16 +2233,16 @@ func initDbMapNulls() *DbMap {
 	return dbmap
 }
 
-func newDbMap() *DbMap {
+func newDbMap() *gorp.DbMap {
 	dialect, driver := dialectAndDriver()
-	dbmap := &DbMap{Db: connect(driver), Dialect: dialect}
+	dbmap := &gorp.DbMap{Db: connect(driver), Dialect: dialect}
 	if debug {
 		dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
 	}
 	return dbmap
 }
 
-func dropAndClose(dbmap *DbMap) {
+func dropAndClose(dbmap *gorp.DbMap) {
 	dbmap.DropTablesIfExists()
 	dbmap.Db.Close()
 }
@@ -2258,28 +2260,28 @@ func connect(driver string) *sql.DB {
 	return db
 }
 
-func dialectAndDriver() (Dialect, string) {
+func dialectAndDriver() (gorp.Dialect, string) {
 	switch os.Getenv("GORP_TEST_DIALECT") {
 	case "mysql":
-		return MySQLDialect{"InnoDB", "UTF8"}, "mymysql"
+		return gorp.MySQLDialect{"InnoDB", "UTF8"}, "mymysql"
 	case "gomysql":
-		return MySQLDialect{"InnoDB", "UTF8"}, "mysql"
+		return gorp.MySQLDialect{"InnoDB", "UTF8"}, "mysql"
 	case "postgres":
-		return PostgresDialect{}, "postgres"
+		return gorp.PostgresDialect{}, "postgres"
 	case "sqlite":
-		return SqliteDialect{}, "sqlite3"
+		return gorp.SqliteDialect{}, "sqlite3"
 	}
 	panic("GORP_TEST_DIALECT env variable is not set or is invalid. Please see README.md")
 }
 
-func _insert(dbmap *DbMap, list ...interface{}) {
+func _insert(dbmap *gorp.DbMap, list ...interface{}) {
 	err := dbmap.Insert(list...)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func _update(dbmap *DbMap, list ...interface{}) int64 {
+func _update(dbmap *gorp.DbMap, list ...interface{}) int64 {
 	count, err := dbmap.Update(list...)
 	if err != nil {
 		panic(err)
@@ -2287,7 +2289,7 @@ func _update(dbmap *DbMap, list ...interface{}) int64 {
 	return count
 }
 
-func _updateColumns(dbmap *DbMap, filter ColumnFilter, list ...interface{}) int64 {
+func _updateColumns(dbmap *gorp.DbMap, filter gorp.ColumnFilter, list ...interface{}) int64 {
 	count, err := dbmap.UpdateColumns(filter, list...)
 	if err != nil {
 		panic(err)
@@ -2295,7 +2297,7 @@ func _updateColumns(dbmap *DbMap, filter ColumnFilter, list ...interface{}) int6
 	return count
 }
 
-func _del(dbmap *DbMap, list ...interface{}) int64 {
+func _del(dbmap *gorp.DbMap, list ...interface{}) int64 {
 	count, err := dbmap.Delete(list...)
 	if err != nil {
 		panic(err)
@@ -2304,7 +2306,7 @@ func _del(dbmap *DbMap, list ...interface{}) int64 {
 	return count
 }
 
-func _get(dbmap *DbMap, i interface{}, keys ...interface{}) interface{} {
+func _get(dbmap *gorp.DbMap, i interface{}, keys ...interface{}) interface{} {
 	obj, err := dbmap.Get(i, keys...)
 	if err != nil {
 		panic(err)
@@ -2313,8 +2315,8 @@ func _get(dbmap *DbMap, i interface{}, keys ...interface{}) interface{} {
 	return obj
 }
 
-func selectInt(dbmap *DbMap, query string, args ...interface{}) int64 {
-	i64, err := SelectInt(dbmap, query, args...)
+func selectInt(dbmap *gorp.DbMap, query string, args ...interface{}) int64 {
+	i64, err := gorp.SelectInt(dbmap, query, args...)
 	if err != nil {
 		panic(err)
 	}
@@ -2322,8 +2324,8 @@ func selectInt(dbmap *DbMap, query string, args ...interface{}) int64 {
 	return i64
 }
 
-func selectNullInt(dbmap *DbMap, query string, args ...interface{}) sql.NullInt64 {
-	i64, err := SelectNullInt(dbmap, query, args...)
+func selectNullInt(dbmap *gorp.DbMap, query string, args ...interface{}) sql.NullInt64 {
+	i64, err := gorp.SelectNullInt(dbmap, query, args...)
 	if err != nil {
 		panic(err)
 	}
@@ -2331,8 +2333,8 @@ func selectNullInt(dbmap *DbMap, query string, args ...interface{}) sql.NullInt6
 	return i64
 }
 
-func selectFloat(dbmap *DbMap, query string, args ...interface{}) float64 {
-	f64, err := SelectFloat(dbmap, query, args...)
+func selectFloat(dbmap *gorp.DbMap, query string, args ...interface{}) float64 {
+	f64, err := gorp.SelectFloat(dbmap, query, args...)
 	if err != nil {
 		panic(err)
 	}
@@ -2340,8 +2342,8 @@ func selectFloat(dbmap *DbMap, query string, args ...interface{}) float64 {
 	return f64
 }
 
-func selectNullFloat(dbmap *DbMap, query string, args ...interface{}) sql.NullFloat64 {
-	f64, err := SelectNullFloat(dbmap, query, args...)
+func selectNullFloat(dbmap *gorp.DbMap, query string, args ...interface{}) sql.NullFloat64 {
+	f64, err := gorp.SelectNullFloat(dbmap, query, args...)
 	if err != nil {
 		panic(err)
 	}
@@ -2349,8 +2351,8 @@ func selectNullFloat(dbmap *DbMap, query string, args ...interface{}) sql.NullFl
 	return f64
 }
 
-func selectStr(dbmap *DbMap, query string, args ...interface{}) string {
-	s, err := SelectStr(dbmap, query, args...)
+func selectStr(dbmap *gorp.DbMap, query string, args ...interface{}) string {
+	s, err := gorp.SelectStr(dbmap, query, args...)
 	if err != nil {
 		panic(err)
 	}
@@ -2358,8 +2360,8 @@ func selectStr(dbmap *DbMap, query string, args ...interface{}) string {
 	return s
 }
 
-func selectNullStr(dbmap *DbMap, query string, args ...interface{}) sql.NullString {
-	s, err := SelectNullStr(dbmap, query, args...)
+func selectNullStr(dbmap *gorp.DbMap, query string, args ...interface{}) sql.NullString {
+	s, err := gorp.SelectNullStr(dbmap, query, args...)
 	if err != nil {
 		panic(err)
 	}
@@ -2367,7 +2369,7 @@ func selectNullStr(dbmap *DbMap, query string, args ...interface{}) sql.NullStri
 	return s
 }
 
-func rawExec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
+func rawExec(dbmap *gorp.DbMap, query string, args ...interface{}) sql.Result {
 	res, err := dbmap.Exec(query, args...)
 	if err != nil {
 		panic(err)
@@ -2375,7 +2377,7 @@ func rawExec(dbmap *DbMap, query string, args ...interface{}) sql.Result {
 	return res
 }
 
-func rawSelect(dbmap *DbMap, i interface{}, query string, args ...interface{}) []interface{} {
+func rawSelect(dbmap *gorp.DbMap, i interface{}, query string, args ...interface{}) []interface{} {
 	list, err := dbmap.Select(i, query, args...)
 	if err != nil {
 		panic(err)
@@ -2383,7 +2385,7 @@ func rawSelect(dbmap *DbMap, i interface{}, query string, args ...interface{}) [
 	return list
 }
 
-func tableName(dbmap *DbMap, i interface{}) string {
+func tableName(dbmap *gorp.DbMap, i interface{}) string {
 	t := reflect.TypeOf(i)
 	if table, err := dbmap.TableFor(t, false); table != nil && err == nil {
 		return dbmap.Dialect.QuoteField(table.TableName)
@@ -2391,7 +2393,7 @@ func tableName(dbmap *DbMap, i interface{}) string {
 	return t.Name()
 }
 
-func columnName(dbmap *DbMap, i interface{}, fieldName string) string {
+func columnName(dbmap *gorp.DbMap, i interface{}, fieldName string) string {
 	t := reflect.TypeOf(i)
 	if table, err := dbmap.TableFor(t, false); table != nil && err == nil {
 		return dbmap.Dialect.QuoteField(table.ColMap(fieldName).ColumnName)
