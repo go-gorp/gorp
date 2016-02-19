@@ -124,26 +124,36 @@ type Person struct {
 	Version int64
 }
 
+// PersonValuerScanner is used as a field in test types to ensure that we
+// make use of "database/sql/driver".Valuer for choosing column types when
+// creating tables and that we don't get in the way of the underlying
+// database libraries when they make use of either Valuer or
+// "database/sql".Scanner.
 type PersonValuerScanner struct {
 	Person
 }
 
+// Value implements "database/sql/driver".Valuer.  It will be automatically
+// run by the "database/sql" package when inserting/updating data.
 func (p PersonValuerScanner) Value() (driver.Value, error) {
 	return p.Id, nil
 }
 
-// FIXME: this Scan is never actually used in the tests?
-// Also: if the comments below on the mysql driver are true, then that should be fixed by the dialect when scanning values into structs.
+// Scan implements "database/sql".Scanner.  It will be automatically run
+// by the "database/sql" package when reading column data into a field
+// of type PersonValuerScanner.
 func (p *PersonValuerScanner) Scan(value interface{}) (err error) {
 	switch src := value.(type) {
 	case []byte:
-		// The mysql driver seems to return a []byte, even though the
-		// type in the database is bigint.  Note that this case is
-		// *only* used by the mysql driver.
+		// TODO: this case is here for mysql only.  For some reason,
+		// one (both?) of the mysql libraries opt to pass us a []byte
+		// instead of an int64 for the bigint column.  We should add
+		// table tests around valuers/scanners and try to solve these
+		// types of odd discrepencies to make it easier for users of
+		// gorp to migrate to other database engines.
 		p.Id, err = strconv.ParseInt(string(src), 10, 64)
 	case int64:
-		// postgres, gomysql, and sqlite drivers all return an int64,
-		// as you'd expect.
+		// Most libraries pass in the type we'd expect.
 		p.Id = src
 	default:
 		typ := reflect.TypeOf(value)
