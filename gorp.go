@@ -156,6 +156,11 @@ func exec(e SqlExecutor, query string, args ...interface{}) (sql.Result, error) 
 		dbMap = m.dbmap
 	}
 
+	if dbMap.logger != nil {
+		now := time.Now()
+		defer dbMap.trace(now, query, args...)
+	}
+
 	if len(args) == 1 {
 		query, args = maybeExpandNamedQuery(dbMap, query, args)
 	}

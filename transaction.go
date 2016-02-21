@@ -58,10 +58,6 @@ func (t *Transaction) Select(i interface{}, query string, args ...interface{}) (
 
 // Exec has the same behavior as DbMap.Exec(), but runs in a transaction.
 func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error) {
-	if t.dbmap.logger != nil {
-		now := time.Now()
-		defer t.dbmap.trace(now, query, args...)
-	}
 	return exec(t, query, args...)
 }
 
