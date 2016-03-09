@@ -46,6 +46,10 @@ type DbMap struct {
 	logPrefix string
 }
 
+func (m *DbMap) ShowTables() []*TableMap {
+	return m.tables
+}
+
 func (m *DbMap) CreateIndex() error {
 
 	var err error
