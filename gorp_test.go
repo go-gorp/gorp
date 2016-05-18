@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-gorp/gorp"
+	"github.com/bkali/gorp"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -402,6 +402,106 @@ type PersistentUser struct {
 	Key            int32
 	Id             string
 	PassedTraining bool
+}
+
+type TenantDynamic struct {
+	Id       int64
+	Name     string
+	Address  string
+	curTable string `db:"-"`
+}
+
+var tenantInst1 = TenantDynamic{curTable: "t_1_tenant_dynamic"}
+var tenantInst2 = TenantDynamic{curTable: "t_2_tenant_dynamic"}
+
+func (curObj TenantDynamic) GetTableName() string {
+	return curObj.curTable
+}
+
+func dynamicTablesTest(t *testing.T, dbmap *gorp.DbMap) {
+
+	tenantInst1.Name = "Test Name 1"
+	tenantInst1.Address = "Test Address 1"
+	err := dbmap.Insert(&tenantInst1)
+	if err != nil {
+		t.Errorf("Errow while saving tenantInst1. Details: %v", err)
+	}
+
+	tenantInst2.Name = "Test Name 2"
+	tenantInst2.Address = "Test Address 2"
+	err = dbmap.Insert(&tenantInst2)
+	if err != nil {
+		t.Errorf("Errow while saving tenantInst2. Details: %v", err)
+	}
+
+	{
+		var dbTenantInst1 = TenantDynamic{curTable: tenantInst1.curTable}
+		selectSQL1 := "select * from " + dbTenantInst1.curTable
+		dbObjs, err := dbmap.Select(dbTenantInst1, selectSQL1)
+		if err != nil {
+			t.Errorf("Errow in dbmap.Select. SQL: %v, Details: %v", selectSQL1, err)
+		}
+		if nil == dbObjs {
+			t.Errorf("Nil return from dbmap.Select")
+		} else {
+			rwCnt := len(dbObjs)
+			if 1 != rwCnt {
+				t.Errorf("Unexpected row count for tenantInst:%v", rwCnt)
+			}
+
+			dbInst := dbObjs[0].(*TenantDynamic)
+
+			if tenantInst1.Id != dbInst.Id {
+				t.Errorf("Mismatched Id values %v != %v ",
+					tenantInst1.Id, dbInst.Id)
+			}
+
+			if tenantInst1.Name != dbInst.Name {
+				t.Errorf("Mismatched Name values %v != %v ",
+					tenantInst1.Name, dbInst.Name)
+			}
+
+			if tenantInst1.Address != dbInst.Address {
+				t.Errorf("Mismatched Address values %v != %v ",
+					tenantInst1.Address, dbInst.Address)
+			}
+		}
+	}
+
+	{
+		var dbTenantInst2 = TenantDynamic{curTable: tenantInst2.curTable}
+		selectSQL2 := "select * from " + dbTenantInst2.curTable
+		dbObjs, err := dbmap.Select(dbTenantInst2, selectSQL2)
+		if err != nil {
+			t.Errorf("Errow in dbmap.Select. SQL: %v, Details: %v", selectSQL2, err)
+		}
+		if nil == dbObjs {
+			t.Errorf("Nil return from dbmap.Select")
+		} else {
+			rwCnt := len(dbObjs)
+			if 1 != rwCnt {
+				t.Errorf("Unexpected row count for tenantInst:%v", rwCnt)
+			}
+		}
+
+		dbInst := dbObjs[0].(*TenantDynamic)
+
+		if tenantInst2.Id != dbInst.Id {
+			t.Errorf("Mismatched Id values %v != %v ",
+				tenantInst2.Id, dbInst.Id)
+		}
+
+		if tenantInst2.Name != dbInst.Name {
+			t.Errorf("Mismatched Name values %v != %v ",
+				tenantInst2.Name, dbInst.Name)
+		}
+
+		if tenantInst2.Address != dbInst.Address {
+			t.Errorf("Mismatched Address values %v != %v ",
+				tenantInst2.Address, dbInst.Address)
+		}
+	}
+
 }
 
 func TestCreateTablesIfNotExists(t *testing.T) {
@@ -1206,6 +1306,8 @@ func TestCrud(t *testing.T) {
 
 	foo := &AliasTransientField{BarStr: "some bar"}
 	testCrudInternal(t, dbmap, foo)
+
+	dynamicTablesTest(t, dbmap)
 }
 
 func testCrudInternal(t *testing.T, dbmap *gorp.DbMap, val testable) {
@@ -2213,6 +2315,8 @@ func initDbMap() *gorp.DbMap {
 	//dbmap.AddTableWithName(WithEmbeddedStructConflictingEmbeddedMemberNames{}, "embedded_struct_conflict_name_test").SetKeys(true, "Id")
 	//dbmap.AddTableWithName(WithEmbeddedStructSameMemberName{}, "embedded_struct_same_member_name_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStructBeforeAutoincrField{}, "embedded_struct_before_autoincr_test").SetKeys(true, "Id")
+	dbmap.AddTableDynamic(tenantInst1, "").SetKeys(true, "Id")
+	dbmap.AddTableDynamic(tenantInst2, "").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedAutoincr{}, "embedded_autoincr_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithTime{}, "time_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithNullTime{}, "nulltime_test").SetKeys(false, "Id")

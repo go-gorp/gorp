@@ -114,6 +114,13 @@ type SqlExecutor interface {
 	queryRow(query string, args ...interface{}) *sql.Row
 }
 
+// DynamicTable allows the users of gorp to dynamically
+// use different database table names during runtime
+// while sharing the same golang struct for in-memory data
+type DynamicTable interface {
+	GetTableName() string
+}
+
 // Compile-time check that DbMap and Transaction implement the SqlExecutor
 // interface.
 var _, _ SqlExecutor = &DbMap{}, &Transaction{}
@@ -220,13 +227,13 @@ func expandNamedQuery(m *DbMap, query string, keyGetter func(key string) reflect
 	}), args
 }
 
-func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error) {
+func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([][]int, error) {
 	colToFieldIndex := make([][]int, len(cols))
 
 	// check if type t is a mapped table - if so we'll
 	// check the table for column aliasing below
 	tableMapped := false
-	table := tableOrNil(m, t)
+	table := tableOrNil(m, t, name)
 	if table != nil {
 		tableMapped = true
 	}
@@ -335,7 +342,15 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 		return nil, err
 	}
 
-	table, err := m.TableFor(t, true)
+	var table *TableMap
+	tableName := ""
+	if dyn, isDyn := i.(DynamicTable); isDyn {
+		tableName = dyn.GetTableName()
+		table, err = m.TableForDynamic(tableName, true)
+	} else {
+		table, err = m.TableFor(t, true)
+	}
+
 	if err != nil {
 		return nil, err
 	}

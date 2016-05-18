@@ -222,6 +222,11 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 
 	var nonFatalErr error
 
+	tableName := ""
+	if dyn, ok := i.(DynamicTable); ok {
+		tableName = dyn.GetTableName()
+	}
+
 	// get type for i, verifying it's a supported destination
 	t, err := toType(i)
 	if err != nil {
@@ -266,7 +271,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 
 	var colToFieldIndex [][]int
 	if intoStruct {
-		colToFieldIndex, err = columnToFieldIndex(m, t, cols)
+		colToFieldIndex, err = columnToFieldIndex(m, t, tableName, cols)
 		if err != nil {
 			if !NonFatalError(err) {
 				return nil, err
