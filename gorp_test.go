@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bkali/gorp"
+	"github.com/go-gorp/gorp"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
