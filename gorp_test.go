@@ -2315,8 +2315,8 @@ func initDbMap() *gorp.DbMap {
 	//dbmap.AddTableWithName(WithEmbeddedStructConflictingEmbeddedMemberNames{}, "embedded_struct_conflict_name_test").SetKeys(true, "Id")
 	//dbmap.AddTableWithName(WithEmbeddedStructSameMemberName{}, "embedded_struct_same_member_name_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStructBeforeAutoincrField{}, "embedded_struct_before_autoincr_test").SetKeys(true, "Id")
-	dbmap.AddTableDynamic(tenantInst1, "").SetKeys(true, "Id")
-	dbmap.AddTableDynamic(tenantInst2, "").SetKeys(true, "Id")
+	dbmap.AddTableDynamic(tenantInst1, "").SetKeys(true, "Id").AddIndex("TenantInst1Index", "Btree", []string{"Name"}).SetUnique(true)
+	dbmap.AddTableDynamic(tenantInst2, "").SetKeys(true, "Id").AddIndex("TenantInst2Index", "Btree", []string{"Name"}).SetUnique(true)
 	dbmap.AddTableWithName(WithEmbeddedAutoincr{}, "embedded_autoincr_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithTime{}, "time_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithNullTime{}, "nulltime_test").SetKeys(false, "Id")
@@ -2326,6 +2326,11 @@ func initDbMap() *gorp.DbMap {
 		panic(err)
 	}
 	err = dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
+
+	err = dbmap.CreateIndex()
 	if err != nil {
 		panic(err)
 	}
