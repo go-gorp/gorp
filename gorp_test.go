@@ -616,8 +616,9 @@ func dynamicTablesTestSelectOne(t *testing.T,
 	// read the data back from inpInst to see if the
 	// table mapping is correct
 	var dbTenantInst1 = TenantDynamic{curTable: inpInst.curTable}
-	selectSQL1 := "select * from " + dbTenantInst1.curTable + " where id = ?"
-	err := dbmap.SelectOne(&dbTenantInst1, selectSQL1, inpInst.Id)
+	selectSQL1 := "select * from " + dbTenantInst1.curTable + " where id = :id"
+	params := map[string]interface{}{"id": inpInst.Id}
+	err := dbmap.SelectOne(&dbTenantInst1, selectSQL1, params)
 	if err != nil {
 		t.Errorf("Errow in dbmap.SelectOne. SQL: %v, Details: %v", selectSQL1, err)
 	}
