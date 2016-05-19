@@ -197,10 +197,12 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 // AddTableDynamic registers the given interface type with gorp.
 // The table name will be dynamically determined at runtime by
 // using the GetTableName method on DynamicTable interface
-func (m *DbMap) AddTableDynamic(i DynamicTable, schema string) *TableMap {
+func (m *DbMap) AddTableDynamic(inp DynamicTable, schema string) *TableMap {
 
-	t := reflect.TypeOf(i)
-	name := i.GetTableName()
+	val := reflect.ValueOf(inp)
+	elm := val.Elem()
+	t := elm.Type()
+	name := inp.GetTableName()
 	if "" == name {
 		panic("Missing table name in DynamicTable instance")
 	}
@@ -674,7 +676,7 @@ func (m *DbMap) TableForDynamic(tableName string, checkPK bool) (*TableMap, erro
 	table, found := m.dynamicTableFind(tableName)
 
 	if false == found {
-		return nil, fmt.Errorf("no table found for name: %v", tableName)
+		return nil, fmt.Errorf("gorp: no table found for name: %v", tableName)
 	}
 
 	if checkPK && len(table.keys) < 1 {
@@ -729,7 +731,7 @@ func (m *DbMap) tableForPointer(ptr interface{}, checkPK bool) (*TableMap, refle
 	var t *TableMap
 	var err error
 	tableName := ""
-	if dyn, isDyn := ifc.(DynamicTable); isDyn {
+	if dyn, isDyn := ptr.(DynamicTable); isDyn {
 		tableName = dyn.GetTableName()
 		t, err = m.TableForDynamic(tableName, checkPK)
 	} else {

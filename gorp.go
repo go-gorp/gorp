@@ -119,6 +119,7 @@ type SqlExecutor interface {
 // while sharing the same golang struct for in-memory data
 type DynamicTable interface {
 	GetTableName() string
+	SetTableName(string)
 }
 
 // Compile-time check that DbMap and Transaction implement the SqlExecutor
@@ -344,7 +345,9 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 
 	var table *TableMap
 	tableName := ""
-	if dyn, isDyn := i.(DynamicTable); isDyn {
+	var dyn DynamicTable
+	isDynamic := false
+	if dyn, isDynamic = i.(DynamicTable); isDynamic {
 		tableName = dyn.GetTableName()
 		table, err = m.TableForDynamic(tableName, true)
 	} else {
@@ -358,6 +361,11 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 	plan := table.bindGet()
 
 	v := reflect.New(t)
+	if true == isDynamic {
+		retDyn := v.Interface().(DynamicTable)
+		retDyn.SetTableName(tableName)
+	}
+
 	dest := make([]interface{}, len(plan.argFields))
 
 	conv := m.TypeConverter

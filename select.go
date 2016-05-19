@@ -223,8 +223,10 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	var nonFatalErr error
 
 	tableName := ""
-	if dyn, ok := i.(DynamicTable); ok {
-		tableName = dyn.GetTableName()
+	var dynObj DynamicTable
+	isDynamic := false
+	if dynObj, isDynamic = i.(DynamicTable); isDynamic {
+		tableName = dynObj.GetTableName()
 	}
 
 	// get type for i, verifying it's a supported destination
@@ -298,6 +300,11 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 			break
 		}
 		v := reflect.New(t)
+
+		if true == isDynamic {
+			v.Interface().(DynamicTable).SetTableName(tableName)
+		}
+
 		dest := make([]interface{}, len(cols))
 
 		custScan := make([]CustomScanner, 0)
