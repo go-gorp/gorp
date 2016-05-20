@@ -405,7 +405,7 @@ type PersistentUser struct {
 }
 
 type TenantDynamic struct {
-	Id       int64
+	Id       int64 `db:"id"`
 	Name     string
 	Address  string
 	curTable string `db:"-"`
@@ -444,8 +444,8 @@ func dynamicTablesTest(t *testing.T, dbmap *gorp.DbMap) {
 
 	dynamicTablesTestSelect(t, dbmap, &dynTableInst1)
 	dynamicTablesTestSelect(t, dbmap, &dynTableInst2)
-	//Need fix dynamicTablesTestSelectOne(t, dbmap, &dynTableInst1)
-	//Need fix dynamicTablesTestSelectOne(t, dbmap, &dynTableInst2)
+	dynamicTablesTestSelectOne(t, dbmap, &dynTableInst1)
+	dynamicTablesTestSelectOne(t, dbmap, &dynTableInst2)
 	dynamicTablesTestGetUpdateGet(t, dbmap, &dynTableInst1)
 	dynamicTablesTestGetUpdateGet(t, dbmap, &dynTableInst2)
 	dynamicTablesTestDelete(t, dbmap, &dynTableInst1)
@@ -616,8 +616,8 @@ func dynamicTablesTestSelectOne(t *testing.T,
 	// read the data back from inpInst to see if the
 	// table mapping is correct
 	var dbTenantInst1 = TenantDynamic{curTable: inpInst.curTable}
-	selectSQL1 := "select * from " + dbTenantInst1.curTable + " where Id = :id"
-	params := map[string]interface{}{"id": inpInst.Id}
+	selectSQL1 := "select * from " + dbTenantInst1.curTable + " where id = :idKey"
+	params := map[string]interface{}{"idKey": inpInst.Id}
 	err := dbmap.SelectOne(&dbTenantInst1, selectSQL1, params)
 	if err != nil {
 		t.Errorf("Errow in dbmap.SelectOne. SQL: %v, Details: %v", selectSQL1, err)
