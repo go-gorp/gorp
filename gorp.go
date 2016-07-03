@@ -118,7 +118,7 @@ type SqlExecutor interface {
 // use different database table names during runtime
 // while sharing the same golang struct for in-memory data
 type DynamicTable interface {
-	GetTableName() string
+	TableName() string
 	SetTableName(string)
 }
 
@@ -348,7 +348,7 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 	var dyn DynamicTable
 	isDynamic := false
 	if dyn, isDynamic = i.(DynamicTable); isDynamic {
-		tableName = dyn.GetTableName()
+		tableName = dyn.TableName()
 		table, err = m.TableForDynamic(tableName, true)
 	} else {
 		table, err = m.TableFor(t, true)

@@ -226,7 +226,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	var dynObj DynamicTable
 	isDynamic := false
 	if dynObj, isDynamic = i.(DynamicTable); isDynamic {
-		tableName = dynObj.GetTableName()
+		tableName = dynObj.TableName()
 	}
 
 	// get type for i, verifying it's a supported destination

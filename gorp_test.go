@@ -411,7 +411,7 @@ type TenantDynamic struct {
 	curTable string `db:"-"`
 }
 
-func (curObj *TenantDynamic) GetTableName() string {
+func (curObj *TenantDynamic) TableName() string {
 	return curObj.curTable
 }
 func (curObj *TenantDynamic) SetTableName(tblName string) {
@@ -457,7 +457,7 @@ func dynamicTablesTestTableMap(t *testing.T,
 	dbmap *gorp.DbMap,
 	inpInst *TenantDynamic) {
 
-	tableName := inpInst.GetTableName()
+	tableName := inpInst.TableName()
 
 	tblMap, err := dbmap.TableForDynamic(tableName, true)
 	if nil != err {
@@ -492,8 +492,8 @@ func dynamicTablesTestSelect(t *testing.T,
 
 		dbInst := dbObjs[0].(*TenantDynamic)
 
-		inpTableName := inpInst.GetTableName()
-		resTableName := dbInst.GetTableName()
+		inpTableName := inpInst.TableName()
+		resTableName := dbInst.TableName()
 		if inpTableName != resTableName {
 			t.Errorf("Mismatched table names %v != %v ",
 				inpTableName, resTableName)
@@ -536,8 +536,8 @@ func dynamicTablesTestGetUpdateGet(t *testing.T,
 	dbInst := dbObj.(*TenantDynamic)
 
 	{
-		inpTableName := inpInst.GetTableName()
-		resTableName := dbInst.GetTableName()
+		inpTableName := inpInst.TableName()
+		resTableName := dbInst.TableName()
 		if inpTableName != resTableName {
 			t.Errorf("Mismatched table names %v != %v ",
 				inpTableName, resTableName)
@@ -582,8 +582,8 @@ func dynamicTablesTestGetUpdateGet(t *testing.T,
 
 		dbInst2 := dbObj2.(*TenantDynamic)
 
-		inpTableName := inpInst.GetTableName()
-		resTableName := dbInst2.GetTableName()
+		inpTableName := inpInst.TableName()
+		resTableName := dbInst2.TableName()
 		if inpTableName != resTableName {
 			t.Errorf("Mismatched table names %v != %v ",
 				inpTableName, resTableName)
@@ -624,7 +624,7 @@ func dynamicTablesTestSelectOne(t *testing.T,
 	}
 
 	inpTableName := inpInst.curTable
-	resTableName := dbTenantInst1.GetTableName()
+	resTableName := dbTenantInst1.TableName()
 	if inpTableName != resTableName {
 		t.Errorf("Mismatched table names %v != %v ",
 			inpTableName, resTableName)
@@ -657,25 +657,25 @@ func dynamicTablesTestDelete(t *testing.T,
 	}
 	if 1 != cnt {
 		t.Errorf("Expected delete count for %v : 1, found count:%v",
-			inpInst.GetTableName(), cnt)
+			inpInst.TableName(), cnt)
 	}
 
 	// Try reading again to make sure instance is gone from db
-	getInst := TenantDynamic{curTable: inpInst.GetTableName()}
+	getInst := TenantDynamic{curTable: inpInst.TableName()}
 	dbInst, err := dbmap.Get(&getInst, inpInst.Id)
 	if nil != err {
 		t.Errorf("Error while trying to read deleted %v object using id: %v",
-			inpInst.GetTableName(), inpInst.Id)
+			inpInst.TableName(), inpInst.Id)
 	}
 
 	if nil != dbInst {
 		t.Errorf("Found deleted %v instance using id: %v",
-			inpInst.GetTableName(), inpInst.Id)
+			inpInst.TableName(), inpInst.Id)
 	}
 
 	if "" != getInst.Name {
 		t.Errorf("Found data from deleted %v instance using id: %v",
-			inpInst.GetTableName(), inpInst.Id)
+			inpInst.TableName(), inpInst.Id)
 	}
 
 }

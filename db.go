@@ -202,7 +202,7 @@ func (m *DbMap) AddTableDynamic(inp DynamicTable, schema string) *TableMap {
 	val := reflect.ValueOf(inp)
 	elm := val.Elem()
 	t := elm.Type()
-	name := inp.GetTableName()
+	name := inp.TableName()
 	if "" == name {
 		panic("Missing table name in DynamicTable instance")
 	}
@@ -397,7 +397,7 @@ func (m *DbMap) DropTable(table interface{}) error {
 
 	tableName := ""
 	if dyn, ok := table.(DynamicTable); ok {
-		tableName = dyn.GetTableName()
+		tableName = dyn.TableName()
 	}
 
 	return m.dropTable(t, tableName, false)
@@ -409,7 +409,7 @@ func (m *DbMap) DropTableIfExists(table interface{}) error {
 
 	tableName := ""
 	if dyn, ok := table.(DynamicTable); ok {
-		tableName = dyn.GetTableName()
+		tableName = dyn.TableName()
 	}
 
 	return m.dropTable(t, tableName, true)
@@ -732,7 +732,7 @@ func (m *DbMap) tableForPointer(ptr interface{}, checkPK bool) (*TableMap, refle
 	var err error
 	tableName := ""
 	if dyn, isDyn := ptr.(DynamicTable); isDyn {
-		tableName = dyn.GetTableName()
+		tableName = dyn.TableName()
 		t, err = m.TableForDynamic(tableName, checkPK)
 	} else {
 		etype := reflect.TypeOf(ifc)
