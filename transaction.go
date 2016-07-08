@@ -176,7 +176,7 @@ func (t *Transaction) Prepare(query string) (*sql.Stmt, error) {
 	return t.tx.Prepare(query)
 }
 
-func (t *Transaction) queryRow(query string, args ...interface{}) *sql.Row {
+func (t *Transaction) QueryRow(query string, args ...interface{}) *sql.Row {
 	if t.dbmap.logger != nil {
 		now := time.Now()
 		defer t.dbmap.trace(now, query, args...)
@@ -184,7 +184,7 @@ func (t *Transaction) queryRow(query string, args ...interface{}) *sql.Row {
 	return t.tx.QueryRow(query, args...)
 }
 
-func (t *Transaction) query(query string, args ...interface{}) (*sql.Rows, error) {
+func (t *Transaction) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	if t.dbmap.logger != nil {
 		now := time.Now()
 		defer t.dbmap.trace(now, query, args...)

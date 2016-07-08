@@ -599,7 +599,7 @@ func (m *DbMap) tableForPointer(ptr interface{}, checkPK bool) (*TableMap, refle
 	return t, elem, nil
 }
 
-func (m *DbMap) queryRow(query string, args ...interface{}) *sql.Row {
+func (m *DbMap) QueryRow(query string, args ...interface{}) *sql.Row {
 	if m.logger != nil {
 		now := time.Now()
 		defer m.trace(now, query, args...)
@@ -607,7 +607,7 @@ func (m *DbMap) queryRow(query string, args ...interface{}) *sql.Row {
 	return m.Db.QueryRow(query, args...)
 }
 
-func (m *DbMap) query(query string, args ...interface{}) (*sql.Rows, error) {
+func (m *DbMap) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	if m.logger != nil {
 		now := time.Now()
 		defer m.trace(now, query, args...)
