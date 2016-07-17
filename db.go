@@ -48,14 +48,14 @@ type DbMap struct {
 }
 
 func (m *DbMap) dynamicTableAdd(tableName string, tbl *TableMap) {
-	if nil == m.tablesDynamic {
+	if m.tablesDynamic == nil {
 		m.tablesDynamic = make(map[string]*TableMap)
 	}
 	m.tablesDynamic[tableName] = tbl
 }
 
 func (m *DbMap) dynamicTableFind(tableName string) (*TableMap, bool) {
-	if nil == m.tablesDynamic {
+	if m.tablesDynamic == nil {
 		return nil, false
 	}
 	tbl, found := m.tablesDynamic[tableName]
@@ -63,7 +63,7 @@ func (m *DbMap) dynamicTableFind(tableName string) (*TableMap, bool) {
 }
 
 func (m *DbMap) dynamicTableMap() map[string]*TableMap {
-	if nil == m.tablesDynamic {
+	if m.tablesDynamic == nil {
 		m.tablesDynamic = make(map[string]*TableMap)
 	}
 	return m.tablesDynamic
@@ -203,7 +203,7 @@ func (m *DbMap) AddTableDynamic(inp DynamicTable, schema string) *TableMap {
 	elm := val.Elem()
 	t := elm.Type()
 	name := inp.TableName()
-	if "" == name {
+	if name == "" {
 		panic("Missing table name in DynamicTable instance")
 	}
 
@@ -667,15 +667,13 @@ func (m *DbMap) TableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 	return table, nil
 }
 
-// TableForDynamic returns the *TableMap for the dynamic table corresponding
+// DynamicTableFor returns the *TableMap for the dynamic table corresponding
 // to the input tablename
 // If no table is mapped to that tablename an error is returned.
 // If checkPK is true and the mapped table has no registered PKs, an error is returned.
-func (m *DbMap) TableForDynamic(tableName string, checkPK bool) (*TableMap, error) {
-
+func (m *DbMap) DynamicTableFor(tableName string, checkPK bool) (*TableMap, error) {
 	table, found := m.dynamicTableFind(tableName)
-
-	if false == found {
+	if !found {
 		return nil, fmt.Errorf("gorp: no table found for name: %v", tableName)
 	}
 
@@ -700,14 +698,12 @@ func (m *DbMap) Prepare(query string) (*sql.Stmt, error) {
 }
 
 func tableOrNil(m *DbMap, t reflect.Type, name string) *TableMap {
-
-	if "" != name {
+	if name != "" {
 		// Search by table name (dynamic tables)
 		if table, found := m.dynamicTableFind(name); found {
 			return table
-		} else {
-			return nil
 		}
+		return nil
 	}
 
 	for i := range m.tables {
@@ -733,7 +729,7 @@ func (m *DbMap) tableForPointer(ptr interface{}, checkPK bool) (*TableMap, refle
 	tableName := ""
 	if dyn, isDyn := ptr.(DynamicTable); isDyn {
 		tableName = dyn.TableName()
-		t, err = m.TableForDynamic(tableName, checkPK)
+		t, err = m.DynamicTableFor(tableName, checkPK)
 	} else {
 		etype := reflect.TypeOf(ifc)
 		t, err = m.TableFor(etype, checkPK)

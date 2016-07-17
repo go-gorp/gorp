@@ -335,6 +335,30 @@ func toType(i interface{}) (reflect.Type, error) {
 	return t, nil
 }
 
+type foundTable struct {
+	table   *TableMap
+	dynName *string
+}
+
+func tableFor(m *DbMap, t reflect.Type, i interface{}) (*foundTable, error) {
+	if dyn, isDynamic := i.(DynamicTable); isDynamic {
+		tableName := dyn.TableName()
+		table, err := m.DynamicTableFor(tableName, true)
+		if err != nil {
+			return nil, err
+		}
+		return &foundTable{
+			table:   table,
+			dynName: &tableName,
+		}, nil
+	}
+	table, err := m.TableFor(t, true)
+	if err != nil {
+		return nil, err
+	}
+	return &foundTable{table: table}, nil
+}
+
 func get(m *DbMap, exec SqlExecutor, i interface{},
 	keys ...interface{}) (interface{}, error) {
 
@@ -343,27 +367,18 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 		return nil, err
 	}
 
-	var table *TableMap
-	tableName := ""
-	var dyn DynamicTable
-	isDynamic := false
-	if dyn, isDynamic = i.(DynamicTable); isDynamic {
-		tableName = dyn.TableName()
-		table, err = m.TableForDynamic(tableName, true)
-	} else {
-		table, err = m.TableFor(t, true)
-	}
-
+	foundTable, err := tableFor(m, t, i)
 	if err != nil {
 		return nil, err
 	}
+	table := foundTable.table
 
 	plan := table.bindGet()
 
 	v := reflect.New(t)
-	if true == isDynamic {
+	if foundTable.dynName != nil {
 		retDyn := v.Interface().(DynamicTable)
-		retDyn.SetTableName(tableName)
+		retDyn.SetTableName(*foundTable.dynName)
 	}
 
 	dest := make([]interface{}, len(plan.argFields))

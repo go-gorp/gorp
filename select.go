@@ -301,7 +301,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		}
 		v := reflect.New(t)
 
-		if true == isDynamic {
+		if isDynamic {
 			v.Interface().(DynamicTable).SetTableName(tableName)
 		}
 

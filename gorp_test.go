@@ -459,11 +459,11 @@ func dynamicTablesTestTableMap(t *testing.T,
 
 	tableName := inpInst.TableName()
 
-	tblMap, err := dbmap.TableForDynamic(tableName, true)
-	if nil != err {
+	tblMap, err := dbmap.DynamicTableFor(tableName, true)
+	if err != nil {
 		t.Errorf("Error while searching for tablemap for tableName: %v, Error:%v", tableName, err)
 	}
-	if nil == tblMap {
+	if tblMap == nil {
 		t.Errorf("Unable to find tablemap for tableName:%v", tableName)
 	}
 }
@@ -482,37 +482,36 @@ func dynamicTablesTestSelect(t *testing.T,
 	if err != nil {
 		t.Errorf("Errow in dbmap.Select. SQL: %v, Details: %v", selectSQL1, err)
 	}
-	if nil == dbObjs {
-		t.Errorf("Nil return from dbmap.Select")
-	} else {
-		rwCnt := len(dbObjs)
-		if 1 != rwCnt {
-			t.Errorf("Unexpected row count for tenantInst:%v", rwCnt)
-		}
+	if dbObjs == nil {
+		t.Fatalf("Nil return from dbmap.Select")
+	}
+	rwCnt := len(dbObjs)
+	if rwCnt != 1 {
+		t.Errorf("Unexpected row count for tenantInst:%v", rwCnt)
+	}
 
-		dbInst := dbObjs[0].(*TenantDynamic)
+	dbInst := dbObjs[0].(*TenantDynamic)
 
-		inpTableName := inpInst.TableName()
-		resTableName := dbInst.TableName()
-		if inpTableName != resTableName {
-			t.Errorf("Mismatched table names %v != %v ",
-				inpTableName, resTableName)
-		}
+	inpTableName := inpInst.TableName()
+	resTableName := dbInst.TableName()
+	if inpTableName != resTableName {
+		t.Errorf("Mismatched table names %v != %v ",
+			inpTableName, resTableName)
+	}
 
-		if inpInst.Id != dbInst.Id {
-			t.Errorf("Mismatched Id values %v != %v ",
-				inpInst.Id, dbInst.Id)
-		}
+	if inpInst.Id != dbInst.Id {
+		t.Errorf("Mismatched Id values %v != %v ",
+			inpInst.Id, dbInst.Id)
+	}
 
-		if inpInst.Name != dbInst.Name {
-			t.Errorf("Mismatched Name values %v != %v ",
-				inpInst.Name, dbInst.Name)
-		}
+	if inpInst.Name != dbInst.Name {
+		t.Errorf("Mismatched Name values %v != %v ",
+			inpInst.Name, dbInst.Name)
+	}
 
-		if inpInst.Address != dbInst.Address {
-			t.Errorf("Mismatched Address values %v != %v ",
-				inpInst.Address, dbInst.Address)
-		}
+	if inpInst.Address != dbInst.Address {
+		t.Errorf("Mismatched Address values %v != %v ",
+			inpInst.Address, dbInst.Address)
 	}
 }
 
@@ -529,7 +528,7 @@ func dynamicTablesTestGetUpdateGet(t *testing.T,
 	if err != nil {
 		t.Errorf("Errow in dbmap.Get. id: %v, Details: %v", inpInst.Id, err)
 	}
-	if nil == dbObj {
+	if dbObj == nil {
 		t.Errorf("Nil return from dbmap.Get")
 	}
 
@@ -563,10 +562,10 @@ func dynamicTablesTestGetUpdateGet(t *testing.T,
 		updatedName := "Testing Updated Name2"
 		dbInst.Name = updatedName
 		cnt, err := dbmap.Update(dbInst)
-		if nil != err {
+		if err != nil {
 			t.Errorf("Error from dbmap.Update: %v", err.Error())
 		}
-		if 1 != cnt {
+		if cnt != 1 {
 			t.Errorf("Update count must be 1, got %v", cnt)
 		}
 
@@ -576,7 +575,7 @@ func dynamicTablesTestGetUpdateGet(t *testing.T,
 		if err != nil {
 			t.Errorf("Errow in dbmap.Get. id: %v, Details: %v", inpInst.Id, err)
 		}
-		if nil == dbObj2 {
+		if dbObj2 == nil {
 			t.Errorf("Nil return from dbmap.Get")
 		}
 
@@ -655,7 +654,7 @@ func dynamicTablesTestDelete(t *testing.T,
 	if err != nil {
 		t.Errorf("Errow in dbmap.Delete. Details: %v", err)
 	}
-	if 1 != cnt {
+	if cnt != 1 {
 		t.Errorf("Expected delete count for %v : 1, found count:%v",
 			inpInst.TableName(), cnt)
 	}
@@ -663,17 +662,17 @@ func dynamicTablesTestDelete(t *testing.T,
 	// Try reading again to make sure instance is gone from db
 	getInst := TenantDynamic{curTable: inpInst.TableName()}
 	dbInst, err := dbmap.Get(&getInst, inpInst.Id)
-	if nil != err {
+	if err != nil {
 		t.Errorf("Error while trying to read deleted %v object using id: %v",
 			inpInst.TableName(), inpInst.Id)
 	}
 
-	if nil != dbInst {
+	if dbInst != nil {
 		t.Errorf("Found deleted %v instance using id: %v",
 			inpInst.TableName(), inpInst.Id)
 	}
 
-	if "" != getInst.Name {
+	if getInst.Name != "" {
 		t.Errorf("Found data from deleted %v instance using id: %v",
 			inpInst.TableName(), inpInst.Id)
 	}
