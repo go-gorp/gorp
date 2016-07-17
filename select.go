@@ -162,7 +162,7 @@ func selectVal(e SqlExecutor, holder interface{}, query string, args ...interfac
 			query, args = maybeExpandNamedQuery(m.dbmap, query, args)
 		}
 	}
-	rows, err := e.query(query, args...)
+	rows, err := e.Query(query, args...)
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	// Run the query
-	rows, err := exec.query(query, args...)
+	rows, err := exec.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}

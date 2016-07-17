@@ -110,8 +110,8 @@ type SqlExecutor interface {
 	SelectStr(query string, args ...interface{}) (string, error)
 	SelectNullStr(query string, args ...interface{}) (sql.NullString, error)
 	SelectOne(holder interface{}, query string, args ...interface{}) error
-	query(query string, args ...interface{}) (*sql.Rows, error)
-	queryRow(query string, args ...interface{}) *sql.Row
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
 }
 
 // Compile-time check that DbMap and Transaction implement the SqlExecutor
@@ -361,7 +361,7 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 		dest[x] = target
 	}
 
-	row := exec.queryRow(plan.query, keys...)
+	row := exec.QueryRow(plan.query, keys...)
 	err = row.Scan(dest...)
 	if err != nil {
 		if err == sql.ErrNoRows {
