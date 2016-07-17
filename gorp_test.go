@@ -404,6 +404,282 @@ type PersistentUser struct {
 	PassedTraining bool
 }
 
+type TenantDynamic struct {
+	Id       int64 `db:"id"`
+	Name     string
+	Address  string
+	curTable string `db:"-"`
+}
+
+func (curObj *TenantDynamic) TableName() string {
+	return curObj.curTable
+}
+func (curObj *TenantDynamic) SetTableName(tblName string) {
+	curObj.curTable = tblName
+}
+
+var dynTableInst1 = TenantDynamic{curTable: "t_1_tenant_dynamic"}
+var dynTableInst2 = TenantDynamic{curTable: "t_2_tenant_dynamic"}
+
+func dynamicTablesTest(t *testing.T, dbmap *gorp.DbMap) {
+
+	dynamicTablesTestTableMap(t, dbmap, &dynTableInst1)
+	dynamicTablesTestTableMap(t, dbmap, &dynTableInst2)
+
+	// TEST - dbmap.Insert using dynTableInst1
+	dynTableInst1.Name = "Test Name 1"
+	dynTableInst1.Address = "Test Address 1"
+	err := dbmap.Insert(&dynTableInst1)
+	if err != nil {
+		t.Errorf("Errow while saving dynTableInst1. Details: %v", err)
+	}
+
+	// TEST - dbmap.Insert using dynTableInst2
+	dynTableInst2.Name = "Test Name 2"
+	dynTableInst2.Address = "Test Address 2"
+	err = dbmap.Insert(&dynTableInst2)
+	if err != nil {
+		t.Errorf("Errow while saving dynTableInst2. Details: %v", err)
+	}
+
+	dynamicTablesTestSelect(t, dbmap, &dynTableInst1)
+	dynamicTablesTestSelect(t, dbmap, &dynTableInst2)
+	dynamicTablesTestSelectOne(t, dbmap, &dynTableInst1)
+	dynamicTablesTestSelectOne(t, dbmap, &dynTableInst2)
+	dynamicTablesTestGetUpdateGet(t, dbmap, &dynTableInst1)
+	dynamicTablesTestGetUpdateGet(t, dbmap, &dynTableInst2)
+	dynamicTablesTestDelete(t, dbmap, &dynTableInst1)
+	dynamicTablesTestDelete(t, dbmap, &dynTableInst2)
+
+}
+
+func dynamicTablesTestTableMap(t *testing.T,
+	dbmap *gorp.DbMap,
+	inpInst *TenantDynamic) {
+
+	tableName := inpInst.TableName()
+
+	tblMap, err := dbmap.TableForDynamic(tableName, true)
+	if nil != err {
+		t.Errorf("Error while searching for tablemap for tableName: %v, Error:%v", tableName, err)
+	}
+	if nil == tblMap {
+		t.Errorf("Unable to find tablemap for tableName:%v", tableName)
+	}
+}
+
+func dynamicTablesTestSelect(t *testing.T,
+	dbmap *gorp.DbMap,
+	inpInst *TenantDynamic) {
+
+	// TEST - dbmap.Select using inpInst
+
+	// read the data back from dynInst to see if the
+	// table mapping is correct
+	var dbTenantInst1 = TenantDynamic{curTable: inpInst.curTable}
+	selectSQL1 := "select * from " + inpInst.curTable
+	dbObjs, err := dbmap.Select(&dbTenantInst1, selectSQL1)
+	if err != nil {
+		t.Errorf("Errow in dbmap.Select. SQL: %v, Details: %v", selectSQL1, err)
+	}
+	if nil == dbObjs {
+		t.Errorf("Nil return from dbmap.Select")
+	} else {
+		rwCnt := len(dbObjs)
+		if 1 != rwCnt {
+			t.Errorf("Unexpected row count for tenantInst:%v", rwCnt)
+		}
+
+		dbInst := dbObjs[0].(*TenantDynamic)
+
+		inpTableName := inpInst.TableName()
+		resTableName := dbInst.TableName()
+		if inpTableName != resTableName {
+			t.Errorf("Mismatched table names %v != %v ",
+				inpTableName, resTableName)
+		}
+
+		if inpInst.Id != dbInst.Id {
+			t.Errorf("Mismatched Id values %v != %v ",
+				inpInst.Id, dbInst.Id)
+		}
+
+		if inpInst.Name != dbInst.Name {
+			t.Errorf("Mismatched Name values %v != %v ",
+				inpInst.Name, dbInst.Name)
+		}
+
+		if inpInst.Address != dbInst.Address {
+			t.Errorf("Mismatched Address values %v != %v ",
+				inpInst.Address, dbInst.Address)
+		}
+	}
+}
+
+func dynamicTablesTestGetUpdateGet(t *testing.T,
+	dbmap *gorp.DbMap,
+	inpInst *TenantDynamic) {
+
+	// TEST - dbmap.Get, dbmap.Update, dbmap.Get sequence
+
+	// read and update one of the instances to make sure
+	// that the common gorp APIs are working well with dynamic table
+	var inpIface2 = TenantDynamic{curTable: inpInst.curTable}
+	dbObj, err := dbmap.Get(&inpIface2, inpInst.Id)
+	if err != nil {
+		t.Errorf("Errow in dbmap.Get. id: %v, Details: %v", inpInst.Id, err)
+	}
+	if nil == dbObj {
+		t.Errorf("Nil return from dbmap.Get")
+	}
+
+	dbInst := dbObj.(*TenantDynamic)
+
+	{
+		inpTableName := inpInst.TableName()
+		resTableName := dbInst.TableName()
+		if inpTableName != resTableName {
+			t.Errorf("Mismatched table names %v != %v ",
+				inpTableName, resTableName)
+		}
+
+		if inpInst.Id != dbInst.Id {
+			t.Errorf("Mismatched Id values %v != %v ",
+				inpInst.Id, dbInst.Id)
+		}
+
+		if inpInst.Name != dbInst.Name {
+			t.Errorf("Mismatched Name values %v != %v ",
+				inpInst.Name, dbInst.Name)
+		}
+
+		if inpInst.Address != dbInst.Address {
+			t.Errorf("Mismatched Address values %v != %v ",
+				inpInst.Address, dbInst.Address)
+		}
+	}
+
+	{
+		updatedName := "Testing Updated Name2"
+		dbInst.Name = updatedName
+		cnt, err := dbmap.Update(dbInst)
+		if nil != err {
+			t.Errorf("Error from dbmap.Update: %v", err.Error())
+		}
+		if 1 != cnt {
+			t.Errorf("Update count must be 1, got %v", cnt)
+		}
+
+		// Read the object again to make sure that the
+		// data was updated in db
+		dbObj2, err := dbmap.Get(&inpIface2, inpInst.Id)
+		if err != nil {
+			t.Errorf("Errow in dbmap.Get. id: %v, Details: %v", inpInst.Id, err)
+		}
+		if nil == dbObj2 {
+			t.Errorf("Nil return from dbmap.Get")
+		}
+
+		dbInst2 := dbObj2.(*TenantDynamic)
+
+		inpTableName := inpInst.TableName()
+		resTableName := dbInst2.TableName()
+		if inpTableName != resTableName {
+			t.Errorf("Mismatched table names %v != %v ",
+				inpTableName, resTableName)
+		}
+
+		if inpInst.Id != dbInst2.Id {
+			t.Errorf("Mismatched Id values %v != %v ",
+				inpInst.Id, dbInst2.Id)
+		}
+
+		if updatedName != dbInst2.Name {
+			t.Errorf("Mismatched Name values %v != %v ",
+				updatedName, dbInst2.Name)
+		}
+
+		if inpInst.Address != dbInst.Address {
+			t.Errorf("Mismatched Address values %v != %v ",
+				inpInst.Address, dbInst.Address)
+		}
+
+	}
+}
+
+func dynamicTablesTestSelectOne(t *testing.T,
+	dbmap *gorp.DbMap,
+	inpInst *TenantDynamic) {
+
+	// TEST - dbmap.SelectOne
+
+	// read the data back from inpInst to see if the
+	// table mapping is correct
+	var dbTenantInst1 = TenantDynamic{curTable: inpInst.curTable}
+	selectSQL1 := "select * from " + dbTenantInst1.curTable + " where id = :idKey"
+	params := map[string]interface{}{"idKey": inpInst.Id}
+	err := dbmap.SelectOne(&dbTenantInst1, selectSQL1, params)
+	if err != nil {
+		t.Errorf("Errow in dbmap.SelectOne. SQL: %v, Details: %v", selectSQL1, err)
+	}
+
+	inpTableName := inpInst.curTable
+	resTableName := dbTenantInst1.TableName()
+	if inpTableName != resTableName {
+		t.Errorf("Mismatched table names %v != %v ",
+			inpTableName, resTableName)
+	}
+
+	if inpInst.Id != dbTenantInst1.Id {
+		t.Errorf("Mismatched Id values %v != %v ",
+			inpInst.Id, dbTenantInst1.Id)
+	}
+
+	if inpInst.Name != dbTenantInst1.Name {
+		t.Errorf("Mismatched Name values %v != %v ",
+			inpInst.Name, dbTenantInst1.Name)
+	}
+
+	if inpInst.Address != dbTenantInst1.Address {
+		t.Errorf("Mismatched Address values %v != %v ",
+			inpInst.Address, dbTenantInst1.Address)
+	}
+}
+
+func dynamicTablesTestDelete(t *testing.T,
+	dbmap *gorp.DbMap,
+	inpInst *TenantDynamic) {
+
+	// TEST - dbmap.Delete
+	cnt, err := dbmap.Delete(inpInst)
+	if err != nil {
+		t.Errorf("Errow in dbmap.Delete. Details: %v", err)
+	}
+	if 1 != cnt {
+		t.Errorf("Expected delete count for %v : 1, found count:%v",
+			inpInst.TableName(), cnt)
+	}
+
+	// Try reading again to make sure instance is gone from db
+	getInst := TenantDynamic{curTable: inpInst.TableName()}
+	dbInst, err := dbmap.Get(&getInst, inpInst.Id)
+	if nil != err {
+		t.Errorf("Error while trying to read deleted %v object using id: %v",
+			inpInst.TableName(), inpInst.Id)
+	}
+
+	if nil != dbInst {
+		t.Errorf("Found deleted %v instance using id: %v",
+			inpInst.TableName(), inpInst.Id)
+	}
+
+	if "" != getInst.Name {
+		t.Errorf("Found data from deleted %v instance using id: %v",
+			inpInst.TableName(), inpInst.Id)
+	}
+
+}
+
 func TestCreateTablesIfNotExists(t *testing.T) {
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
@@ -1206,6 +1482,8 @@ func TestCrud(t *testing.T) {
 
 	foo := &AliasTransientField{BarStr: "some bar"}
 	testCrudInternal(t, dbmap, foo)
+
+	dynamicTablesTest(t, dbmap)
 }
 
 func testCrudInternal(t *testing.T, dbmap *gorp.DbMap, val testable) {
@@ -2213,6 +2491,8 @@ func initDbMap() *gorp.DbMap {
 	//dbmap.AddTableWithName(WithEmbeddedStructConflictingEmbeddedMemberNames{}, "embedded_struct_conflict_name_test").SetKeys(true, "Id")
 	//dbmap.AddTableWithName(WithEmbeddedStructSameMemberName{}, "embedded_struct_same_member_name_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithEmbeddedStructBeforeAutoincrField{}, "embedded_struct_before_autoincr_test").SetKeys(true, "Id")
+	dbmap.AddTableDynamic(&dynTableInst1, "").SetKeys(true, "Id").AddIndex("TenantInst1Index", "Btree", []string{"Name"}).SetUnique(true)
+	dbmap.AddTableDynamic(&dynTableInst2, "").SetKeys(true, "Id").AddIndex("TenantInst2Index", "Btree", []string{"Name"}).SetUnique(true)
 	dbmap.AddTableWithName(WithEmbeddedAutoincr{}, "embedded_autoincr_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithTime{}, "time_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithNullTime{}, "nulltime_test").SetKeys(false, "Id")
@@ -2222,6 +2502,11 @@ func initDbMap() *gorp.DbMap {
 		panic(err)
 	}
 	err = dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
+
+	err = dbmap.CreateIndex()
 	if err != nil {
 		panic(err)
 	}
