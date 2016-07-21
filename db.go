@@ -41,7 +41,7 @@ type DbMap struct {
 
 	TypeConverter TypeConverter
 
-	ExtraColumnsAreErrors bool
+	IgnoreExtraColumnErrors bool
 
 	tables        []*TableMap
 	tablesDynamic map[string]*TableMap // tables that use same go-struct and different db table names
