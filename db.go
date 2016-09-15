@@ -69,13 +69,19 @@ func (m *DbMap) dynamicTableMap() map[string]*TableMap {
 	return m.tablesDynamic
 }
 
+// CreateIndex is deprecated: use CreateIndexes
 func (m *DbMap) CreateIndex() error {
+	return m.CreateIndexes()
+}
+
+// CreateIndexes creates all the indexes registered with all the tables.
+func (m *DbMap) CreateIndexes() error {
 
 	var err error
-	dialect := reflect.TypeOf(m.Dialect)
 	for _, table := range m.tables {
 		for _, index := range table.indexes {
-			err = m.createIndexImpl(dialect, table, index)
+			s := table.SqlForCreateIndexes(index)
+			_, err := m.Exec(s)
 			if err != nil {
 				break
 			}
@@ -84,43 +90,14 @@ func (m *DbMap) CreateIndex() error {
 
 	for _, table := range m.dynamicTableMap() {
 		for _, index := range table.indexes {
-			err = m.createIndexImpl(dialect, table, index)
+			s := table.SqlForCreateIndexes(index)
+			_, err := m.Exec(s)
 			if err != nil {
 				break
 			}
 		}
 	}
 
-	return err
-}
-
-func (m *DbMap) createIndexImpl(dialect reflect.Type,
-	table *TableMap,
-	index *IndexMap) error {
-	s := bytes.Buffer{}
-	s.WriteString("create")
-	if index.Unique {
-		s.WriteString(" unique")
-	}
-	s.WriteString(" index")
-	s.WriteString(fmt.Sprintf(" %s on %s", index.IndexName, table.TableName))
-	if dname := dialect.Name(); dname == "PostgresDialect" && index.IndexType != "" {
-		s.WriteString(fmt.Sprintf(" %s %s", m.Dialect.CreateIndexSuffix(), index.IndexType))
-	}
-	s.WriteString(" (")
-	for x, col := range index.columns {
-		if x > 0 {
-			s.WriteString(", ")
-		}
-		s.WriteString(m.Dialect.QuoteField(col))
-	}
-	s.WriteString(")")
-
-	if dname := dialect.Name(); dname == "MySQLDialect" && index.IndexType != "" {
-		s.WriteString(fmt.Sprintf(" %s %s", m.Dialect.CreateIndexSuffix(), index.IndexType))
-	}
-	s.WriteString(";")
-	_, err := m.Exec(s.String())
 	return err
 }
 
