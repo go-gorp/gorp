@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -167,13 +168,35 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
+func (t *TableMap) signatureForColumns(colFilter ColumnFilter) string {
+	var tokens []string
+	for y := range t.Columns {
+		col := t.Columns[y]
+		if colFilter(col) {
+			tokens = append(tokens, col.ColumnName)
+		}
+	}
+	return strings.Join(tokens, ",")
+}
 
 func (t *TableMap) bindUpdate(elem reflect.Value, colFilter ColumnFilter) (bindInstance, error) {
+	var key string
 	if colFilter == nil {
 		colFilter = acceptAllFilter
+		key = "default" // if we wants to update all columns, make it simple
+	} else {
+		key = t.signatureForColumns(colFilter)
 	}
 
-	plan := &t.updatePlan
+	t.muForUpdate.Lock()
+	_, ok := t.updatePlan[key]
+	if !ok {
+		t.updatePlan[key] = bindPlan{}
+	}
+	updatePlan := t.updatePlan[key]
+	t.muForUpdate.Unlock()
+
+	plan := &updatePlan
 	plan.once.Do(func() {
 		s := bytes.Buffer{}
 		s.WriteString(fmt.Sprintf("update %s set ", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))

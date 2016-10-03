@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 // TableMap represents a mapping between a Go struct and a database table
@@ -31,10 +32,22 @@ type TableMap struct {
 	uniqueTogether [][]string
 	version        *ColumnMap
 	insertPlan     bindPlan
-	updatePlan     bindPlan
 	deletePlan     bindPlan
 	getPlan        bindPlan
 	dbmap          *DbMap
+
+	updatePlan  map[string]bindPlan
+	muForUpdate sync.Mutex
+}
+
+func NewTableMap(t reflect.Type, name string, schema string, dbmap *DbMap) *TableMap {
+	return &TableMap{
+		gotype:     t,
+		TableName:  name,
+		SchemaName: schema,
+		dbmap:      dbmap,
+		updatePlan: map[string]bindPlan{},
+	}
 }
 
 // ResetSql removes cached insert/update/select/delete SQL strings
@@ -42,7 +55,7 @@ type TableMap struct {
 // any column names or the table name itself.
 func (t *TableMap) ResetSql() {
 	t.insertPlan = bindPlan{}
-	t.updatePlan = bindPlan{}
+	t.updatePlan = map[string]bindPlan{}
 	t.deletePlan = bindPlan{}
 	t.getPlan = bindPlan{}
 }

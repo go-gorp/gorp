@@ -1586,6 +1586,21 @@ func TestColumnFilter(t *testing.T) {
 	if inv2.IsPaid {
 		t.Error("IsPaid shouldn't have been updated")
 	}
+
+	// update isPaid field only
+	_updateColumns(dbmap, func(col *gorp.ColumnMap) bool {
+		return col.ColumnName == "IsPaid"
+	}, inv1)
+
+	inv2 = &Invoice{}
+	inv2 = _get(dbmap, inv2, inv1.Id).(*Invoice)
+	if inv2.Memo != "c" {
+		t.Errorf("Expected column to be updated (%#v)", inv2)
+	}
+	if !inv2.IsPaid {
+		t.Error("IsPaid should have been updated")
+	}
+
 }
 
 func TestTypeConversionExample(t *testing.T) {
