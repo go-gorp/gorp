@@ -727,6 +727,128 @@ delete from PersistentUser
 	}
 }
 
+func TestNamedQueryMap(t *testing.T) {
+	dbmap := newDbMap()
+	dbmap.Exec("drop table if exists PersistentUser")
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
+	table.ColMap("Key").Rename("mykey")
+	err := dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		panic(err)
+	}
+	defer dbmap.DropTablesIfExists()
+	pu := &PersistentUser{43, "33r", false}
+	pu2 := &PersistentUser{500, "abc", false}
+	err = dbmap.Insert(pu, pu2)
+	if err != nil {
+		panic(err)
+	}
+
+	// Test simple case
+	var puArr []*PersistentUser
+	_, err = dbmap.Select(&puArr, "select * from PersistentUser where mykey = :Key", map[string]interface{}{
+		"Key": 43,
+	})
+	if err != nil {
+		t.Errorf("Failed to select: %s", err)
+		t.FailNow()
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu, puArr[0]) {
+		t.Errorf("%v!=%v", pu, puArr[0])
+	}
+
+	// Test more specific map value type is ok
+	puArr = nil
+	_, err = dbmap.Select(&puArr, "select * from PersistentUser where mykey = :Key", map[string]int{
+		"Key": 43,
+	})
+	if err != nil {
+		t.Errorf("Failed to select: %s", err)
+		t.FailNow()
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+
+	// Test multiple parameters set.
+	puArr = nil
+	_, err = dbmap.Select(&puArr, `
+select * from PersistentUser
+ where mykey = :Key
+   and PassedTraining = :PassedTraining
+   and Id = :Id`, map[string]interface{}{
+		"Key":            43,
+		"PassedTraining": false,
+		"Id":             "33r",
+	})
+	if err != nil {
+		t.Errorf("Failed to select: %s", err)
+		t.FailNow()
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+
+	// Test colon within a non-key string
+	// Test having extra, unused properties in the map.
+	puArr = nil
+	_, err = dbmap.Select(&puArr, `
+select * from PersistentUser
+ where mykey = :Key
+   and Id != 'abc:def'`, map[string]interface{}{
+		"Key":            43,
+		"PassedTraining": false,
+	})
+	if err != nil {
+		t.Errorf("Failed to select: %s", err)
+		t.FailNow()
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+}
+
+func TestNamedQueryStruct(t *testing.T) {
+	dbmap := newDbMap()
+	dbmap.Exec("drop table if exists PersistentUser")
+	dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
+	table.ColMap("Key").Rename("mykey")
+	err := dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		panic(err)
+	}
+	defer dbmap.DropTablesIfExists()
+	pu := &PersistentUser{43, "33r", false}
+	pu2 := &PersistentUser{500, "abc", false}
+	err = dbmap.Insert(pu, pu2)
+	if err != nil {
+		panic(err)
+	}
+
+	// Test select self
+	var puArr []*PersistentUser
+	_, err = dbmap.Select(&puArr, `
+select * from PersistentUser
+ where mykey = :Key
+   and PassedTraining = :PassedTraining
+   and Id = :Id`, pu)
+	if err != nil {
+		t.Errorf("Failed to select: %s", err)
+		t.FailNow()
+	}
+	if len(puArr) != 1 {
+		t.Errorf("Expected one persistentuser, found none")
+	}
+	if !reflect.DeepEqual(pu, puArr[0]) {
+		t.Errorf("%v!=%v", pu, puArr[0])
+	}
+}
+
 // Ensure that the slices containing SQL results are non-nil when the result set is empty.
 func TestReturnsNonNilSlice(t *testing.T) {
 	dbmap := initDbMap()

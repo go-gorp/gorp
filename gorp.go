@@ -1757,6 +1757,50 @@ func expandNamedQuery(m *DbMap, query string, keyGetter func(key string) reflect
 	}), args
 }
 
+// maybeExpandNamedQuery checks the given arg to see if it's eligible to be used
+// as input to a named query.  If so, it rewrites the query to use
+// dialect-dependent bindvars and instantiates the corresponding slice of
+// parameters by extracting data from the map / struct.
+// If not, returns the input values unchanged.
+func maybeExpandNamedQuery(m *DbMap, query string, args []interface{}) (string, []interface{}) {
+	arg := reflect.ValueOf(args[0])
+	for arg.Kind() == reflect.Ptr {
+		arg = arg.Elem()
+	}
+	switch {
+	case arg.Kind() == reflect.Map && arg.Type().Key().Kind() == reflect.String:
+		return expandNamedQuery(m, query, func(key string) reflect.Value {
+			return arg.MapIndex(reflect.ValueOf(key))
+		})
+	case arg.Kind() == reflect.Struct:
+		return expandNamedQuery(m, query, arg.FieldByName)
+	}
+	return query, args
+}
+
+var keyRegexp = regexp.MustCompile(`:[[:word:]]+`)
+
+// expandNamedQuery accepts a query with placeholders of the form ":key", and a
+// single arg of Kind Struct or Map[string].  It returns the query with the
+// dialect's placeholders, and a slice of args ready for positional insertion
+// into the query.
+func expandNamedQuery(m *DbMap, query string, keyGetter func(key string) reflect.Value) (string, []interface{}) {
+	var (
+		n    int
+		args []interface{}
+	)
+	return keyRegexp.ReplaceAllStringFunc(query, func(key string) string {
+		val := keyGetter(key[1:])
+		if !val.IsValid() {
+			return key
+		}
+		args = append(args, val.Interface())
+		newVar := m.Dialect.BindVar(n)
+		n++
+		return newVar
+	}), args
+}
+
 func columnToFieldIndex(m *DbMap, t reflect.Type, cols []string) ([][]int, error) {
 	colToFieldIndex := make([][]int, len(cols))
 
