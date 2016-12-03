@@ -399,13 +399,24 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 	for x, fieldName := range plan.argFields {
 		f := v.Elem().FieldByName(fieldName)
 		target := f.Addr().Interface()
+		sf, _ := t.FieldByName(fieldName)
+		isJSON := hasTag(sf, "json")
 		if conv != nil {
 			scanner, ok := conv.FromDb(target)
 			if ok {
+				if isJSON {
+					return nil, fmt.Errorf("gorp: custom scanner defined for json field: %v", fieldName)
+				}
 				target = scanner.Holder
 				custScan = append(custScan, scanner)
 			}
 		}
+		if isJSON {
+			scanner := newJsonScanner(target)
+			target = scanner.Holder
+			custScan = append(custScan, scanner)
+		}
+
 		dest[x] = target
 	}
 

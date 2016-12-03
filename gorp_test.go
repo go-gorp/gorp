@@ -89,8 +89,13 @@ type InvoiceTag struct {
 	Created  int64 `db:"myCreated"`
 	Updated  int64 `db:"date_updated"`
 	Memo     string
-	PersonId int64 `db:"person_id"`
-	IsPaid   bool  `db:"is_Paid"`
+	PersonId int64                `db:"person_id"`
+	IsPaid   bool                 `db:"is_Paid"`
+	Address  *InvoiceAddressField `db:",json"`
+}
+type InvoiceAddressField struct {
+	City string
+	Zip  int32
 }
 
 func (me *InvoiceTag) GetId() int64 { return me.Id }
@@ -98,6 +103,7 @@ func (me *InvoiceTag) Rand() {
 	me.Memo = fmt.Sprintf("random %d", rand.Int63())
 	me.Created = rand.Int63()
 	me.Updated = rand.Int63()
+	me.Address = &InvoiceAddressField{fmt.Sprintf("random %d", rand.Int63()), rand.Int31()}
 }
 
 // See: https://github.com/go-gorp/gorp/issues/175
@@ -1476,8 +1482,11 @@ func TestCrud(t *testing.T) {
 	inv := &Invoice{0, 100, 200, "first order", 0, true}
 	testCrudInternal(t, dbmap, inv)
 
-	invtag := &InvoiceTag{0, 300, 400, "some order", 33, false}
+	invtag := &InvoiceTag{0, 300, 400, "some order", 33, false, &InvoiceAddressField{"Beverly Hills", 90210}}
 	testCrudInternal(t, dbmap, invtag)
+
+	invniljson := &InvoiceTag{0, 990, 231, "unadressed order", 76, false, nil}
+	testCrudInternal(t, dbmap, invniljson)
 
 	foo := &AliasTransientField{BarStr: "some bar"}
 	testCrudInternal(t, dbmap, foo)
