@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -259,6 +260,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 			var isAuto bool
 			var isPK bool
 			var isNotNull bool
+			var isJSON bool
 			for _, argString := range cArguments[1:] {
 				argString = strings.TrimSpace(argString)
 				arg := strings.SplitN(argString, ":", 2)
@@ -288,6 +290,8 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 					isAuto = true
 				case "notnull":
 					isNotNull = true
+				case "json":
+					isJSON = true
 				default:
 					panic(fmt.Sprintf("Unrecognized tag option for field %v: %v", f.Name, arg))
 				}
@@ -311,6 +315,9 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 				if useHolder {
 					value = scanner.Holder
 					gotype = reflect.TypeOf(value)
+					if isJSON {
+						panic(fmt.Sprintf("gorp: custom scanner defined for json field %v", f.Name))
+					}
 				}
 			}
 			if typer, ok := value.(SqlTyper); ok {
@@ -323,6 +330,10 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 					gotype = reflect.TypeOf(v)
 				}
 			}
+			if isJSON { // TODO: not sure if this check is in good place
+				value = &json.RawMessage{}
+				gotype = reflect.TypeOf(value)
+			}
 			cm := &ColumnMap{
 				ColumnName:   columnName,
 				DefaultValue: defaultValue,
@@ -332,6 +343,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 				isPK:         isPK,
 				isAutoIncr:   isAuto,
 				isNotNull:    isNotNull,
+				isJSON:       isJSON,
 				MaxSize:      maxSize,
 			}
 			if isPK {

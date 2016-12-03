@@ -13,6 +13,7 @@ package gorp
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"reflect"
 )
@@ -310,6 +311,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		custScan := make([]CustomScanner, 0)
 
 		for x := range cols {
+			var isJSON bool
 			f := v.Elem()
 			if intoStruct {
 				index := colToFieldIndex[x]
@@ -320,16 +322,45 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 					dest[x] = &dummy
 					continue
 				}
+				isJSON = hasTag(t.FieldByIndex(index), "json")
 				f = f.FieldByIndex(index)
 			}
 			target := f.Addr().Interface()
+
 			if conv != nil {
 				scanner, ok := conv.FromDb(target)
 				if ok {
+					if isJSON {
+						return nil, fmt.Errorf("gorp: custom scanner defined for json field: %v", f.Type().FieldByIndex(colToFieldIndex[x]).Name)
+					}
 					target = scanner.Holder
 					custScan = append(custScan, scanner)
 				}
 			}
+
+			if isJSON {
+				scanner := CustomScanner{
+					Holder: &json.RawMessage{},
+					Target: target,
+					Binder: func(holder, target interface{}) error {
+						sptr := holder.(*json.RawMessage)
+						if *sptr == nil {
+							target_value := reflect.ValueOf(target).Elem()
+							target_type := target_value.Type()
+							if target_type.Kind() != reflect.Ptr {
+								return fmt.Errorf("gorp: select of json null value required pointer struct field, got %s", target_type.String())
+							}
+							target_value.Set(reflect.Zero(target_type))
+							return nil
+						}
+						err := json.Unmarshal(*sptr, target)
+						return err
+					},
+				}
+				target = scanner.Holder
+				custScan = append(custScan, scanner)
+			}
+
 			dest[x] = target
 		}
 

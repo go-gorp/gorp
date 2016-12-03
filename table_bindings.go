@@ -13,6 +13,7 @@ package gorp
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -77,6 +78,13 @@ func (plan *bindPlan) createBindInstance(elem reflect.Value, conv TypeConverter)
 				val, err = conv.ToDb(val)
 				if err != nil {
 					return bindInstance{}, err
+				}
+			}
+			sf, _ := elem.Type().FieldByName(k)
+			if hasTag(sf, "json") {
+				val, err = json.Marshal(val)
+				if err != nil {
+					return bindInstance{}, fmt.Errorf("gorp: createBindInstance json.Marshal error for %s: %s", k, err)
 				}
 			}
 			bi.args = append(bi.args, val)

@@ -335,6 +335,16 @@ func toType(i interface{}) (reflect.Type, error) {
 	return t, nil
 }
 
+func hasTag(sf reflect.StructField, name string) bool {
+	all_tags := strings.Split(sf.Tag.Get("db"), ",")
+	for _, i := range all_tags {
+		if i == name {
+			return true
+		}
+	}
+	return false
+}
+
 type foundTable struct {
 	table   *TableMap
 	dynName *string

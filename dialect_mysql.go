@@ -54,7 +54,7 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 	case reflect.Float64, reflect.Float32:
 		return "double"
 	case reflect.Slice:
-		if val.Elem().Kind() == reflect.Uint8 {
+		if val.Elem().Kind() == reflect.Uint8 && val.Name() != "RawMessage" { // TODO: meh
 			return "mediumblob"
 		}
 	}
@@ -68,6 +68,8 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 		return "tinyint"
 	case "Time":
 		return "datetime"
+	case "RawMessage":
+		return "json"
 	}
 
 	if maxsize < 1 {
