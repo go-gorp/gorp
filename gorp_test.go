@@ -1882,6 +1882,79 @@ func TestSqlExecutorInterfaceSelects(t *testing.T) {
 	}
 }
 
+type jsonConflictingTypeConverter struct{}
+
+func (me jsonConflictingTypeConverter) ToDb(val interface{}) (interface{}, error) {
+	switch val.(type) {
+	case InvoiceAddressField:
+		return nil, errors.New("jsonBadTypeConverter")
+	}
+	return val, nil
+}
+
+func (me jsonConflictingTypeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
+	switch target.(type) {
+	case **InvoiceAddressField:
+		return gorp.CustomScanner{}, true
+	}
+	return gorp.CustomScanner{}, false
+}
+
+func TestJsonConflictingTypeConverter(t *testing.T) {
+	dbmap := newDbMap()
+	defer dropAndClose(dbmap)
+	dbmap.AddTableWithName(InvoiceTag{}, "invoice_tag_test").SetKeys(true, "Id")
+	dbmap.CreateTablesIfNotExists()
+
+	invtag := &InvoiceTag{0, 300, 400, "some order", 33, false, &InvoiceAddressField{"Beverly Hills", 90210}}
+	err := dbmap.Insert(invtag)
+	if err != nil {
+		t.Error("failed insert on %s", err.Error())
+	}
+
+	dbmap.TypeConverter = jsonConflictingTypeConverter{}
+
+	_, err = dbmap.Get(InvoiceTag{}, invtag.Id)
+	if err == nil || !strings.Contains(err.Error(), "gorp: custom scanner defined for json field") {
+		t.Errorf("unexpected error for conflicting json TypeConverter Get: '%v'", err)
+	}
+
+	var row InvoiceTag
+	err = dbmap.SelectOne(&row, "SELECT * FROM invoice_tag_test")
+	if err == nil || !strings.Contains(err.Error(), "gorp: custom scanner defined for json field") {
+		t.Errorf("unexpected error for conflicting json TypeConverter SelectOne: '%v'", err)
+	}
+
+	return
+}
+
+type NullJson struct {
+	Id   int64
+	Data struct {
+		Foo string
+	} `db:",json"`
+}
+
+func TestJsonNullError(t *testing.T) {
+	dbmap := newDbMap()
+	defer dropAndClose(dbmap)
+	dbmap.AddTableWithName(NullJson{}, "null_json_test").SetKeys(true, "Id")
+	dbmap.CreateTablesIfNotExists()
+
+	_, err := dbmap.Exec("INSERT INTO null_json_test(id, data) VALUES (1, NULL)")
+	if err != nil {
+		t.Error("failed manual insert on %s", err.Error())
+	}
+
+	var row NullJson
+	err = dbmap.SelectOne(&row, "SELECT * FROM null_json_test")
+	if err == nil || !strings.Contains(err.Error(), "gorp: select of json null value requires pointer struct field") {
+		t.Errorf("unexpected error for null json select: '%v'", err)
+	}
+
+	return
+}
+
 func TestNullTime(t *testing.T) {
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)

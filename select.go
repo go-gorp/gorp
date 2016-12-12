@@ -330,7 +330,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 				scanner, ok := conv.FromDb(target)
 				if ok {
 					if isJSON {
-						return nil, fmt.Errorf("gorp: custom scanner defined for json field: %v", f.Type().FieldByIndex(colToFieldIndex[x]).Name)
+						return nil, fmt.Errorf("gorp: custom scanner defined for json field: %v", t.FieldByIndex(colToFieldIndex[x]).Name)
 					}
 					target = scanner.Holder
 					custScan = append(custScan, scanner)
