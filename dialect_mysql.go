@@ -25,6 +25,9 @@ type MySQLDialect struct {
 
 	// Encoding is the character encoding to use for created tables
 	Encoding string
+
+	// Use JSON type for json taged fields, available since MySQL 5.7.8
+	UseJSONSqlType bool
 }
 
 func (d MySQLDialect) QuerySuffix() string { return ";" }
@@ -69,7 +72,10 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 	case "Time":
 		return "datetime"
 	case "RawMessage":
-		return "json"
+		if d.UseJSONSqlType {
+			return "json"
+		}
+		return "mediumblob"
 	}
 
 	if maxsize < 1 {

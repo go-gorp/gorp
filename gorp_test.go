@@ -2639,9 +2639,9 @@ func connect(driver string) *sql.DB {
 func dialectAndDriver() (gorp.Dialect, string) {
 	switch os.Getenv("GORP_TEST_DIALECT") {
 	case "mysql":
-		return gorp.MySQLDialect{"InnoDB", "UTF8"}, "mymysql"
+		return gorp.MySQLDialect{"InnoDB", "UTF8", false}, "mymysql"
 	case "gomysql":
-		return gorp.MySQLDialect{"InnoDB", "UTF8"}, "mysql"
+		return gorp.MySQLDialect{"InnoDB", "UTF8", false}, "mysql"
 	case "postgres":
 		return gorp.PostgresDialect{}, "postgres"
 	case "sqlite":
