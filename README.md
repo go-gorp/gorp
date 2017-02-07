@@ -689,6 +689,32 @@ Note that these databases are not covered by CI and I (@coopernurse)
 have no good way to test them locally.  So please try them and send
 patches as needed, but expect a bit more unpredicability.
 
+## Sqlite3 Extensions
+
+In order to use sqlite3 extensions you need to first register a custom driver:
+
+```go
+import (
+	"database/sql"
+
+	// use whatever database/sql driver you wish
+	sqlite "github.com/mattn/go-sqlite3"
+)
+
+func customDriver() (*sql.DB, error) {
+
+	// create custom driver with extensions defined
+	sql.Register("sqlite3-custom", &sqlite.SQLiteDriver{
+		Extensions: []string{
+			"mod_spatialite",
+		},
+	})
+
+	// now you can then connect using the 'sqlite3-custom' driver instead of 'sqlite3'
+	return sql.Open("sqlite3-custom", "/tmp/post_db.bin")
+}
+```
+
 ## Known Issues
 
 ### SQL placeholder portability
