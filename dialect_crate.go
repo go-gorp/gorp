@@ -2,10 +2,10 @@ package gorp
 
 import (
 	"fmt"
-	"net"
+	_ "net"
 	"reflect"
 	"strings"
-	"time"
+	_ "time"
 )
 
 type CrateDialect struct {
@@ -16,14 +16,14 @@ func (d CrateDialect) QuerySuffix() string { return ";" }
 
 func (d CrateDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	//Maxsize and isAutoIncrement are never used in this dialect
-	switch val.Elem() {
-	//https://crate.io/docs/reference/sql/data_types.html#ip
-	case reflect.TypeOf(net.IPAddr{}):
-		return "ip"
-	//https://crate.io/docs/reference/sql/data_types.html#timestamp
-	case reflect.TypeOf(time.Time{}):
-		return "timestamp"
-	}
+	//	switch val.Elem() {
+	//	//https://crate.io/docs/reference/sql/data_types.html#ip
+	//	case reflect.TypeOf(net.IP{}):
+	//		return "ip"
+	//	//https://crate.io/docs/reference/sql/data_types.html#timestamp
+	//	case reflect.TypeOf(time.Time{}):
+	//		return "timestamp"
+	//	}
 
 	switch val.Kind() {
 	case reflect.Ptr:
@@ -48,7 +48,7 @@ func (d CrateDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 		return "string"
 	//https://crate.io/docs/reference/sql/data_types.html#array
 	case reflect.Slice:
-		return "array(" + val.Elem().Kind().String() + ")"
+		return "array(" + d.ToSqlType(val.Elem(), -1, false) + ")"
 	default:
 		return "object"
 	}
@@ -116,7 +116,7 @@ func (d CrateDialect) InsertQueryToTarget(exec SqlExecutor, insertSql, idSql str
 	if err != nil {
 		return err
 	}
-	id, err := exec.SelectInt(idSql)
+	_, err = exec.SelectInt(idSql)
 	if err != nil {
 		return err
 	}
