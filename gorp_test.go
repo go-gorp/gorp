@@ -45,7 +45,7 @@ var (
 		gorp.MySQLDialect{},
 		gorp.SqlServerDialect{},
 		gorp.OracleDialect{},
-		gorp.CrateDialct{},
+		gorp.CrateDialect{},
 	}
 
 	debug bool
