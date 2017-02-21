@@ -245,3 +245,33 @@ func (t *TableMap) SqlForCreate(ifNotExists bool) string {
 	s.WriteString(dialect.QuerySuffix())
 	return s.String()
 }
+
+func (t *TableMap) SqlForCreateIndexes(index *IndexMap) string {
+	s := bytes.Buffer{}
+	dialect := t.dbmap.Dialect
+	dialectType := reflect.TypeOf(dialect)
+
+	s.WriteString("create")
+	if index.Unique {
+		s.WriteString(" unique")
+	}
+	s.WriteString(" index")
+	s.WriteString(fmt.Sprintf(" %s on %s", index.IndexName, t.TableName))
+	if dname := dialectType.Name(); dname == "PostgresDialect" && index.IndexType != "" {
+		s.WriteString(fmt.Sprintf(" %s %s", dialect.CreateIndexSuffix(), index.IndexType))
+	}
+	s.WriteString(" (")
+	for x, col := range index.columns {
+		if x > 0 {
+			s.WriteString(", ")
+		}
+		s.WriteString(dialect.QuoteField(col))
+	}
+	s.WriteString(")")
+
+	if dname := dialectType.Name(); dname == "MySQLDialect" && index.IndexType != "" {
+		s.WriteString(fmt.Sprintf(" %s %s", dialect.CreateIndexSuffix(), index.IndexType))
+	}
+	s.WriteString(";")
+	return s.String()
+}
