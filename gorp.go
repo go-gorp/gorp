@@ -245,7 +245,8 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([
 	var foundColCount int
 	t.FieldByNameFunc(func(name string) bool {
 		field, _ := t.FieldByName(name)
-		fieldName := field.Tag.Get("db")
+		cArguments := strings.Split(field.Tag.Get("db"), ",")
+		fieldName = cArguments[0]
 
 		if fieldName == "-" {
 			return false
