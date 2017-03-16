@@ -239,10 +239,16 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([
 		tableMapped = true
 	}
 
+	lowerCaseCols := make([]string, len(cols))
+	for i, v := range cols {
+		lowerCaseCols[i] = strings.ToLower(v)
+	}
+
 	// Loop over column names and find field in i to bind to
 	// based on column name. all returned columns must match
 	// a field in the i struct
 	var foundColCount int
+	// better to use recursive function to loop
 	t.FieldByNameFunc(func(name string) bool {
 		field, _ := t.FieldByName(name)
 		cArguments := strings.Split(field.Tag.Get("db"), ",")
@@ -261,7 +267,9 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([
 			}
 		}
 
-		for i, v := range cols {
+		fieldName = strings.ToLower(fieldName)
+
+		for i, v := range lowerCaseCols {
 			if v != fieldName {
 				continue
 			}
@@ -287,6 +295,7 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([
 			MissingColNames: missingColNames,
 		}
 	}
+
 	return colToFieldIndex, nil
 }
 
