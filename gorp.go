@@ -243,12 +243,12 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([
 	// based on column name. all returned columns must match
 	// a field in the i struct
 	var foundColCount int
-	for fIdx := 0; fIdx < t.NumField(); fIdx++ {
-		field := t.Field(fIdx)
+	t.FieldByNameFunc(func(name string) bool {
+		field, _ := t.FieldByName(name)
 		fieldName := field.Tag.Get("db")
 
 		if fieldName == "-" {
-			continue
+			return false
 		} else if fieldName == "" {
 			fieldName = field.Name
 		}
@@ -267,7 +267,10 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([
 			foundColCount++
 			colToFieldIndex[i] = field.Index
 		}
-	}
+		// we use this FieldByNameFunc too loop over the struct fields
+		// so don't want to it be returned with true
+		return false
+	})
 
 	missingColCount := len(cols) - foundColCount
 	if missingColCount > 0 {
