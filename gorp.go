@@ -239,43 +239,63 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([
 		tableMapped = true
 	}
 
+	lowerCaseCols := make([]string, len(cols))
+	for i, v := range cols {
+		lowerCaseCols[i] = strings.ToLower(v)
+	}
+
 	// Loop over column names and find field in i to bind to
 	// based on column name. all returned columns must match
 	// a field in the i struct
-	missingColNames := []string{}
-	for x := range cols {
-		colName := strings.ToLower(cols[x])
-		field, found := t.FieldByNameFunc(func(fieldName string) bool {
-			field, _ := t.FieldByName(fieldName)
-			cArguments := strings.Split(field.Tag.Get("db"), ",")
-			fieldName = cArguments[0]
+	var foundColCount int
+	// better to use recursive function to loop
+	t.FieldByNameFunc(func(name string) bool {
+		field, _ := t.FieldByName(name)
+		cArguments := strings.Split(field.Tag.Get("db"), ",")
+		fieldName := cArguments[0]
 
-			if fieldName == "-" {
-				return false
-			} else if fieldName == "" {
-				fieldName = field.Name
-			}
-			if tableMapped {
-				colMap := colMapOrNil(table, fieldName)
-				if colMap != nil {
-					fieldName = colMap.ColumnName
-				}
-			}
-			return colName == strings.ToLower(fieldName)
-		})
-		if found {
-			colToFieldIndex[x] = field.Index
+		if fieldName == "-" {
+			return false
+		} else if fieldName == "" {
+			fieldName = field.Name
 		}
-		if colToFieldIndex[x] == nil {
-			missingColNames = append(missingColNames, colName)
+
+		if tableMapped {
+			colMap := colMapOrNil(table, fieldName)
+			if colMap != nil {
+				fieldName = colMap.ColumnName
+			}
 		}
-	}
-	if len(missingColNames) > 0 {
+
+		fieldName = strings.ToLower(fieldName)
+
+		for i, v := range lowerCaseCols {
+			if v != fieldName {
+				continue
+			}
+			foundColCount++
+			colToFieldIndex[i] = field.Index
+		}
+		// we use this FieldByNameFunc too loop over the struct fields
+		// so don't want to it be returned with true
+		return false
+	})
+
+	missingColCount := len(cols) - foundColCount
+	if missingColCount > 0 {
+		missingColNames := make([]string, 0, missingColCount)
+		for idx, colName := range cols {
+			if colToFieldIndex[idx] == nil {
+				missingColNames = append(missingColNames, colName)
+			}
+		}
+
 		return colToFieldIndex, &NoFieldInTypeError{
 			TypeName:        t.Name(),
 			MissingColNames: missingColNames,
 		}
 	}
+
 	return colToFieldIndex, nil
 }
 
