@@ -59,7 +59,6 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 			return "mediumblob"
 		}
 	}
-	log.Println(val.Name())
 	switch val.Name() {
 	case "NullInt64":
 		return "bigint"
