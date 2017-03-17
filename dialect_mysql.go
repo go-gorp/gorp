@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"log"
 )
 
 // Implementation of Dialect for MySQL databases.
