@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"log"
 )
 
 // Implementation of Dialect for MySQL databases.
@@ -58,7 +59,7 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 			return "mediumblob"
 		}
 	}
-
+	log.Println(val.Name())
 	switch val.Name() {
 	case "NullInt64":
 		return "bigint"
@@ -67,6 +68,8 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 	case "NullBool":
 		return "tinyint"
 	case "Time":
+		return "datetime"
+	case "DateTime":
 		return "datetime"
 	}
 
