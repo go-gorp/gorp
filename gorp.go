@@ -12,6 +12,7 @@
 package gorp
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
@@ -87,6 +88,7 @@ type TypeConverter interface {
 // on internal functions that convert named parameters for the Exec function.
 type executor interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
 // SqlExecutor exposes gorp operations that can be run from Pre/Post
@@ -101,6 +103,7 @@ type SqlExecutor interface {
 	Update(list ...interface{}) (int64, error)
 	Delete(list ...interface{}) (int64, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecNoTimeout(query string, args ...interface{}) (sql.Result, error)
 	Select(i interface{}, query string,
 		args ...interface{}) ([]interface{}, error)
 	SelectInt(query string, args ...interface{}) (int64, error)
@@ -111,7 +114,9 @@ type SqlExecutor interface {
 	SelectNullStr(query string, args ...interface{}) (sql.NullString, error)
 	SelectOne(holder interface{}, query string, args ...interface{}) error
 	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryRow(query string, args ...interface{}) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
 // DynamicTable allows the users of gorp to dynamically
@@ -152,7 +157,7 @@ func argsString(args ...interface{}) string {
 
 // Calls the Exec function on the executor, but attempts to expand any eligible named
 // query arguments first.
-func exec(e SqlExecutor, query string, args ...interface{}) (sql.Result, error) {
+func exec(e SqlExecutor, query string, doTimeout bool, args ...interface{}) (sql.Result, error) {
 	var dbMap *DbMap
 	var executor executor
 	switch m := e.(type) {
@@ -168,7 +173,13 @@ func exec(e SqlExecutor, query string, args ...interface{}) (sql.Result, error) 
 		query, args = maybeExpandNamedQuery(dbMap, query, args)
 	}
 
-	return executor.Exec(query, args...)
+	if doTimeout {
+		ctx, cancel := context.WithTimeout(context.Background(), dbMap.ConnectionTimeout)
+		defer cancel()
+		return executor.ExecContext(ctx, query, args...)
+	} else {
+		return executor.Exec(query, args...)
+	}
 }
 
 // maybeExpandNamedQuery checks the given arg to see if it's eligible to be used
@@ -399,7 +410,10 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 		dest[x] = target
 	}
 
-	row := exec.QueryRow(plan.query, keys...)
+	ctx, cancel := context.WithTimeout(context.Background(), m.ConnectionTimeout)
+	defer cancel()
+
+	row := exec.QueryRowContext(ctx, plan.query, keys...)
 	err = row.Scan(dest...)
 	if err != nil {
 		if err == sql.ErrNoRows {

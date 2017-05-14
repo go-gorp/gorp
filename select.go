@@ -12,6 +12,7 @@
 package gorp
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"reflect"
@@ -154,15 +155,22 @@ func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args .
 }
 
 func selectVal(e SqlExecutor, holder interface{}, query string, args ...interface{}) error {
-	if len(args) == 1 {
-		switch m := e.(type) {
-		case *DbMap:
-			query, args = maybeExpandNamedQuery(m, query, args)
-		case *Transaction:
-			query, args = maybeExpandNamedQuery(m.dbmap, query, args)
-		}
+	var dbMap *DbMap
+	switch m := e.(type) {
+	case *DbMap:
+		dbMap = m
+	case *Transaction:
+		dbMap = m.dbmap
 	}
-	rows, err := e.Query(query, args...)
+
+	if len(args) == 1 {
+		query, args = maybeExpandNamedQuery(dbMap, query, args)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbMap.ConnectionTimeout)
+	defer cancel()
+
+	rows, err := e.QueryContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}
@@ -254,8 +262,11 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		query, args = maybeExpandNamedQuery(m, query, args)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), m.ConnectionTimeout)
+	defer cancel()
+
 	// Run the query
-	rows, err := exec.Query(query, args...)
+	rows, err := exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

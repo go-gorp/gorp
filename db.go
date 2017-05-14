@@ -13,6 +13,7 @@ package gorp
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -40,6 +41,8 @@ type DbMap struct {
 	Dialect Dialect
 
 	TypeConverter TypeConverter
+
+	ConnectionTimeout time.Duration
 
 	tables        []*TableMap
 	tablesDynamic map[string]*TableMap // tables that use same go-struct and different db table names
@@ -120,7 +123,7 @@ func (m *DbMap) createIndexImpl(dialect reflect.Type,
 		s.WriteString(fmt.Sprintf(" %s %s", m.Dialect.CreateIndexSuffix(), index.IndexType))
 	}
 	s.WriteString(";")
-	_, err := m.Exec(s.String())
+	_, err := m.ExecNoTimeout(s.String())
 	return err
 }
 
@@ -137,7 +140,7 @@ func (t *TableMap) DropIndex(name string) error {
 				s.WriteString(fmt.Sprintf(" %s %s", t.dbmap.Dialect.DropIndexSuffix(), t.TableName))
 			}
 			s.WriteString(";")
-			_, e := t.dbmap.Exec(s.String())
+			_, e := t.dbmap.ExecNoTimeout(s.String())
 			if e != nil {
 				err = e
 			}
@@ -377,7 +380,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 	for i := range m.tables {
 		table := m.tables[i]
 		sql := table.SqlForCreate(ifNotExists)
-		_, err = m.Exec(sql)
+		_, err = m.ExecNoTimeout(sql)
 		if err != nil {
 			return err
 		}
@@ -385,7 +388,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 
 	for _, tbl := range m.dynamicTableMap() {
 		sql := tbl.SqlForCreate(ifNotExists)
-		_, err = m.Exec(sql)
+		_, err = m.ExecNoTimeout(sql)
 		if err != nil {
 			return err
 		}
@@ -467,7 +470,7 @@ func (m *DbMap) dropTableImpl(table *TableMap, ifExists bool) (err error) {
 	if ifExists {
 		tableDrop = m.Dialect.IfTableExists(tableDrop, table.SchemaName, table.TableName)
 	}
-	_, err = m.Exec(fmt.Sprintf("%s %s;", tableDrop, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
+	_, err = m.ExecNoTimeout(fmt.Sprintf("%s %s;", tableDrop, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 	return err
 }
 
@@ -479,14 +482,14 @@ func (m *DbMap) TruncateTables() error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
-		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
+		_, e := m.ExecNoTimeout(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		if e != nil {
 			err = e
 		}
 	}
 
 	for _, table := range m.dynamicTableMap() {
-		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
+		_, e := m.ExecNoTimeout(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		if e != nil {
 			err = e
 		}
@@ -597,12 +600,22 @@ func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]inte
 
 // Exec runs an arbitrary SQL statement.  args represent the bind parameters.
 // This is equivalent to running:  Exec() using database/sql
+// Times out based on the DbMap.ConnectionTimeout field
 func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	if m.logger != nil {
 		now := time.Now()
 		defer m.trace(now, query, args...)
 	}
-	return exec(m, query, args...)
+	return exec(m, query, true, args...)
+}
+
+// ExecNoTimeout is the same as Exec except it will not time out
+func (m *DbMap) ExecNoTimeout(query string, args ...interface{}) (sql.Result, error) {
+	if m.logger != nil {
+		now := time.Now()
+		defer m.trace(now, query, args...)
+	}
+	return exec(m, query, false, args...)
 }
 
 // SelectInt is a convenience wrapper around the gorp.SelectInt function
@@ -751,7 +764,17 @@ func (m *DbMap) QueryRow(query string, args ...interface{}) *sql.Row {
 		now := time.Now()
 		defer m.trace(now, query, args...)
 	}
+
 	return m.Db.QueryRow(query, args...)
+}
+
+func (m *DbMap) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	if m.logger != nil {
+		now := time.Now()
+		defer m.trace(now, query, args...)
+	}
+
+	return m.Db.QueryRowContext(ctx, query, args...)
 }
 
 func (m *DbMap) Query(query string, args ...interface{}) (*sql.Rows, error) {
@@ -759,7 +782,17 @@ func (m *DbMap) Query(query string, args ...interface{}) (*sql.Rows, error) {
 		now := time.Now()
 		defer m.trace(now, query, args...)
 	}
+
 	return m.Db.Query(query, args...)
+}
+
+func (m *DbMap) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	if m.logger != nil {
+		now := time.Now()
+		defer m.trace(now, query, args...)
+	}
+
+	return m.Db.QueryContext(ctx, query, args...)
 }
 
 func (m *DbMap) trace(started time.Time, query string, args ...interface{}) {
