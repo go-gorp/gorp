@@ -559,10 +559,31 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 				} else if (k == reflect.Uint) || (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
 					f.SetUint(uint64(id))
 				} else {
-					return fmt.Errorf("gorp: cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d autoIncrFieldName=%s", bi.query, bi.autoIncrIdx, bi.autoIncrFieldName)
+					eval := elem.Addr().Interface()
+					if v, ok := eval.(SetLastInsertIDInt64); ok {
+						v.SetLastInsertIDInt64(id)
+					} else {
+						return fmt.Errorf("gorp: cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d autoIncrFieldName=%s", bi.query, bi.autoIncrIdx, bi.autoIncrFieldName)
+					}
 				}
 			case TargetedAutoIncrInserter:
-				err := inserter.InsertAutoIncrToTarget(exec, bi.query, f.Addr().Interface(), bi.args...)
+				var err error
+				eval := elem.Addr().Interface()
+				if v, ok := eval.(SetLastInsertIDInt64); ok {
+					var lastInsertIDInt64 int64
+					err = inserter.InsertAutoIncrToTarget(exec, bi.query, &lastInsertIDInt64, bi.args...)
+					if err == nil {
+						v.SetLastInsertIDInt64(lastInsertIDInt64)
+					}
+				} else if v, ok := eval.(SetLastInsertIDString); ok {
+					var lastInsertIDString string
+					err = inserter.InsertAutoIncrToTarget(exec, bi.query, &lastInsertIDString, bi.args...)
+					if err == nil {
+						v.SetLastInsertIDString(lastInsertIDString)					
+					}
+				} else {
+					err = inserter.InsertAutoIncrToTarget(exec, bi.query, f.Addr().Interface(), bi.args...)
+				}
 				if err != nil {
 					return err
 				}
@@ -571,7 +592,17 @@ func insert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 				if idQuery == "" {
 					return fmt.Errorf("gorp: cannot set %s value if its ColumnMap.GeneratedIdQuery is empty", bi.autoIncrFieldName)
 				}
-				err := inserter.InsertQueryToTarget(exec, bi.query, idQuery, f.Addr().Interface(), bi.args...)
+				var err error
+				eval := elem.Addr().Interface()
+				if v, ok := eval.(SetLastInsertIDInt64); ok {
+					var lastInsertIDInt64 int64
+					err = inserter.InsertQueryToTarget(exec, bi.query, idQuery, &lastInsertIDInt64, bi.args...)
+					if err == nil {
+						v.SetLastInsertIDInt64(lastInsertIDInt64)
+					}
+				} else {
+					err = inserter.InsertQueryToTarget(exec, bi.query, idQuery, f.Addr().Interface(), bi.args...)
+				}
 				if err != nil {
 					return err
 				}

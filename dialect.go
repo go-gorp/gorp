@@ -81,6 +81,18 @@ type IntegerAutoIncrInserter interface {
 	InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error)
 }
 
+// SetLastInsertIDInt64 should be implemented by models that does not use 
+// the native Golang int types for the primary keys, for example, sql.NullInt64.
+type SetLastInsertIDInt64 interface {
+	SetLastInsertIDInt64(value int64)
+}
+
+// SetLastInsertIDString should be implemented by models that does not use 
+// the native Golang string type for the primary keys, for example, sql.NullString.
+type SetLastInsertIDString interface {
+	SetLastInsertIDString(value string)
+}
+
 // TargetedAutoIncrInserter is implemented by dialects that can
 // perform automatic assignment of any primary key type (i.e. strings
 // for uuids, integers for serials, etc).
