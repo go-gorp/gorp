@@ -21,6 +21,8 @@ type PostgresDialect struct {
 	suffix string
 }
 
+func (d PostgresDialect) Name() string { return "PostgresDialect" }
+
 func (d PostgresDialect) QuerySuffix() string { return ";" }
 
 func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
