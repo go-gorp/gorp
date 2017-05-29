@@ -174,7 +174,7 @@ func exec(e SqlExecutor, query string, doTimeout bool, args ...interface{}) (sql
 	}
 
 	if doTimeout && dbMap.Dialect.Name() != "PostgresDialect" {
-		ctx, cancel := context.WithTimeout(context.Background(), dbMap.ConnectionTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), dbMap.QueryTimeout)
 		defer cancel()
 		return executor.ExecContext(ctx, query, args...)
 	} else {
@@ -412,7 +412,7 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 
 	var row *sql.Row
 	if m.Dialect.Name() != "PostgresDialect" {
-		ctx, cancel := context.WithTimeout(context.Background(), m.ConnectionTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), m.QueryTimeout)
 		defer cancel()
 		row = exec.QueryRowContext(ctx, plan.query, keys...)
 	} else {

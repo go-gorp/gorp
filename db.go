@@ -42,7 +42,7 @@ type DbMap struct {
 
 	TypeConverter TypeConverter
 
-	ConnectionTimeout time.Duration
+	QueryTimeout time.Duration
 
 	tables        []*TableMap
 	tablesDynamic map[string]*TableMap // tables that use same go-struct and different db table names
@@ -600,7 +600,7 @@ func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]inte
 
 // Exec runs an arbitrary SQL statement.  args represent the bind parameters.
 // This is equivalent to running:  Exec() using database/sql
-// Times out based on the DbMap.ConnectionTimeout field
+// Times out based on the DbMap.QueryTimeout field
 func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	if m.logger != nil {
 		now := time.Now()

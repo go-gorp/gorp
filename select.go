@@ -170,7 +170,7 @@ func selectVal(e SqlExecutor, holder interface{}, query string, args ...interfac
 	var rows *sql.Rows
 	var err error
 	if dbMap.Dialect.Name() != "PostgresDialect" {
-		ctx, cancel := context.WithTimeout(context.Background(), dbMap.ConnectionTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), dbMap.QueryTimeout)
 		defer cancel()
 		rows, err = e.QueryContext(ctx, query, args...)
 	} else {
@@ -269,7 +269,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	// Run the query
 	var rows *sql.Rows
 	if m.Dialect.Name() != "PostgresDialect" {
-		ctx, cancel := context.WithTimeout(context.Background(), m.ConnectionTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), m.QueryTimeout)
 		defer cancel()
 		rows, err = exec.QueryContext(ctx, query, args...)
 	} else {
