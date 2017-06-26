@@ -732,14 +732,18 @@ Raw SQL strings passed to `Exec`, `Select`, `SelectOne`, `SelectInt`,
 etc will not be parsed.  Consequently you may have portability issues
 if you write a query like this:
 
-```go // works on MySQL and Sqlite3, but not with Postgresql err :=
-dbmap.SelectOne(&val, "select * from foo where id = ?", 30) ```
+```go 
+// works on MySQL and Sqlite3, but not with Postgresql err :=
+dbmap.SelectOne(&val, "select * from foo where id = ?", 30)
+```
 
 In `Select` and `SelectOne` you can use named parameters to work
 around this.  The following is portable:
 
-```go err := dbmap.SelectOne(&val, "select * from foo where id = :id",
-map[string]interface{} { "id": 30}) ```
+```go 
+err := dbmap.SelectOne(&val, "select * from foo where id = :id",
+map[string]interface{} { "id": 30})
+```
 
 Additionally, when using Postgres as your database, you should utilize
 `$1` instead of `?` placeholders as utilizing `?` placeholders when
