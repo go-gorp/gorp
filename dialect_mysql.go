@@ -19,7 +19,6 @@ import (
 
 // Implementation of Dialect for MySQL databases.
 type MySQLDialect struct {
-
 	// Engine is the storage engine to use "InnoDB" vs "MyISAM" for example
 	Engine string
 
@@ -58,7 +57,6 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 			return "mediumblob"
 		}
 	}
-
 	switch val.Name() {
 	case "NullInt64":
 		return "bigint"
@@ -66,8 +64,11 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 		return "double"
 	case "NullBool":
 		return "tinyint"
-	case "Time":
+	case "Time", "DateTime":
 		return "datetime"
+	case "Date":
+		return "date"
+
 	}
 
 	if maxsize < 1 {

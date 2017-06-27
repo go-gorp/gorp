@@ -56,7 +56,7 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 		return "double precision"
 	case "NullBool":
 		return "boolean"
-	case "Time", "NullTime":
+	case "Time", "NullTime","DateTime":
 		return "timestamp with time zone"
 	}
 

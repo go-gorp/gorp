@@ -59,7 +59,7 @@ func (d OracleDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 		return "double precision"
 	case "NullBool":
 		return "boolean"
-	case "NullTime", "Time":
+	case "NullTime", "Time", "DateTime":
 		return "timestamp with time zone"
 	}
 

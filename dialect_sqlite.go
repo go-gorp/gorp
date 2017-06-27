@@ -45,8 +45,9 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 		return "real"
 	case "NullBool":
 		return "integer"
-	case "Time":
+	case "Time", "DateTime":
 		return "datetime"
+
 	}
 
 	if maxsize < 1 {

@@ -66,7 +66,7 @@ func (d SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bo
 		return "float(53)"
 	case "NullBool":
 		return "bit"
-	case "NullTime", "Time":
+	case "NullTime", "Time","DateTime":
 		if d.Version == "2005" {
 			return "datetime"
 		}
