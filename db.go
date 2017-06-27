@@ -598,10 +598,6 @@ func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]inte
 // Exec runs an arbitrary SQL statement.  args represent the bind parameters.
 // This is equivalent to running:  Exec() using database/sql
 func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
-	if m.logger != nil {
-		now := time.Now()
-		defer m.trace(now, query, args...)
-	}
 	return exec(m, query, args...)
 }
 
