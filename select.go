@@ -163,10 +163,10 @@ func selectVal(e SqlExecutor, holder interface{}, query string, args ...interfac
 		}
 	}
 	rows, err := e.Query(query, args...)
+	defer rows.Close()
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
 	if !rows.Next() {
 		return sql.ErrNoRows
@@ -256,10 +256,10 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 
 	// Run the query
 	rows, err := exec.Query(query, args...)
+	defer rows.Close()
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	// Fetch the column names as returned from db
 	cols, err := rows.Columns()
