@@ -138,6 +138,13 @@ var _ = Describe("MySQLDialect", func() {
 		})
 	})
 
+	Describe("SleepClause", func() {
+		It("returns the clause for sleeping", func() {
+			Expect(dialect.SleepClause(1 * time.Second)).To(Equal("sleep(1.000000)"))
+			Expect(dialect.SleepClause(100 * time.Millisecond)).To(Equal("sleep(0.100000)"))
+		})
+	})
+
 	Describe("BindVar", func() {
 		It("returns the variable binding sequence", func() {
 			Expect(dialect.BindVar(0)).To(Equal("?"))
