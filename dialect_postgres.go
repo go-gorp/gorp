@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type PostgresDialect struct {
@@ -96,6 +97,10 @@ func (d PostgresDialect) DropIndexSuffix() string {
 
 func (d PostgresDialect) TruncateClause() string {
 	return "truncate"
+}
+
+func (d PostgresDialect) SleepClause(s time.Duration) string {
+	return fmt.Sprintf("pg_sleep(%f)", s.Seconds())
 }
 
 // Returns "$(i+1)"
