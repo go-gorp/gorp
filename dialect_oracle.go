@@ -18,7 +18,11 @@ import (
 )
 
 // Implementation of Dialect for Oracle databases.
-type OracleDialect struct{}
+type OracleDialect struct {
+
+	// TypeMap overrides the default column types
+	TypeMap map[reflect.Type]string
+}
 
 func (d OracleDialect) QuerySuffix() string { return "" }
 
@@ -27,6 +31,11 @@ func (d OracleDialect) CreateIndexSuffix() string { return "" }
 func (d OracleDialect) DropIndexSuffix() string { return "" }
 
 func (d OracleDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+	if d.TypeMap != nil {
+		if typ, ok := d.TypeMap[val]; ok {
+			return typ
+		}
+	}
 	switch val.Kind() {
 	case reflect.Ptr:
 		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)

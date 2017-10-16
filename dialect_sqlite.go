@@ -18,11 +18,19 @@ import (
 
 type SqliteDialect struct {
 	suffix string
+
+	// TypeMap overrides the default column types
+	TypeMap map[reflect.Type]string
 }
 
 func (d SqliteDialect) QuerySuffix() string { return ";" }
 
 func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+	if d.TypeMap != nil {
+		if typ, ok := d.TypeMap[val]; ok {
+			return typ
+		}
+	}
 	switch val.Kind() {
 	case reflect.Ptr:
 		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)

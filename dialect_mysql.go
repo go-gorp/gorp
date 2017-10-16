@@ -26,11 +26,19 @@ type MySQLDialect struct {
 
 	// Encoding is the character encoding to use for created tables
 	Encoding string
+
+	// TypeMap overrides the default column types
+	TypeMap map[reflect.Type]string
 }
 
 func (d MySQLDialect) QuerySuffix() string { return ";" }
 
 func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+	if d.TypeMap != nil {
+		if typ, ok := d.TypeMap[val]; ok {
+			return typ
+		}
+	}
 	switch val.Kind() {
 	case reflect.Ptr:
 		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
