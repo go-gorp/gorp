@@ -30,10 +30,15 @@ var _ = Describe("MySQLDialect", func() {
 		dialect          gorp.MySQLDialect
 	)
 
+	type IntAsBool int
+
 	JustBeforeEach(func() {
 		dialect = gorp.MySQLDialect{
 			Engine:   engine,
 			Encoding: encoding,
+			TypeMap: map[reflect.Type]string{
+				reflect.TypeOf(IntAsBool(0)): "boolean",
+			},
 		}
 	})
 
@@ -64,6 +69,7 @@ var _ = Describe("MySQLDialect", func() {
 		Entry("default-size string", "", 0, false, "varchar(255)"),
 		Entry("sized string", "", 50, false, "varchar(50)"),
 		Entry("large string", "", 1024, false, "text"),
+		Entry("custome type map", IntAsBool(1), 0, false, "boolean"),
 	)
 
 	Describe("AutoIncrStr", func() {
