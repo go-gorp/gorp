@@ -31,6 +31,7 @@ import (
 	"github.com/go-gorp/gorp"
 
 	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/herenow/go-crate"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	_ "github.com/ziutek/mymysql/godrv"
@@ -44,6 +45,7 @@ var (
 		gorp.MySQLDialect{},
 		gorp.SqlServerDialect{},
 		gorp.OracleDialect{},
+		gorp.CrateDialect{},
 	}
 
 	debug bool
