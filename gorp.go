@@ -51,6 +51,12 @@ func (os OracleString) Value() (driver.Value, error) {
 // it returns nil for its empty value, it needs to implement SqlTyper
 // to have its column type detected properly during table creation.
 type SqlTyper interface {
+	SqlType() driver.Value
+}
+
+// legacySqlTyper prevents breaking clients who depended on the previous
+// SqlTyper interface
+type legacySqlTyper interface {
 	SqlType() driver.Valuer
 }
 

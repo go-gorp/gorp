@@ -18,6 +18,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -323,6 +324,9 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 				}
 			}
 			if typer, ok := value.(SqlTyper); ok {
+				gotype = reflect.TypeOf(typer.SqlType())
+			} else if typer, ok := value.(legacySqlTyper); ok {
+				log.Printf("Deprecation Warning: update your SqlType methods to return a driver.Value")
 				gotype = reflect.TypeOf(typer.SqlType())
 			} else if valuer, ok := value.(driver.Valuer); ok {
 				// Only check for driver.Valuer if SqlTyper wasn't
