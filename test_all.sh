@@ -6,7 +6,7 @@
 coveralls_testflags="-v -covermode=count -coverprofile=coverage.out"
 
 echo "Running unit tests"
-ginkgo -r -race -randomizeAllSpecs -keepGoing -- -test.run TestGorp
+go test -v -race -test.run TestGorp
 
 echo "Testing against mysql"
 export GORP_TEST_DSN=gorptest/gorptest/gorptest
@@ -28,6 +28,11 @@ export GORP_TEST_DSN=/tmp/gorptest.bin
 export GORP_TEST_DIALECT=sqlite
 go test $coveralls_testflags $GOBUILDFLAG $@ .
 rm -f /tmp/gorptest.bin
+
+echo "Testing against crate"
+export GORP_TEST_DSN=http://localhost:4200/
+export GORP_TEST_DIALECT=crate
+go test $coveralls_testflags $GOBUILDFLAG $@
 
 case $(go version) in
   *go1.4*)

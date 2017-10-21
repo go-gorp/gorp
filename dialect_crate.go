@@ -88,7 +88,7 @@ func (d CrateDialect) BindVar(i int) string {
 }
 
 func (d CrateDialect) QuoteField(f string) string {
-	return "'" + f + "'"
+	return `"` + f + `"`
 }
 
 func (d CrateDialect) QuotedTableForQuery(schema string, table string) string {

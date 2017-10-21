@@ -2566,6 +2566,8 @@ func dialectAndDriver() (gorp.Dialect, string) {
 		return gorp.PostgresDialect{}, "postgres"
 	case "sqlite":
 		return gorp.SqliteDialect{}, "sqlite3"
+        case "crate":
+		return gorp.CrateDialect{}, "crate"
 	}
 	panic("GORP_TEST_DIALECT env variable is not set or is invalid. Please see README.md")
 }
