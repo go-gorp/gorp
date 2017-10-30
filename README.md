@@ -1,6 +1,6 @@
 # Go Relational Persistence
 
-[![build status](https://img.shields.io/travis/go-gorp/gorp.svg)](http://travis-ci.org/go-gorp/gorp)
+[![build status](https://img.shields.io/travis/go-gorp/gorp.svg?branch=master)](http://travis-ci.org/go-gorp/gorp)
 [![code coverage](https://img.shields.io/coveralls/go-gorp/gorp.svg)](https://coveralls.io/r/go-gorp/gorp)
 [![issues](https://img.shields.io/github/issues/go-gorp/gorp.svg)](https://github.com/go-gorp/gorp/issues)
 [![godoc v1](https://img.shields.io/badge/godoc-v1-375EAB.svg)](https://godoc.org/gopkg.in/gorp.v1)
