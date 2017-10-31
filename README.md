@@ -285,7 +285,7 @@ dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
 // you can also use the shorter dbmap.AddTable() if you
 // don't want to override the table name
 //
-// SetKeys(true) means we have a auto increment primary key, which
+// SetKeys(true) means we have an auto increment primary key, which
 // will get automatically bound to your struct post-insert
 //
 t1 := dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
@@ -536,9 +536,9 @@ func (i *Invoice) PreUpdate(s gorp.SqlExecutor) error {
 //
 func (p *Person) PreDelete(s gorp.SqlExecutor) error {
     query := "delete from invoice_test where PersonId=?"
-    
+
     _, err := s.Exec(query, p.Id)
-    
+
     if err != nil {
         return err
     }
@@ -655,7 +655,7 @@ MariaDB [test]> show create table Account;
   `AcctId` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`Id`),
   UNIQUE KEY `AcctIdIndex` (`AcctId`) USING BTREE   <<<--- yes! index added.
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
 +---------+--------------------------+
 
 ```
@@ -687,7 +687,7 @@ Support is also provided for:
 
 Note that these databases are not covered by CI and I (@coopernurse)
 have no good way to test them locally.  So please try them and send
-patches as needed, but expect a bit more unpredicability.
+patches as needed, but expect a bit more unpredictability.
 
 ## Sqlite3 Extensions
 
@@ -732,7 +732,7 @@ Raw SQL strings passed to `Exec`, `Select`, `SelectOne`, `SelectInt`,
 etc will not be parsed.  Consequently you may have portability issues
 if you write a query like this:
 
-```go 
+```go
 // works on MySQL and Sqlite3, but not with Postgresql err :=
 dbmap.SelectOne(&val, "select * from foo where id = ?", 30)
 ```
@@ -740,7 +740,7 @@ dbmap.SelectOne(&val, "select * from foo where id = ?", 30)
 In `Select` and `SelectOne` you can use named parameters to work
 around this.  The following is portable:
 
-```go 
+```go
 err := dbmap.SelectOne(&val, "select * from foo where id = :id",
 map[string]interface{} { "id": 30})
 ```
