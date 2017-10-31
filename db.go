@@ -269,6 +269,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 			var isAuto bool
 			var isPK bool
 			var isNotNull bool
+			var isUnique bool
 			for _, argString := range cArguments[1:] {
 				argString = strings.TrimSpace(argString)
 				arg := strings.SplitN(argString, ":", 2)
@@ -298,6 +299,8 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 					isAuto = true
 				case "notnull":
 					isNotNull = true
+				case "unique":
+					isUnique = true
 				default:
 					panic(fmt.Sprintf("Unrecognized tag option for field %v: %v", f.Name, arg))
 				}
@@ -346,6 +349,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 				isAutoIncr:   isAuto,
 				isNotNull:    isNotNull,
 				MaxSize:      maxSize,
+				Unique:       isUnique,
 			}
 			if isPK {
 				primaryKey = append(primaryKey, cm)
