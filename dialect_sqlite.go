@@ -117,3 +117,7 @@ func (d SqliteDialect) IfTableExists(command, schema, table string) string {
 func (d SqliteDialect) IfTableNotExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
+
+func (d SqliteDialect) CreateSchemaCommand() string {
+	return "create schema"
+}

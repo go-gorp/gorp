@@ -150,3 +150,7 @@ func (d SqlServerDialect) IfTableNotExists(command, schema, table string) string
 
 func (d SqlServerDialect) CreateIndexSuffix() string { return "" }
 func (d SqlServerDialect) DropIndexSuffix() string   { return "" }
+
+func (d SqlServerDialect) CreateSchemaCommand() string {
+	return "create schema"
+}

@@ -72,6 +72,9 @@ type Dialect interface {
 	IfSchemaNotExists(command, schema string) string
 	IfTableExists(command, schema, table string) string
 	IfTableNotExists(command, schema, table string) string
+
+	// The command to create a new database/schema
+	CreateSchemaCommand() string
 }
 
 // IntegerAutoIncrInserter is implemented by dialects that can perform

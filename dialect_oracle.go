@@ -144,3 +144,7 @@ func (d OracleDialect) IfTableExists(command, schema, table string) string {
 func (d OracleDialect) IfTableNotExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
+
+func (d OracleDialect) CreateSchemaCommand() string {
+	return "create schema"
+}

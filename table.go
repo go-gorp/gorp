@@ -176,7 +176,7 @@ func (t *TableMap) SqlForCreate(ifNotExists bool) string {
 	dialect := t.dbmap.Dialect
 
 	if strings.TrimSpace(t.SchemaName) != "" {
-		schemaCreate := "create schema"
+		schemaCreate := dialect.CreateSchemaCommand()
 		if ifNotExists {
 			s.WriteString(dialect.IfSchemaNotExists(schemaCreate, t.SchemaName))
 		} else {

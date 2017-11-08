@@ -150,3 +150,7 @@ func (d PostgresDialect) IfTableExists(command, schema, table string) string {
 func (d PostgresDialect) IfTableNotExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
+
+func (d PostgresDialect) CreateSchemaCommand() string {
+	return "create schema"
+}
