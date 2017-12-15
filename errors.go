@@ -29,6 +29,9 @@ func (err *NoFieldInTypeError) Error() string {
 
 // returns true if the error is non-fatal (ie, we shouldn't immediately return)
 func NonFatalError(err error) bool {
+	if err == nil {
+		return true
+	}
 	switch err.(type) {
 	case *NoFieldInTypeError:
 		return true
