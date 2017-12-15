@@ -19,7 +19,8 @@ import (
 )
 
 type PostgresDialect struct {
-	suffix string
+	suffix          string
+	LowercaseFields bool
 }
 
 func (d PostgresDialect) QuerySuffix() string { return ";" }
@@ -128,6 +129,9 @@ func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql stri
 }
 
 func (d PostgresDialect) QuoteField(f string) string {
+	if d.LowercaseFields {
+		return `"` + strings.ToLower(f) + `"`
+	}
 	return `"` + f + `"`
 }
 
