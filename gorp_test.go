@@ -1766,15 +1766,15 @@ func TestSelectVal(t *testing.T) {
 	// SelectFloat
 	f64 := selectFloat(dbmap, "select "+columnName(dbmap, TableWithNull{}, "Float64")+" from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"='abc'")
 	if f64 != 32.2 {
-		t.Errorf("float64 %d != 32.2", f64)
+		t.Errorf("float64 %f != 32.2", f64)
 	}
 	f64 = selectFloat(dbmap, "select min("+columnName(dbmap, TableWithNull{}, "Float64")+") from "+tableName(dbmap, TableWithNull{}))
 	if f64 != 32.2 {
-		t.Errorf("float64 min %d != 32.2", f64)
+		t.Errorf("float64 min %f != 32.2", f64)
 	}
 	f64 = selectFloat(dbmap, "select count(*) from "+tableName(dbmap, TableWithNull{})+" where "+columnName(dbmap, TableWithNull{}, "Str")+"="+bindVar, "asdfasdf")
 	if f64 != 0 {
-		t.Errorf("float64 no rows %d != 0", f64)
+		t.Errorf("float64 no rows %f != 0", f64)
 	}
 
 	// SelectNullFloat
@@ -1885,13 +1885,13 @@ func TestNullTime(t *testing.T) {
 		}}
 	err := dbmap.Insert(ent)
 	if err != nil {
-		t.Error("failed insert on %s", err.Error())
+		t.Errorf("failed insert on %s", err.Error())
 	}
 	err = dbmap.SelectOne(ent, `select * from nulltime_test where `+columnName(dbmap, WithNullTime{}, "Id")+`=:Id`, map[string]interface{}{
 		"Id": ent.Id,
 	})
 	if err != nil {
-		t.Error("failed select on %s", err.Error())
+		t.Errorf("failed select on %s", err.Error())
 	}
 	if ent.Time.Valid {
 		t.Error("gorp.NullTime returns valid but expected null.")
@@ -1907,13 +1907,13 @@ func TestNullTime(t *testing.T) {
 		}}
 	err = dbmap.Insert(ent)
 	if err != nil {
-		t.Error("failed insert on %s", err.Error())
+		t.Errorf("failed insert on %s", err.Error())
 	}
 	err = dbmap.SelectOne(ent, `select * from nulltime_test where `+columnName(dbmap, WithNullTime{}, "Id")+`=:Id`, map[string]interface{}{
 		"Id": ent.Id,
 	})
 	if err != nil {
-		t.Error("failed select on %s", err.Error())
+		t.Errorf("failed select on %s", err.Error())
 	}
 	if !ent.Time.Valid {
 		t.Error("gorp.NullTime returns invalid but expected valid.")
