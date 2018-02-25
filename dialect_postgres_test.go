@@ -30,6 +30,10 @@ var _ = Describe("PostgresDialect", func() {
 		dialect         gorp.PostgresDialect
 	)
 
+	BeforeEach(func() {
+		lowercasefields = false
+	})
+
 	JustBeforeEach(func() {
 		dialect = gorp.PostgresDialect{
 			LowercaseFields: lowercasefields,

@@ -16,9 +16,10 @@ package gorp_test
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Drivers that don't support cancellation.
@@ -47,12 +48,12 @@ func TestWithNotCanceledContext(t *testing.T) {
 func TestWithCanceledContext(t *testing.T) {
 	dialect, driver := dialectAndDriver()
 	if unsupportedDrivers[driver] {
-		t.Skip("Cancellation is not yet supported by all drivers. Not known to be supported in %s.", driver)
+		t.Skipf("Cancellation is not yet supported by all drivers. Not known to be supported in %s.", driver)
 	}
 
 	sleepDialect, ok := dialect.(SleepDialect)
 	if !ok {
-		t.Skip("Sleep is not supported in all dialects. Not known to be supported in %s.", driver)
+		t.Skipf("Sleep is not supported in all dialects. Not known to be supported in %s.", driver)
 	}
 
 	dbmap := initDbMap()
