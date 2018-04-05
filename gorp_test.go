@@ -831,6 +831,37 @@ func TestSetUniqueTogether(t *testing.T) {
 	}
 }
 
+func TestSetUniqueTogetherIdempotent(t *testing.T) {
+	dbmap := newDbMap()
+	table := dbmap.AddTable(UniqueColumns{}).SetUniqueTogether("FirstName", "LastName")
+	table.SetUniqueTogether("FirstName", "LastName")
+	table.SetUniqueTogether("LastName", "FirstName")
+	err := dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		panic(err)
+	}
+	defer dropAndClose(dbmap)
+
+	n1 := &UniqueColumns{"Steve", "Jobs", "Cupertino", 95014}
+	err = dbmap.Insert(n1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Should still fail because of the constraint
+	n2 := &UniqueColumns{"Steve", "Jobs", "Sunnyvale", 94085}
+	err = dbmap.Insert(n2)
+	if err == nil {
+		t.Error(err)
+	}
+
+	// Should have only created one unique constraint
+	actualCount := strings.Count(table.SqlForCreate(false), "unique")
+	if actualCount != 1 {
+		t.Errorf("expected one unique index, found %d: %s", actualCount, table.SqlForCreate(false))
+	}
+}
+
 func TestPersistentUser(t *testing.T) {
 	dbmap := newDbMap()
 	dbmap.Exec("drop table if exists PersistentUser")

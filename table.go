@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -87,11 +88,33 @@ func (t *TableMap) SetUniqueTogether(fieldNames ...string) *TableMap {
 			"gorp: SetUniqueTogether: must provide at least two fieldNames to set uniqueness constraint."))
 	}
 
-	columns := make([]string, 0)
+	columns := make([]string, 0, len(fieldNames))
+	sortedColumns := make([]string, 0, len(fieldNames))
 	for _, name := range fieldNames {
 		columns = append(columns, name)
+		sortedColumns = append(sortedColumns, name)
 	}
-	t.uniqueTogether = append(t.uniqueTogether, columns)
+
+	alreadyExists := false
+	sort.Strings(sortedColumns)
+checkDuplicates:
+	for _, existingColumns := range t.uniqueTogether {
+		sort.Strings(existingColumns)
+
+		if len(existingColumns) == len(sortedColumns) {
+			for i := range sortedColumns {
+				if existingColumns[i] != sortedColumns[i] {
+					continue checkDuplicates
+				}
+			}
+
+			alreadyExists = true
+			break checkDuplicates
+		}
+	}
+	if !alreadyExists {
+		t.uniqueTogether = append(t.uniqueTogether, columns)
+	}
 	t.ResetSql()
 
 	return t
