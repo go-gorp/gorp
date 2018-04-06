@@ -15,7 +15,6 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
-	"sort"
 	"strings"
 )
 
@@ -89,21 +88,16 @@ func (t *TableMap) SetUniqueTogether(fieldNames ...string) *TableMap {
 	}
 
 	columns := make([]string, 0, len(fieldNames))
-	sortedColumns := make([]string, 0, len(fieldNames))
 	for _, name := range fieldNames {
 		columns = append(columns, name)
-		sortedColumns = append(sortedColumns, name)
 	}
 
 	alreadyExists := false
-	sort.Strings(sortedColumns)
 checkDuplicates:
 	for _, existingColumns := range t.uniqueTogether {
-		sort.Strings(existingColumns)
-
-		if len(existingColumns) == len(sortedColumns) {
-			for i := range sortedColumns {
-				if existingColumns[i] != sortedColumns[i] {
+		if len(existingColumns) == len(columns) {
+			for i := range columns {
+				if existingColumns[i] != columns[i] {
 					continue checkDuplicates
 				}
 			}

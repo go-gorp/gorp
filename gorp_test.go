@@ -835,7 +835,6 @@ func TestSetUniqueTogetherIdempotent(t *testing.T) {
 	dbmap := newDbMap()
 	table := dbmap.AddTable(UniqueColumns{}).SetUniqueTogether("FirstName", "LastName")
 	table.SetUniqueTogether("FirstName", "LastName")
-	table.SetUniqueTogether("LastName", "FirstName")
 	err := dbmap.CreateTablesIfNotExists()
 	if err != nil {
 		panic(err)
