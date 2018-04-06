@@ -108,8 +108,8 @@ checkDuplicates:
 	}
 	if !alreadyExists {
 		t.uniqueTogether = append(t.uniqueTogether, columns)
+		t.ResetSql()
 	}
-	t.ResetSql()
 
 	return t
 }
