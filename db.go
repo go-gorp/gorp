@@ -296,7 +296,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 					isPK = true
 				case "autoincrement":
 					isAuto = true
-				case "notnull":
+				case "notnull", "not null":
 					isNotNull = true
 				default:
 					panic(fmt.Sprintf("Unrecognized tag option for field %v: %v", f.Name, arg))

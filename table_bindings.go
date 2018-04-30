@@ -169,8 +169,16 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 }
 
 func (t *TableMap) bindUpdate(elem reflect.Value, colFilter ColumnFilter) (bindInstance, error) {
+
 	if colFilter == nil {
+		if t.colFilter != nil {
+			t.updatePlan = bindPlan{}
+		}
+		t.colFilter = nil
 		colFilter = acceptAllFilter
+	} else {
+		t.updatePlan = bindPlan{} // a new bindPlan everytime; since we cannot compare colFilter funcs
+		t.colFilter = colFilter
 	}
 
 	plan := &t.updatePlan

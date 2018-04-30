@@ -26,12 +26,13 @@ type TableMap struct {
 	SchemaName     string
 	gotype         reflect.Type
 	Columns        []*ColumnMap
-	keys           []*ColumnMap
+	keys           []*ColumnMap // primary key column; can be autoIncrement
 	indexes        []*IndexMap
 	uniqueTogether [][]string
 	version        *ColumnMap
 	insertPlan     bindPlan
 	updatePlan     bindPlan
+	colFilter      ColumnFilter // different column filters lead to different updatePlans
 	deletePlan     bindPlan
 	getPlan        bindPlan
 	dbmap          *DbMap
