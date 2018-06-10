@@ -92,24 +92,13 @@ func (t *TableMap) SetUniqueTogether(fieldNames ...string) *TableMap {
 		columns = append(columns, name)
 	}
 
-	alreadyExists := false
-checkDuplicates:
 	for _, existingColumns := range t.uniqueTogether {
-		if len(existingColumns) == len(columns) {
-			for i := range columns {
-				if existingColumns[i] != columns[i] {
-					continue checkDuplicates
-				}
-			}
-
-			alreadyExists = true
-			break checkDuplicates
+		if equal(existingColumns, columns) {
+			return t
 		}
 	}
-	if !alreadyExists {
-		t.uniqueTogether = append(t.uniqueTogether, columns)
-		t.ResetSql()
-	}
+	t.uniqueTogether = append(t.uniqueTogether, columns)
+	t.ResetSql()
 
 	return t
 }
@@ -261,4 +250,16 @@ func (t *TableMap) SqlForCreate(ifNotExists bool) string {
 	s.WriteString(dialect.CreateTableSuffix())
 	s.WriteString(dialect.QuerySuffix())
 	return s.String()
+}
+
+func equal(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
