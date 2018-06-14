@@ -2360,6 +2360,34 @@ func TestPrepare(t *testing.T) {
 	}
 }
 
+type UUID4 string
+
+func (u UUID4) Value() (driver.Value, error) {
+	if u == "" {
+		return nil, nil
+	}
+
+	return string(u), nil
+}
+
+type NilPointer struct {
+	ID     string
+	UserID *UUID4
+}
+
+func TestCallOfValueMethodOnNilPointer(t *testing.T) {
+	dbmap := newDbMap()
+	dbmap.AddTable(NilPointer{}).SetKeys(false, "ID")
+	defer dropAndClose(dbmap)
+	err := dbmap.CreateTables()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nilPointer := &NilPointer{ID: "abc", UserID: nil}
+	_insert(dbmap, nilPointer)
+}
+
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
 	dbmap := initDbMapBench()
