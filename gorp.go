@@ -132,7 +132,7 @@ func argsString(args ...interface{}) string {
 	for i, a := range args {
 		var v interface{} = a
 		if x, ok := v.(driver.Valuer); ok {
-			if reflect.ValueOf(x).Kind() == reflect.Ptr && reflect.ValueOf(x).IsNil() {
+			if iV := reflect.ValueOf(x); iV.Kind() == reflect.Ptr && iV.IsNil() {
 				v = nil
 			} else {
 				y, err := x.Value()
