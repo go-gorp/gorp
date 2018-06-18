@@ -982,6 +982,10 @@ func expandSliceArgs(query *string, args ...interface{}) {
 				continue
 			}
 
+			if len(replacements) == 0 {
+				continue
+			}
+
 			*query = strings.Replace(*query, fmt.Sprintf(":%s", key), strings.Join(replacements, ","), -1)
 		}
 	}
