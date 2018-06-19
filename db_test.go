@@ -91,20 +91,20 @@ AND field12 IN (:FieldIntList)
 	}
 
 	type dataFormat struct {
-		Field1  int
-		Field2  string
-		Field3  uint
-		Field4  uint8
-		Field5  uint16
-		Field6  uint32
-		Field7  uint64
-		Field8  int
-		Field9  int8
-		Field10 int16
-		Field11 int32
-		Field12 int64
-		Field13 float32
-		Field14 float64
+		Field1  int     `db:"field1"`
+		Field2  string  `db:"field2"`
+		Field3  uint    `db:"field3"`
+		Field4  uint8   `db:"field4"`
+		Field5  uint16  `db:"field5"`
+		Field6  uint32  `db:"field6"`
+		Field7  uint64  `db:"field7"`
+		Field8  int     `db:"field8"`
+		Field9  int8    `db:"field9"`
+		Field10 int16   `db:"field10"`
+		Field11 int32   `db:"field11"`
+		Field12 int64   `db:"field12"`
+		Field13 float32 `db:"field13"`
+		Field14 float64 `db:"field14"`
 	}
 
 	dbmap := newDbMap()
