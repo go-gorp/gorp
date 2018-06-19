@@ -9,10 +9,9 @@
 // Source code and project home:
 // https://github.com/go-gorp/gorp
 
-package gorp
+package gorp_test
 
 import (
-	"reflect"
 	"testing"
 )
 
@@ -28,13 +27,12 @@ func (c customType2) ToInt64Slice() []int64 {
 	return []int64(c)
 }
 
-func TestExpandSliceArgs(t *testing.T) {
+func TestDbMap_Select_expandSliceArgs(t *testing.T) {
 	tests := []struct {
 		description string
 		query       string
 		args        []interface{}
-		wantQuery   string
-		wantArgs    []interface{}
+		wantLen     int
 	}{
 		{
 			description: "it should handle slice placeholders correctly",
@@ -73,183 +71,117 @@ AND field14 IN (:FieldFloat64List)
 					"FieldFloat64List": []float64{1, 2, 3, 4},
 				},
 			},
-			wantQuery: `
-SELECT 1 FROM crazy_table
-WHERE field1 = :Field1
-AND field2 IN (:FieldStringList0,:FieldStringList1,:FieldStringList2)
-AND field3 IN (:FieldUIntList0,:FieldUIntList1,:FieldUIntList2,:FieldUIntList3)
-AND field4 IN (:FieldUInt8List0,:FieldUInt8List1,:FieldUInt8List2,:FieldUInt8List3)
-AND field5 IN (:FieldUInt16List0,:FieldUInt16List1,:FieldUInt16List2,:FieldUInt16List3)
-AND field6 IN (:FieldUInt32List0,:FieldUInt32List1,:FieldUInt32List2,:FieldUInt32List3)
-AND field7 IN (:FieldUInt64List0,:FieldUInt64List1,:FieldUInt64List2,:FieldUInt64List3)
-AND field8 IN (:FieldIntList0,:FieldIntList1,:FieldIntList2,:FieldIntList3)
-AND field9 IN (:FieldInt8List0,:FieldInt8List1,:FieldInt8List2,:FieldInt8List3)
-AND field10 IN (:FieldInt16List0,:FieldInt16List1,:FieldInt16List2,:FieldInt16List3)
-AND field11 IN (:FieldInt32List0,:FieldInt32List1,:FieldInt32List2,:FieldInt32List3)
-AND field12 IN (:FieldInt64List0,:FieldInt64List1,:FieldInt64List2,:FieldInt64List3)
-AND field13 IN (:FieldFloat32List0,:FieldFloat32List1,:FieldFloat32List2,:FieldFloat32List3)
-AND field14 IN (:FieldFloat64List0,:FieldFloat64List1,:FieldFloat64List2,:FieldFloat64List3)
-`,
-			wantArgs: []interface{}{
-				map[string]interface{}{
-					"Field1":            123,
-					"FieldStringList":   []string{"h", "e", "y"},
-					"FieldStringList0":  "h",
-					"FieldStringList1":  "e",
-					"FieldStringList2":  "y",
-					"FieldUIntList":     []uint{1, 2, 3, 4},
-					"FieldUIntList0":    uint(1),
-					"FieldUIntList1":    uint(2),
-					"FieldUIntList2":    uint(3),
-					"FieldUIntList3":    uint(4),
-					"FieldUInt8List":    []uint8{1, 2, 3, 4},
-					"FieldUInt8List0":   uint8(1),
-					"FieldUInt8List1":   uint8(2),
-					"FieldUInt8List2":   uint8(3),
-					"FieldUInt8List3":   uint8(4),
-					"FieldUInt16List":   []uint16{1, 2, 3, 4},
-					"FieldUInt16List0":  uint16(1),
-					"FieldUInt16List1":  uint16(2),
-					"FieldUInt16List2":  uint16(3),
-					"FieldUInt16List3":  uint16(4),
-					"FieldUInt32List":   []uint32{1, 2, 3, 4},
-					"FieldUInt32List0":  uint32(1),
-					"FieldUInt32List1":  uint32(2),
-					"FieldUInt32List2":  uint32(3),
-					"FieldUInt32List3":  uint32(4),
-					"FieldUInt64List":   []uint64{1, 2, 3, 4},
-					"FieldUInt64List0":  uint64(1),
-					"FieldUInt64List1":  uint64(2),
-					"FieldUInt64List2":  uint64(3),
-					"FieldUInt64List3":  uint64(4),
-					"FieldIntList":      []int{1, 2, 3, 4},
-					"FieldIntList0":     int(1),
-					"FieldIntList1":     int(2),
-					"FieldIntList2":     int(3),
-					"FieldIntList3":     int(4),
-					"FieldInt8List":     []int8{1, 2, 3, 4},
-					"FieldInt8List0":    int8(1),
-					"FieldInt8List1":    int8(2),
-					"FieldInt8List2":    int8(3),
-					"FieldInt8List3":    int8(4),
-					"FieldInt16List":    []int16{1, 2, 3, 4},
-					"FieldInt16List0":   int16(1),
-					"FieldInt16List1":   int16(2),
-					"FieldInt16List2":   int16(3),
-					"FieldInt16List3":   int16(4),
-					"FieldInt32List":    []int32{1, 2, 3, 4},
-					"FieldInt32List0":   int32(1),
-					"FieldInt32List1":   int32(2),
-					"FieldInt32List2":   int32(3),
-					"FieldInt32List3":   int32(4),
-					"FieldInt64List":    []int64{1, 2, 3, 4},
-					"FieldInt64List0":   int64(1),
-					"FieldInt64List1":   int64(2),
-					"FieldInt64List2":   int64(3),
-					"FieldInt64List3":   int64(4),
-					"FieldFloat32List":  []float32{1, 2, 3, 4},
-					"FieldFloat32List0": float32(1),
-					"FieldFloat32List1": float32(2),
-					"FieldFloat32List2": float32(3),
-					"FieldFloat32List3": float32(4),
-					"FieldFloat64List":  []float64{1, 2, 3, 4},
-					"FieldFloat64List0": float64(1),
-					"FieldFloat64List1": float64(2),
-					"FieldFloat64List2": float64(3),
-					"FieldFloat64List3": float64(4),
-				},
-			},
+			wantLen: 1,
 		},
 		{
 			description: "it should handle slice placeholders correctly with custom types",
 			query: `
 SELECT 1 FROM crazy_table
-WHERE field1 = :Field1
-AND field2 IN (:FieldIntList)
-AND field3 IN (:FieldStringList)
+WHERE field2 IN (:FieldStringList)
+AND field12 IN (:FieldIntList)
 `,
 			args: []interface{}{
 				map[string]interface{}{
-					"Field1":          123,
-					"FieldIntList":    customType2{1, 2, 3, 4},
 					"FieldStringList": customType1{"h", "e", "y"},
+					"FieldIntList":    customType2{1, 2, 3, 4},
 				},
 			},
-			wantQuery: `
-SELECT 1 FROM crazy_table
-WHERE field1 = :Field1
-AND field2 IN (:FieldIntList0,:FieldIntList1,:FieldIntList2,:FieldIntList3)
-AND field3 IN (:FieldStringList0,:FieldStringList1,:FieldStringList2)
-`,
-			wantArgs: []interface{}{
-				map[string]interface{}{
-					"Field1":           123,
-					"FieldIntList":     customType2{1, 2, 3, 4},
-					"FieldIntList0":    int64(1),
-					"FieldIntList1":    int64(2),
-					"FieldIntList2":    int64(3),
-					"FieldIntList3":    int64(4),
-					"FieldStringList":  customType1{"h", "e", "y"},
-					"FieldStringList0": "h",
-					"FieldStringList1": "e",
-					"FieldStringList2": "y",
-				},
-			},
+			wantLen: 3,
 		},
-		{
-			description: "it should ignore empty slices",
-			query: `
-SELECT 1 FROM crazy_table
-WHERE field1 IN (:FieldIntList)
-`,
-			args: []interface{}{
-				map[string]interface{}{
-					"FieldIntList": []int64{},
-				},
-			},
-			wantQuery: `
-SELECT 1 FROM crazy_table
-WHERE field1 IN (:FieldIntList)
-`,
-			wantArgs: []interface{}{
-				map[string]interface{}{
-					"FieldIntList": []int64{},
-				},
-			},
+	}
+
+	type dataFormat struct {
+		Field1  int
+		Field2  string
+		Field3  uint
+		Field4  uint8
+		Field5  uint16
+		Field6  uint32
+		Field7  uint64
+		Field8  int
+		Field9  int8
+		Field10 int16
+		Field11 int32
+		Field12 int64
+		Field13 float32
+		Field14 float64
+	}
+
+	dbmap := newDbMap()
+	dbmap.ExpandSliceArgs = true
+	dbmap.AddTableWithName(dataFormat{}, "crazy_table")
+
+	err := dbmap.CreateTables()
+	if err != nil {
+		panic(err)
+	}
+	defer dropAndClose(dbmap)
+
+	err = dbmap.Insert(
+		&dataFormat{
+			Field1:  123,
+			Field2:  "h",
+			Field3:  1,
+			Field4:  1,
+			Field5:  1,
+			Field6:  1,
+			Field7:  1,
+			Field8:  1,
+			Field9:  1,
+			Field10: 1,
+			Field11: 1,
+			Field12: 1,
+			Field13: 1,
+			Field14: 1,
 		},
-		{
-			description: "it should ignore non-mappers",
-			query: `
-SELECT 1 FROM crazy_table
-WHERE field1 = :Field1
-AND field2 IN (:FieldIntList)
-AND field3 IN (:FieldStringList)
-`,
-			args: []interface{}{
-				123,
-			},
-			wantQuery: `
-SELECT 1 FROM crazy_table
-WHERE field1 = :Field1
-AND field2 IN (:FieldIntList)
-AND field3 IN (:FieldStringList)
-`,
-			wantArgs: []interface{}{
-				123,
-			},
+		&dataFormat{
+			Field1:  124,
+			Field2:  "e",
+			Field3:  2,
+			Field4:  2,
+			Field5:  2,
+			Field6:  2,
+			Field7:  2,
+			Field8:  2,
+			Field9:  2,
+			Field10: 2,
+			Field11: 2,
+			Field12: 2,
+			Field13: 2,
+			Field14: 2,
 		},
+		&dataFormat{
+			Field1:  125,
+			Field2:  "y",
+			Field3:  3,
+			Field4:  3,
+			Field5:  3,
+			Field6:  3,
+			Field7:  3,
+			Field8:  3,
+			Field9:  3,
+			Field10: 3,
+			Field11: 3,
+			Field12: 3,
+			Field13: 3,
+			Field14: 3,
+		},
+	)
+
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			expandSliceArgs(&tt.query, tt.args...)
-
-			if tt.query != tt.wantQuery {
-				t.Errorf("wrong query\ngot:  %s\nwant: %s", tt.query, tt.wantQuery)
+			var dummy []int
+			_, err := dbmap.Select(&dummy, tt.query, tt.args...)
+			if err != nil {
+				t.Fatal(err)
 			}
 
-			if !reflect.DeepEqual(tt.wantArgs, tt.args) {
-				t.Errorf("wrong args\ngot: %v\nwant: %v", tt.args, tt.wantArgs)
+			if len(dummy) != tt.wantLen {
+				t.Errorf("wrong result count\ngot:  %d\nwant: %d", len(dummy), tt.wantLen)
 			}
 		})
 	}
