@@ -1433,6 +1433,59 @@ func TestTransaction(t *testing.T) {
 	}
 }
 
+func TestTransactionExecNamed(t *testing.T) {
+	dbmap := initDbMap()
+	defer dropAndClose(dbmap)
+	trans, err := dbmap.Begin()
+	if err != nil {
+		panic(err)
+	}
+	// exec should support named params
+	args := map[string]interface{}{
+		"created":100,
+		"updated":200,
+		"memo":"unpaid",
+		"personID":0,
+		"isPaid": false,
+	}
+	result, err := trans.Exec("INSERT INTO invoice_test (Created, Updated, Memo, PersonID, isPaid) Values(:created, :updated, :memo, :personID, :isPaid)", args)
+	if err != nil {
+		panic(err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		panic(err)
+	}
+	var checkMemo = func(want string) {
+		args := map[string]interface{}{
+			"id":id,
+		}
+		memo, err := trans.SelectStr("select memo from invoice_test where id = :id", args)
+		if err != nil {
+			panic(err)
+		}
+		if memo != want {
+			t.Errorf("%q != %q", want, memo)
+		}
+	}
+	checkMemo("unpaid")
+
+	// exec should still work with ? params
+	result, err = trans.Exec("INSERT INTO invoice_test (Created, Updated, Memo, PersonID, isPaid) Values(?, ?, ?, ?, ?)", 10,15,"paid",0,true)
+	if err != nil {
+		panic(err)
+	}
+	id, err = result.LastInsertId()
+	if err != nil {
+		panic(err)
+	}
+	checkMemo("paid")
+	err = trans.Commit()
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestSavepoint(t *testing.T) {
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
