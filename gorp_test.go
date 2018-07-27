@@ -1434,8 +1434,6 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestTransactionExecNamed(t *testing.T) {
-	os.Setenv("GORP_TEST_DSN","root:dev@tcp(db.sunbeam.localhost:3306)/teamworkspaces_shard6")
-	os.Setenv("GORP_TEST_DIALECT","gomysql")
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
 	trans, err := dbmap.Begin()
