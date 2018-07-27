@@ -1434,6 +1434,8 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestTransactionExecNamed(t *testing.T) {
+	os.Setenv("GORP_TEST_DSN","root:dev@tcp(db.sunbeam.localhost:3306)/teamworkspaces_shard6")
+	os.Setenv("GORP_TEST_DIALECT","gomysql")
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
 	trans, err := dbmap.Begin()
@@ -1448,7 +1450,7 @@ func TestTransactionExecNamed(t *testing.T) {
 		"personID":0,
 		"isPaid": false,
 	}
-	result, err := trans.Exec("INSERT INTO invoice_test (Created, Updated, Memo, PersonID, isPaid) Values(:created, :updated, :memo, :personID, :isPaid)", args)
+	result, err := trans.Exec("INSERT INTO invoice_test (Id, Created, Updated, Memo, PersonID, isPaid) Values(0, :created, :updated, :memo, :personID, :isPaid)", args)
 	if err != nil {
 		panic(err)
 	}
@@ -1471,7 +1473,7 @@ func TestTransactionExecNamed(t *testing.T) {
 	checkMemo("unpaid")
 
 	// exec should still work with ? params
-	result, err = trans.Exec("INSERT INTO invoice_test (Created, Updated, Memo, PersonID, isPaid) Values(?, ?, ?, ?, ?)", 10,15,"paid",0,true)
+	result, err = trans.Exec("INSERT INTO invoice_test (Id, Created, Updated, Memo, PersonID, isPaid) Values(0, ?, ?, ?, ?, ?)", 10,15,"paid",0,true)
 	if err != nil {
 		panic(err)
 	}
