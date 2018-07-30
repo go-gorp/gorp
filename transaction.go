@@ -71,7 +71,7 @@ func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error
 		now := time.Now()
 		defer t.dbmap.trace(now, query, args...)
 	}
-	return exec(t, query, args...)
+	return maybeExpandNamedQueryAndExec(t, query, args...)
 }
 
 // SelectInt is a convenience wrapper around the gorp.SelectInt function.
