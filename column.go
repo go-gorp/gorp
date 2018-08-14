@@ -42,6 +42,7 @@ type ColumnMap struct {
 	isPK       bool
 	isAutoIncr bool
 	isNotNull  bool
+	isJSON     bool
 }
 
 // Rename allows you to specify the column name in the table

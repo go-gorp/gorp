@@ -357,6 +357,16 @@ func toType(i interface{}) (reflect.Type, error) {
 	return t, nil
 }
 
+func hasTag(sf reflect.StructField, name string) bool {
+	all_tags := strings.Split(sf.Tag.Get("db"), ",")
+	for _, i := range all_tags {
+		if i == name {
+			return true
+		}
+	}
+	return false
+}
+
 type foundTable struct {
 	table   *TableMap
 	dynName *string
@@ -411,13 +421,24 @@ func get(m *DbMap, exec SqlExecutor, i interface{},
 	for x, fieldName := range plan.argFields {
 		f := v.Elem().FieldByName(fieldName)
 		target := f.Addr().Interface()
+		sf, _ := t.FieldByName(fieldName)
+		isJSON := hasTag(sf, "json")
 		if conv != nil {
 			scanner, ok := conv.FromDb(target)
 			if ok {
+				if isJSON {
+					return nil, fmt.Errorf("gorp: custom scanner defined for json field: %v", fieldName)
+				}
 				target = scanner.Holder
 				custScan = append(custScan, scanner)
 			}
 		}
+		if isJSON {
+			scanner := newJsonScanner(target)
+			target = scanner.Holder
+			custScan = append(custScan, scanner)
+		}
+
 		dest[x] = target
 	}
 

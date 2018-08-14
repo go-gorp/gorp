@@ -13,6 +13,7 @@ package gorp
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -78,6 +79,14 @@ func (plan *bindPlan) createBindInstance(elem reflect.Value, conv TypeConverter)
 				if err != nil {
 					return bindInstance{}, err
 				}
+			}
+			sf, _ := elem.Type().FieldByName(k)
+			if hasTag(sf, "json") {
+				bytez, err := json.Marshal(val)
+				if err != nil {
+					return bindInstance{}, fmt.Errorf("gorp: createBindInstance json.Marshal error for %s: %s", k, err)
+				}
+				val = append([]byte(nil), bytez...) // workaround for sqlite issue caused by cgo bug https://github.com/golang/go/issues/18184
 			}
 			bi.args = append(bi.args, val)
 		}

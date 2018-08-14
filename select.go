@@ -313,6 +313,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 		custScan := make([]CustomScanner, 0)
 
 		for x := range cols {
+			var isJSON bool
 			f := v.Elem()
 			if intoStruct {
 				index := colToFieldIndex[x]
@@ -323,16 +324,28 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 					dest[x] = &dummy
 					continue
 				}
+				isJSON = hasTag(t.FieldByIndex(index), "json")
 				f = f.FieldByIndex(index)
 			}
 			target := f.Addr().Interface()
+
 			if conv != nil {
 				scanner, ok := conv.FromDb(target)
 				if ok {
+					if isJSON {
+						return nil, fmt.Errorf("gorp: custom scanner defined for json field: %v", t.FieldByIndex(colToFieldIndex[x]).Name)
+					}
 					target = scanner.Holder
 					custScan = append(custScan, scanner)
 				}
 			}
+
+			if isJSON {
+				scanner := newJsonScanner(target)
+				target = scanner.Holder
+				custScan = append(custScan, scanner)
+			}
+
 			dest[x] = target
 		}
 
