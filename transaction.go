@@ -62,6 +62,10 @@ func (t *Transaction) Get(i interface{}, keys ...interface{}) (interface{}, erro
 
 // Select has the same behavior as DbMap.Select(), but runs in a transaction.
 func (t *Transaction) Select(i interface{}, query string, args ...interface{}) ([]interface{}, error) {
+	if t.dbmap.ExpandSliceArgs {
+		expandSliceArgs(&query, args...)
+	}
+
 	return hookedselect(t.dbmap, t, i, query, args...)
 }
 
@@ -76,36 +80,64 @@ func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error
 
 // SelectInt is a convenience wrapper around the gorp.SelectInt function.
 func (t *Transaction) SelectInt(query string, args ...interface{}) (int64, error) {
+	if t.dbmap.ExpandSliceArgs {
+		expandSliceArgs(&query, args...)
+	}
+
 	return SelectInt(t, query, args...)
 }
 
 // SelectNullInt is a convenience wrapper around the gorp.SelectNullInt function.
 func (t *Transaction) SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error) {
+	if t.dbmap.ExpandSliceArgs {
+		expandSliceArgs(&query, args...)
+	}
+
 	return SelectNullInt(t, query, args...)
 }
 
 // SelectFloat is a convenience wrapper around the gorp.SelectFloat function.
 func (t *Transaction) SelectFloat(query string, args ...interface{}) (float64, error) {
+	if t.dbmap.ExpandSliceArgs {
+		expandSliceArgs(&query, args...)
+	}
+
 	return SelectFloat(t, query, args...)
 }
 
 // SelectNullFloat is a convenience wrapper around the gorp.SelectNullFloat function.
 func (t *Transaction) SelectNullFloat(query string, args ...interface{}) (sql.NullFloat64, error) {
+	if t.dbmap.ExpandSliceArgs {
+		expandSliceArgs(&query, args...)
+	}
+
 	return SelectNullFloat(t, query, args...)
 }
 
 // SelectStr is a convenience wrapper around the gorp.SelectStr function.
 func (t *Transaction) SelectStr(query string, args ...interface{}) (string, error) {
+	if t.dbmap.ExpandSliceArgs {
+		expandSliceArgs(&query, args...)
+	}
+
 	return SelectStr(t, query, args...)
 }
 
 // SelectNullStr is a convenience wrapper around the gorp.SelectNullStr function.
 func (t *Transaction) SelectNullStr(query string, args ...interface{}) (sql.NullString, error) {
+	if t.dbmap.ExpandSliceArgs {
+		expandSliceArgs(&query, args...)
+	}
+
 	return SelectNullStr(t, query, args...)
 }
 
 // SelectOne is a convenience wrapper around the gorp.SelectOne function.
 func (t *Transaction) SelectOne(holder interface{}, query string, args ...interface{}) error {
+	if t.dbmap.ExpandSliceArgs {
+		expandSliceArgs(&query, args...)
+	}
+
 	return SelectOne(t.dbmap, t, holder, query, args...)
 }
 
@@ -186,6 +218,10 @@ func (t *Transaction) Prepare(query string) (*sql.Stmt, error) {
 }
 
 func (t *Transaction) QueryRow(query string, args ...interface{}) *sql.Row {
+	if t.dbmap.ExpandSliceArgs {
+		expandSliceArgs(&query, args...)
+	}
+
 	if t.dbmap.logger != nil {
 		now := time.Now()
 		defer t.dbmap.trace(now, query, args...)
@@ -194,6 +230,10 @@ func (t *Transaction) QueryRow(query string, args ...interface{}) *sql.Row {
 }
 
 func (t *Transaction) Query(q string, args ...interface{}) (*sql.Rows, error) {
+	if t.dbmap.ExpandSliceArgs {
+		expandSliceArgs(&q, args...)
+	}
+
 	if t.dbmap.logger != nil {
 		now := time.Now()
 		defer t.dbmap.trace(now, q, args...)
