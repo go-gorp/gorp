@@ -52,7 +52,7 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 	if maxsize < 1 {
 		maxsize = 255
 	}
-	
+
 	if maxsize < 256 {
 		return fmt.Sprintf("varchar(%d)", maxsize)
 	} else {
