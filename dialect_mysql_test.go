@@ -61,9 +61,9 @@ var _ = Describe("MySQLDialect", func() {
 		Entry("NullFloat64", sql.NullFloat64{}, 0, false, "double"),
 		Entry("NullBool", sql.NullBool{}, 0, false, "tinyint"),
 		Entry("Time", time.Time{}, 0, false, "datetime"),
-		Entry("default-size string", "", 0, false, "varchar(255)"),
+		Entry("default-size string", "", 0, false, "longtext"),
 		Entry("sized string", "", 50, false, "varchar(50)"),
-		Entry("large string", "", 1024, false, "text"),
+		Entry("large string", "", 1024, false, "text(1024)"),
 	)
 
 	Describe("AutoIncrStr", func() {
