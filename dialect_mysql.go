@@ -86,7 +86,7 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 	if maxsize == 0 {
 		// Closer match for unbounded text
 		return "longtext"
-	} else if maxsize < 513 {
+	} else if maxsize < 256 {
 		return fmt.Sprintf("varchar(%d)", maxsize)
 	} else {
 		// mysql will choose the right text variant according to the specified size
