@@ -1709,7 +1709,7 @@ func TestUpsert(t *testing.T) {
 
 	// First, try an upsert with an auto-increment table.
 	inv := &Invoice{0, 100, 200, "first order", 0, true}
-	if err := dbmap.Upsert(inv, false); err == nil {
+	if err := dbmap.Upsert(true, inv, false); err == nil {
 		t.Error("expected failure trying to upsert a row to an auto-increment table")
 	}
 
@@ -2808,7 +2808,7 @@ func _update(dbmap *gorp.DbMap, list ...interface{}) int64 {
 }
 
 func _upsert(dbmap *gorp.DbMap, list ...interface{}) {
-	err := dbmap.Upsert(list, false)
+	err := dbmap.Upsert(true, list, false)
 	if err != nil {
 		panic(err)
 	}
