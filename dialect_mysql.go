@@ -178,3 +178,11 @@ func (d MySQLDialect) IfTableExists(command, schema, table string) string {
 func (d MySQLDialect) IfTableNotExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
+
+func (d MySQLDialect) UpsertStatementDoUpdate() string {
+	return " on duplicate key update"
+}
+
+func (d MySQLDialect) UpsertStatementDoNothing() string {
+	return d.UpsertStatementDoUpdate() // MySQL doesn't support do nothing
+}

@@ -233,7 +233,7 @@ func (t *TableMap) bindUpdate(elem reflect.Value, colFilter ColumnFilter) (bindI
 // the Dialect construct. I think the right next step is to start
 // supporting another database type and see what makes sense with that
 // specific case in mind.
-func (t *TableMap) bindUpsert(elem reflect.Value) (bindInstance, error) {
+func (t *TableMap) bindUpsert(elem reflect.Value, updateOnConflict bool) (bindInstance, error) {
 	if !t.dbmap.Dialect.SupportsUpsert() {
 		return bindInstance{}, fmt.Errorf("SQL dialect doesn't have gorp support for upsert; consider adding it!")
 	}
@@ -279,20 +279,25 @@ func (t *TableMap) bindUpsert(elem reflect.Value) (bindInstance, error) {
 		s.WriteString(s2.String())
 		s.WriteString(")")
 
-		s.WriteString(" on duplicate key update")
-		first = true
-		for y := range t.Columns {
-			col := t.Columns[y]
-			// Skip primary key and transient columns.
-			if col.isPK || col.Transient {
-				continue
+		if updateOnConflict {
+			s.WriteString(t.dbmap.Dialect.(Upsertter).UpsertStatementDoUpdate())
+
+			first = true
+			for y := range t.Columns {
+				col := t.Columns[y]
+				// Skip primary key and transient columns.
+				if col.isPK || col.Transient {
+					continue
+				}
+				if !first {
+					s.WriteString(",")
+				}
+				qf := t.dbmap.Dialect.QuoteField(col.ColumnName)
+				s.WriteString(fmt.Sprintf(" %s=values(%s)", qf, qf))
+				first = false
 			}
-			if !first {
-				s.WriteString(",")
-			}
-			qf := t.dbmap.Dialect.QuoteField(col.ColumnName)
-			s.WriteString(fmt.Sprintf(" %s=values(%s)", qf, qf))
-			first = false
+		} else {
+			s.WriteString(t.dbmap.Dialect.(Upsertter).UpsertStatementDoNothing())
 		}
 
 		s.WriteString(t.dbmap.Dialect.QuerySuffix())

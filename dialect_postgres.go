@@ -158,3 +158,11 @@ func (d PostgresDialect) IfTableExists(command, schema, table string) string {
 func (d PostgresDialect) IfTableNotExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
+
+func (d PostgresDialect) UpsertStatementDoUpdate() string {
+	return " on conflict do update"
+}
+
+func (d PostgresDialect) UpsertStatementDoNothing() string {
+	return " on conflict do nothing"
+}

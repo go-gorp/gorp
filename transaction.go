@@ -51,8 +51,8 @@ func (t *Transaction) UpdateColumns(filter ColumnFilter, list ...interface{}) (i
 }
 
 // Upsert has the same behavior as DbMap.Upsert(), but runs in a transaction.
-func (t *Transaction) Upsert(list ...interface{}) error {
-	return upsert(t.dbmap, t, list...)
+func (t *Transaction) Upsert(updateOnConflict bool, list ...interface{}) error {
+	return upsert(t.dbmap, t, updateOnConflict, list...)
 }
 
 // Delete has the same behavior as DbMap.Delete(), but runs in a transaction.

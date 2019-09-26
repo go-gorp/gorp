@@ -1465,11 +1465,11 @@ func TestTransactionExecNamed(t *testing.T) {
 	defer trans.Rollback()
 	// exec should support named params
 	args := map[string]interface{}{
-		"created":100,
-		"updated":200,
-		"memo":"unpaid",
-		"personID":0,
-		"isPaid": false,
+		"created":  100,
+		"updated":  200,
+		"memo":     "unpaid",
+		"personID": 0,
+		"isPaid":   false,
 	}
 
 	result, err := trans.Exec(`INSERT INTO invoice_test (Created, Updated, Memo, PersonId, IsPaid) Values(:created, :updated, :memo, :personID, :isPaid)`, args)
@@ -1482,7 +1482,7 @@ func TestTransactionExecNamed(t *testing.T) {
 	}
 	var checkMemo = func(want string) {
 		args := map[string]interface{}{
-			"id":id,
+			"id": id,
 		}
 		memo, err := trans.SelectStr("select memo from invoice_test where id = :id", args)
 		if err != nil {
@@ -1495,7 +1495,7 @@ func TestTransactionExecNamed(t *testing.T) {
 	checkMemo("unpaid")
 
 	// exec should still work with ? params
-	result, err = trans.Exec(`INSERT INTO invoice_test (Created, Updated, Memo, PersonId, IsPaid) Values(?, ?, ?, ?, ?)`, 10,15,"paid",0,true)
+	result, err = trans.Exec(`INSERT INTO invoice_test (Created, Updated, Memo, PersonId, IsPaid) Values(?, ?, ?, ?, ?)`, 10, 15, "paid", 0, true)
 	if err != nil {
 		panic(err)
 	}
@@ -1522,11 +1522,11 @@ func TestTransactionExecNamedPostgres(t *testing.T) {
 	}
 	// exec should support named params
 	args := map[string]interface{}{
-		"created":100,
-		"updated":200,
-		"memo":"zzTest",
-		"personID":0,
-		"isPaid": false,
+		"created":  100,
+		"updated":  200,
+		"memo":     "zzTest",
+		"personID": 0,
+		"isPaid":   false,
 	}
 	_, err = trans.Exec(`INSERT INTO invoice_test ("Created", "Updated", "Memo", "PersonId", "IsPaid") Values(:created, :updated, :memo, :personID, :isPaid)`, args)
 	if err != nil {
@@ -1534,7 +1534,7 @@ func TestTransactionExecNamedPostgres(t *testing.T) {
 	}
 	var checkMemo = func(want string) {
 		args := map[string]interface{}{
-			"memo":want,
+			"memo": want,
 		}
 		memo, err := trans.SelectStr(`select "Memo" from invoice_test where "Memo" = :memo`, args)
 		if err != nil {
@@ -1547,7 +1547,7 @@ func TestTransactionExecNamedPostgres(t *testing.T) {
 	checkMemo("zzTest")
 
 	// exec should still work with ? params
-	_, err = trans.Exec(`INSERT INTO invoice_test ("Created", "Updated", "Memo", "PersonId", "IsPaid") Values($1, $2, $3, $4, $5)`, 10,15,"yyTest",0,true)
+	_, err = trans.Exec(`INSERT INTO invoice_test ("Created", "Updated", "Memo", "PersonId", "IsPaid") Values($1, $2, $3, $4, $5)`, 10, 15, "yyTest", 0, true)
 
 	if err != nil {
 		panic(err)
@@ -1709,7 +1709,7 @@ func TestUpsert(t *testing.T) {
 
 	// First, try an upsert with an auto-increment table.
 	inv := &Invoice{0, 100, 200, "first order", 0, true}
-	if err := dbmap.Upsert(inv); err == nil {
+	if err := dbmap.Upsert(inv, false); err == nil {
 		t.Error("expected failure trying to upsert a row to an auto-increment table")
 	}
 
@@ -2808,7 +2808,7 @@ func _update(dbmap *gorp.DbMap, list ...interface{}) int64 {
 }
 
 func _upsert(dbmap *gorp.DbMap, list ...interface{}) {
-	err := dbmap.Upsert(list...)
+	err := dbmap.Upsert(list, false)
 	if err != nil {
 		panic(err)
 	}

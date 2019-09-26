@@ -78,6 +78,12 @@ type Dialect interface {
 	IfTableNotExists(command, schema, table string) string
 }
 
+type Upsertter interface {
+	UpsertStatementDoUpdate() string
+
+	UpsertStatementDoNothing() string
+}
+
 // IntegerAutoIncrInserter is implemented by dialects that can perform
 // inserts with automatically incremented integer primary keys.  If
 // the dialect can handle automatic assignment of more than just

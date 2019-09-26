@@ -616,8 +616,8 @@ func (m *DbMap) UpdateColumns(filter ColumnFilter, list ...interface{}) (int64, 
 // before/after the upsert if the interface defines them.
 //
 // Panics if any interface in the list has not been registered with AddTable
-func (m *DbMap) Upsert(list ...interface{}) error {
-	return upsert(m, m, list...)
+func (m *DbMap) Upsert(updateOnConflict bool, list ...interface{}) error {
+	return upsert(m, m, updateOnConflict, list...)
 }
 
 // Delete runs a SQL DELETE statement for each element in list.  List
