@@ -10,7 +10,7 @@ matrix:
 
 services:
 - mysql
-- postgres
+- postgresql
 - sqlite3
 
 env:
