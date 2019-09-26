@@ -637,7 +637,7 @@ func upsert(m *DbMap, exec SqlExecutor, list ...interface{}) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(bi.query)
+
 		_, err = exec.Exec(bi.query, bi.args...)
 		if err != nil {
 			return err

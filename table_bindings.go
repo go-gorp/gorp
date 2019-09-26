@@ -237,6 +237,7 @@ func (t *TableMap) bindUpsert(elem reflect.Value) (bindInstance, error) {
 	if !t.dbmap.Dialect.SupportsUpsert() {
 		return bindInstance{}, fmt.Errorf("SQL dialect doesn't have gorp support for upsert; consider adding it!")
 	}
+
 	plan := t.upsertPlan
 	if plan.query == "" {
 		plan.autoIncrIdx = -1
