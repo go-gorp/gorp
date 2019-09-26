@@ -253,9 +253,9 @@ func (t *TableMap) bindUpsert(elem reflect.Value) (bindInstance, error) {
 			// TODO(spencer.kimball@gmail.com): there are ways to handle
 			// auto increment columns with upsert in MySQL, and no doubt other
 			// databases as well.
-			if col.isAutoIncr {
-				return bindInstance{}, fmt.Errorf("gorp: cannot upsert to tables with autoincrement field %q", col.fieldName)
-			}
+			//if col.isAutoIncr {
+			//	return bindInstance{}, fmt.Errorf("gorp: cannot upsert to tables with autoincrement field %q", col.fieldName)
+			//}
 			if !col.Transient {
 				if !first {
 					s.WriteString(",")
