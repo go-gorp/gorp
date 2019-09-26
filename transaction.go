@@ -18,7 +18,7 @@ import (
 )
 
 // Transaction represents a database transaction.
-// Insert/Update/Delete/Get/Exec operations will be run in the context
+// Insert/Update/Upsert/Delete/Get/Exec operations will be run in the context
 // of that transaction.  Transactions should be terminated with
 // a call to Commit() or Rollback()
 type Transaction struct {
@@ -48,6 +48,11 @@ func (t *Transaction) Update(list ...interface{}) (int64, error) {
 // UpdateColumns had the same behavior as DbMap.UpdateColumns(), but runs in a transaction.
 func (t *Transaction) UpdateColumns(filter ColumnFilter, list ...interface{}) (int64, error) {
 	return update(t.dbmap, t, filter, list...)
+}
+
+// Upsert has the same behavior as DbMap.Upsert(), but runs in a transaction.
+func (t *Transaction) Upsert(list ...interface{}) error {
+	return upsert(t.dbmap, t, list...)
 }
 
 // Delete has the same behavior as DbMap.Delete(), but runs in a transaction.

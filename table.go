@@ -32,6 +32,7 @@ type TableMap struct {
 	version        *ColumnMap
 	insertPlan     bindPlan
 	updatePlan     bindPlan
+	upsertPlan     bindPlan
 	deletePlan     bindPlan
 	getPlan        bindPlan
 	dbmap          *DbMap
@@ -43,6 +44,7 @@ type TableMap struct {
 func (t *TableMap) ResetSql() {
 	t.insertPlan = bindPlan{}
 	t.updatePlan = bindPlan{}
+	t.upsertPlan = bindPlan{}
 	t.deletePlan = bindPlan{}
 	t.getPlan = bindPlan{}
 }

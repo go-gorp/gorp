@@ -163,6 +163,10 @@ func (d MySQLDialect) QuotedTableForQuery(schema string, table string) string {
 	return schema + "." + d.QuoteField(table)
 }
 
+func (d MySQLDialect) SupportsUpsert() bool {
+	return true
+}
+
 func (d MySQLDialect) IfSchemaNotExists(command, schema string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }

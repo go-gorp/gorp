@@ -123,6 +123,10 @@ func (d SqlServerDialect) QuotedTableForQuery(schema string, table string) strin
 	return d.QuoteField(schema) + "." + d.QuoteField(table)
 }
 
+func (d SqlServerDialect) SupportsUpsert() bool {
+	return false
+}
+
 func (d SqlServerDialect) QuerySuffix() string { return ";" }
 
 func (d SqlServerDialect) IfSchemaNotExists(command, schema string) string {

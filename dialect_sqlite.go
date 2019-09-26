@@ -106,6 +106,10 @@ func (d SqliteDialect) QuotedTableForQuery(schema string, table string) string {
 	return d.QuoteField(table)
 }
 
+func (d SqliteDialect) SupportsUpsert() bool {
+	return false
+}
+
 func (d SqliteDialect) IfSchemaNotExists(command, schema string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }

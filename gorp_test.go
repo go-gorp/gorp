@@ -383,12 +383,12 @@ func (p *Person) PostUpdate(s gorp.SqlExecutor) error {
 	return nil
 }
 
-func (p *Person) PreUpsert(s SqlExecutor) error {
+func (p *Person) PreUpsert(s gorp.SqlExecutor) error {
 	p.FName = "preupsert"
 	return nil
 }
 
-func (p *Person) PostUpsert(s SqlExecutor) error {
+func (p *Person) PostUpsert(s gorp.SqlExecutor) error {
 	p.LName = "postupsert"
 	return nil
 }
@@ -2807,7 +2807,7 @@ func _update(dbmap *gorp.DbMap, list ...interface{}) int64 {
 	return count
 }
 
-func _upsert(dbmap *DbMap, list ...interface{}) {
+func _upsert(dbmap *gorp.DbMap, list ...interface{}) {
 	err := dbmap.Upsert(list...)
 	if err != nil {
 		panic(err)

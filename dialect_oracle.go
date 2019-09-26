@@ -125,6 +125,10 @@ func (d OracleDialect) QuoteField(f string) string {
 	return `"` + strings.ToUpper(f) + `"`
 }
 
+func (d OracleDialect) SupportsUpsert() bool {
+	return false
+}
+
 func (d OracleDialect) QuotedTableForQuery(schema string, table string) string {
 	if strings.TrimSpace(schema) == "" {
 		return d.QuoteField(table)

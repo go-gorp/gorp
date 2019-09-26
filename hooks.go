@@ -33,6 +33,11 @@ type HasPostInsert interface {
 	PostInsert(SqlExecutor) error
 }
 
+// PostUpsert() will be executed after an upsert statement.
+type HasPostUpsert interface {
+	PostUpsert(SqlExecutor) error
+}
+
 // HasPreDelete provides PreDelete() which will be executed before the DELETE statement.
 type HasPreDelete interface {
 	PreDelete(SqlExecutor) error
@@ -46,4 +51,9 @@ type HasPreUpdate interface {
 // HasPreInsert provides PreInsert() which will be executed before INSERT statement.
 type HasPreInsert interface {
 	PreInsert(SqlExecutor) error
+}
+
+// PreUpsert() will be executed before an upsert statement.
+type HasPreUpsert interface {
+	PreUpsert(SqlExecutor) error
 }

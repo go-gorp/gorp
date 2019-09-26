@@ -603,6 +603,23 @@ func (m *DbMap) UpdateColumns(filter ColumnFilter, list ...interface{}) (int64, 
 	return update(m, m, filter, list...)
 }
 
+// Upsert runs a SQL statement specific to each dialog which either
+// inserts or updates each element in the list according to whether or
+// not it is already in the database (update) or is not yet in the
+// database (insert). List items must be pointers.
+//
+// Only TableMaps without auto-incrementing primary keys are
+// allowed. Any interface whose TableMap has an auto-increment primary
+// key will result in an error.
+//
+// The hook functions PreUpsert() and/or PostUpsert() will be executed
+// before/after the upsert if the interface defines them.
+//
+// Panics if any interface in the list has not been registered with AddTable
+func (m *DbMap) Upsert(list ...interface{}) error {
+	return upsert(m, m, list...)
+}
+
 // Delete runs a SQL DELETE statement for each element in list.  List
 // items must be pointers.
 //

@@ -228,6 +228,81 @@ func (t *TableMap) bindUpdate(elem reflect.Value, colFilter ColumnFilter) (bindI
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
+// TODO(spencer.kimball@gmail.com): this is very MySQL-specific. I'm
+// not really sure yet what the best way to generalize this is using
+// the Dialect construct. I think the right next step is to start
+// supporting another database type and see what makes sense with that
+// specific case in mind.
+func (t *TableMap) bindUpsert(elem reflect.Value) (bindInstance, error) {
+	if !t.dbmap.Dialect.SupportsUpsert() {
+		return bindInstance{}, fmt.Errorf("SQL dialect doesn't have gorp support for upsert; consider adding it!")
+	}
+	plan := t.upsertPlan
+	if plan.query == "" {
+		plan.autoIncrIdx = -1
+
+		s := bytes.Buffer{}
+		s2 := bytes.Buffer{}
+		s.WriteString(fmt.Sprintf("insert into %s (", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
+
+		x := 0
+		first := true
+		for y := range t.Columns {
+			col := t.Columns[y]
+			// TODO(spencer.kimball@gmail.com): there are ways to handle
+			// auto increment columns with upsert in MySQL, and no doubt other
+			// databases as well.
+			if col.isAutoIncr {
+				return bindInstance{}, fmt.Errorf("gorp: cannot upsert to tables with autoincrement field %q", col.fieldName)
+			}
+			if !col.Transient {
+				if !first {
+					s.WriteString(",")
+					s2.WriteString(",")
+				}
+				s.WriteString(t.dbmap.Dialect.QuoteField(col.ColumnName))
+
+				s2.WriteString(t.dbmap.Dialect.BindVar(x))
+				if col == t.version {
+					plan.versField = col.fieldName
+					plan.argFields = append(plan.argFields, versFieldConst)
+				} else {
+					plan.argFields = append(plan.argFields, col.fieldName)
+				}
+
+				x++
+				first = false
+			}
+		}
+		s.WriteString(") values (")
+		s.WriteString(s2.String())
+		s.WriteString(")")
+
+		s.WriteString(" on duplicate key update")
+		first = true
+		for y := range t.Columns {
+			col := t.Columns[y]
+			// Skip primary key and transient columns.
+			if col.isPK || col.Transient {
+				continue
+			}
+			if !first {
+				s.WriteString(",")
+			}
+			qf := t.dbmap.Dialect.QuoteField(col.ColumnName)
+			s.WriteString(fmt.Sprintf(" %s=values(%s)", qf, qf))
+			first = false
+		}
+
+		s.WriteString(t.dbmap.Dialect.QuerySuffix())
+
+		plan.query = s.String()
+		t.upsertPlan = plan
+	}
+
+	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
+}
+
 func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 	plan := &t.deletePlan
 	plan.once.Do(func() {
