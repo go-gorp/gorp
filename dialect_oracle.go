@@ -31,7 +31,7 @@ func (d OracleDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 	case reflect.Ptr:
 		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
-		return "boolean"
+		return "number(1, 0)"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
 		if isAutoIncr {
 			return "serial"
@@ -41,11 +41,11 @@ func (d OracleDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 		if isAutoIncr {
 			return "bigserial"
 		}
-		return "bigint"
+		return "number(19, 0)"
 	case reflect.Float64:
-		return "double precision"
+		return "float(24)"
 	case reflect.Float32:
-		return "real"
+		return "float(24)"
 	case reflect.Slice:
 		if val.Elem().Kind() == reflect.Uint8 {
 			return "bytea"
@@ -54,17 +54,17 @@ func (d OracleDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 
 	switch val.Name() {
 	case "NullInt64":
-		return "bigint"
+		return "number(19, 0)"
 	case "NullFloat64":
-		return "double precision"
+		return "float(24)"
 	case "NullBool":
-		return "boolean"
+		return "number(1, 0)"
 	case "NullTime", "Time":
-		return "timestamp with time zone"
+		return "date"
 	}
 
 	if maxsize > 0 {
-		return fmt.Sprintf("varchar(%d)", maxsize)
+		return fmt.Sprintf("varchar2(%d)", maxsize)
 	} else {
 		return "text"
 	}
@@ -90,7 +90,7 @@ func (d OracleDialect) CreateTableSuffix() string {
 }
 
 func (d OracleDialect) TruncateClause() string {
-	return "truncate"
+	return "truncate table"
 }
 
 // Returns "$(i+1)"
