@@ -2036,6 +2036,9 @@ func TestNullTime(t *testing.T) {
 
 	// if time is not null
 	ts, err := time.Parse(time.Stamp, "Jan 2 15:04:05")
+	if err != nil {
+		t.Errorf("failed to parse time %s: %s", time.Stamp, err.Error())
+	}
 	ent = &WithNullTime{
 		Id: 1,
 		Time: gorp.NullTime{
