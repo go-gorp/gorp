@@ -17,6 +17,10 @@ env:
   global:
   - secure: RriLxF6+2yMl67hdVv8ImXlu0h62mhcpqjaOgYNU+IEbUQ7hx96CKY6gkpYubW3BgApvF5RH6j3+HKvh2kGp0XhDOYOQCODfBSaSipZ5Aa5RKjsEYLtuVIobvJ80awR9hUeql69+WXs0/s72WThG0qTbOUY4pqHWfteeY235hWM=
 
+install:
+  - go get -t -d
+  - go get -t -d -tags integration
+
 before_script:
 - mysql -e "CREATE DATABASE gorptest;"
 - mysql -u root -e "GRANT ALL ON gorptest.* TO gorptest@localhost IDENTIFIED BY 'gorptest'"
@@ -28,6 +32,5 @@ before_script:
 - go get github.com/go-sql-driver/mysql
 - go get golang.org/x/tools/cmd/cover
 - go get github.com/mattn/goveralls
-- go get github.com/onsi/ginkgo/ginkgo
 
 script: ./test_all.sh
