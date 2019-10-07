@@ -60,7 +60,7 @@ func (d MySQLDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) 
 		return "double"
 	case "NullBool":
 		return "tinyint"
-	case "Time":
+	case "Time", "NullTime":
 		return "datetime"
 	}
 
