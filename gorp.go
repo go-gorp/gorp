@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/jmoiron/sqlx/reflectx"
 )
 
 // OracleString (empty string is null)
@@ -256,6 +258,8 @@ func expandNamedQuery(m *DbMap, query string, keyGetter func(key string) reflect
 	}), args
 }
 
+var dbMapper = reflectx.NewMapper("db")
+
 func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([][]int, error) {
 	colToFieldIndex := make([][]int, len(cols))
 
@@ -267,37 +271,30 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([
 		tableMapped = true
 	}
 
-	// Loop over column names and find field in i to bind to
-	// based on column name. all returned columns must match
-	// a field in the i struct
-	missingColNames := []string{}
+	clower := make([]string, len(cols))
 	for x := range cols {
-		colName := strings.ToLower(cols[x])
-		field, found := t.FieldByNameFunc(func(fieldName string) bool {
-			field, _ := t.FieldByName(fieldName)
-			cArguments := strings.Split(field.Tag.Get("db"), ",")
-			fieldName = cArguments[0]
-
-			if fieldName == "-" {
-				return false
-			} else if fieldName == "" {
-				fieldName = field.Name
+		clower[x] = strings.ToLower(cols[x])
+		if tableMapped {
+			colMap := colMapOrNil(table, clower[x])
+			if colMap != nil {
+				clower[x] = colMap.ColumnName
 			}
-			if tableMapped {
-				colMap := colMapOrNil(table, fieldName)
-				if colMap != nil {
-					fieldName = colMap.ColumnName
-				}
-			}
-			return colName == strings.ToLower(fieldName)
-		})
-		if found {
-			colToFieldIndex[x] = field.Index
-		}
-		if colToFieldIndex[x] == nil {
-			missingColNames = append(missingColNames, colName)
 		}
 	}
+
+	missingColNames := []string{}
+	err := dbMapper.TraversalsByNameFunc(t, clower, func(x int, idx []int) error {
+		if len(idx) == 0 {
+			missingColNames = append(missingColNames, clower[x])
+		}
+		colToFieldIndex[x] = idx
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
 	if len(missingColNames) > 0 {
 		return colToFieldIndex, &NoFieldInTypeError{
 			TypeName:        t.Name(),
