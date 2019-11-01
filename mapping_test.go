@@ -2,6 +2,7 @@ package gorp
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -23,7 +24,7 @@ type testCoolUser struct {
 
 func BenchmarkCcolumnToFieldIndex(b *testing.B) {
 	structType := reflect.TypeOf(testUser{})
-	dbmap := &DbMap{}
+	dbmap := &DbMap{Cache: &sync.Map{}}
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		_, err := columnToFieldIndex(dbmap,
