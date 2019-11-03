@@ -127,7 +127,14 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 						plan.autoIncrIdx = y
 						plan.autoIncrFieldName = col.fieldName
 					} else {
-						if col.DefaultValue == "" {
+						val := elem.FieldByName(col.fieldName).Interface()
+						var isZeroValue bool
+						if val != nil {
+							isZeroValue = reflect.DeepEqual(val, reflect.Zero(reflect.TypeOf(val)).Interface())
+						}
+						if (val == nil || isZeroValue) && col.DefaultValue != "" {
+							s2.WriteString(col.DefaultValue)
+						} else {
 							s2.WriteString(t.dbmap.Dialect.BindVar(x))
 							if col == t.version {
 								plan.versField = col.fieldName
@@ -136,8 +143,6 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 								plan.argFields = append(plan.argFields, col.fieldName)
 							}
 							x++
-						} else {
-							s2.WriteString(col.DefaultValue)
 						}
 					}
 					first = false
