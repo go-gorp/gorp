@@ -1,4 +1,4 @@
-module github.com/go-gorp/gorp
+module github.com/go-gorp/gorp/v3
 
 go 1.13
 
