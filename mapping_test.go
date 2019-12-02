@@ -22,7 +22,7 @@ type testCoolUser struct {
 	BestFriends []string `db:"best_friends"`
 }
 
-func BenchmarkCcolumnToFieldIndex(b *testing.B) {
+func BenchmarkColumnToFieldIndex(b *testing.B) {
 	structType := reflect.TypeOf(testUser{})
 	dbmap := &DbMap{Cache: &sync.Map{}}
 	b.ResetTimer()
