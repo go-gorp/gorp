@@ -7,6 +7,7 @@
 package gorp_test
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -177,6 +178,55 @@ AND field12 IN (:FieldIntList)
 
 			if len(dummy) != tt.wantLen {
 				t.Errorf("wrong result count\ngot:  %d\nwant: %d", len(dummy), tt.wantLen)
+			}
+		})
+	}
+}
+
+type comment struct {
+	ID      int64  `db:"id,primarykey,autoincrement"`
+	Name    string `db:"name,notnull,default:'NoName',size:200"`
+	Text    string `db:"text,notnull,size:400"`
+	Number  int    `db:"number,notnull,default:'774'"`
+	Private bool   `db:"private,notnull"`
+}
+
+func TestDbMap_DefaultTag(t *testing.T) {
+	tests := []struct {
+		name        string
+		comment     *comment
+		wantComment comment
+	}{
+		{"Use default",
+			&comment{Text: "Hey!", Private: false},
+			comment{ID: 1, Name: "NoName", Text: "Hey!", Number: 774, Private: false}},
+		{"Specify all property",
+			&comment{Name: "bob", Text: "Hello!", Number: 5, Private: true},
+			comment{ID: 1, Name: "bob", Text: "Hello!", Number: 5, Private: true}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dbmap := newDbMap()
+			dbmap.AddTableWithName(comment{}, "comments").SetKeys(true, "id")
+
+			err := dbmap.CreateTables()
+			if err != nil {
+				t.Errorf("failed to create tables:%v", err)
+			}
+			defer dropAndClose(dbmap)
+
+			err = dbmap.Insert(tt.comment)
+			if err != nil {
+				t.Errorf("failed to insert:%v", err)
+			}
+			var gotComment comment
+			err = dbmap.SelectOne(&gotComment, "SELECT * FROM comments ORDER BY id desc LIMIT 1")
+			if err != nil {
+				t.Errorf("failed to select:%v", err)
+			}
+			if !reflect.DeepEqual(gotComment, tt.wantComment) {
+				t.Errorf("gotComment = %+v, want %+v", gotComment, tt.wantComment)
 			}
 		})
 	}
