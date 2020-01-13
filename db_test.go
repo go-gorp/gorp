@@ -191,7 +191,7 @@ type comment struct {
 	Private bool   `db:"private,notnull"`
 }
 
-func TestDbMap_DefaultTag(t *testing.T) {
+func TestDbMap_DefaultTag_oneByOne(t *testing.T) {
 	tests := []struct {
 		name        string
 		comment     *comment
@@ -230,4 +230,44 @@ func TestDbMap_DefaultTag(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDbMap_DefaultTag_allAtOnce(t *testing.T) {
+	comments := []comment{
+		comment{Text: "Hey!", Private: false},
+		comment{Name: "bob", Text: "Hello!", Number: 5, Private: true},
+	}
+	wantComments := []comment{
+		comment{ID: 1, Name: "NoName", Text: "Hey!", Number: 774, Private: false},
+		comment{ID: 2, Name: "bob", Text: "Hello!", Number: 5, Private: true},
+	}
+
+	t.Run("Insert at once", func(t *testing.T) {
+		dbmap := newDbMap()
+		dbmap.AddTableWithName(comment{}, "comments").SetKeys(true, "id")
+
+		err := dbmap.CreateTables()
+		if err != nil {
+			t.Errorf("failed to create tables:%v", err)
+		}
+		defer dropAndClose(dbmap)
+
+		for i := range comments {
+			err = dbmap.Insert(&comments[i])
+			if err != nil {
+				t.Errorf("failed to insert:%v", err)
+			}
+		}
+
+		var gotComments []comment
+		_, err = dbmap.Select(&gotComments, "SELECT * FROM comments ORDER BY id")
+		if err != nil {
+			t.Errorf("failed to select:%v", err)
+		}
+		for i := range gotComments {
+			if !reflect.DeepEqual(gotComments[i], wantComments[i]) {
+				t.Errorf("gotComment = %+v, want %+v", gotComments[i], wantComments[i])
+			}
+		}
+	})
 }
