@@ -127,23 +127,21 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 						plan.autoIncrIdx = y
 						plan.autoIncrFieldName = col.fieldName
 					} else {
-						val := elem.FieldByName(col.fieldName).Interface()
-						var isZeroValue bool
-						if val != nil {
-							isZeroValue = reflect.DeepEqual(val, reflect.Zero(reflect.TypeOf(val)).Interface())
-						}
-						if (val == nil || isZeroValue) && col.DefaultValue != "" {
-							s2.WriteString(col.DefaultValue)
-						} else {
+						if col.DefaultValue == "" {
 							s2.WriteString(t.dbmap.Dialect.BindVar(x))
-							if col == t.version {
-								plan.versField = col.fieldName
-								plan.argFields = append(plan.argFields, versFieldConst)
-							} else {
-								plan.argFields = append(plan.argFields, col.fieldName)
-							}
-							x++
+						} else {
+							val := elem.FieldByName(col.fieldName).Interface()
+							s2.WriteString(
+								fmt.Sprintf("case when %t or %s = %s then %s else %s end",
+									val == nil, t.dbmap.Dialect.BindVar(x), getZeroValueStringForSQL(val), col.DefaultValue, t.dbmap.Dialect.BindVar(x)))
 						}
+						if col == t.version {
+							plan.versField = col.fieldName
+							plan.argFields = append(plan.argFields, versFieldConst)
+						} else {
+							plan.argFields = append(plan.argFields, col.fieldName)
+						}
+						x++
 					}
 					first = false
 				}
@@ -164,6 +162,20 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 	})
 
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
+}
+
+func getZeroValueStringForSQL(i interface{}) (s string) {
+	switch i.(type) {
+	case bool:
+		s = "false"
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		s = "0"
+	case float32, float64:
+		s = "0.0"
+	default:
+		s = "''"
+	}
+	return
 }
 
 func (t *TableMap) bindUpdate(elem reflect.Value, colFilter ColumnFilter) (bindInstance, error) {
