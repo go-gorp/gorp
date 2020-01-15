@@ -187,7 +187,7 @@ type comment struct {
 	ID      int64  `db:"id,primarykey,autoincrement"`
 	Name    string `db:"name,notnull,default:'NoName',size:200"`
 	Text    string `db:"text,notnull,size:400"`
-	Number  int    `db:"number,notnull,default:'774'"`
+	Number  int    `db:"number,notnull,default:774"`
 	Private bool   `db:"private,notnull"`
 }
 

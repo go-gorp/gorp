@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -129,19 +131,35 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 					} else {
 						if col.DefaultValue == "" {
 							s2.WriteString(t.dbmap.Dialect.BindVar(x))
+							if col == t.version {
+								plan.versField = col.fieldName
+								plan.argFields = append(plan.argFields, versFieldConst)
+							} else {
+								plan.argFields = append(plan.argFields, col.fieldName)
+							}
+							x++
 						} else {
-							val := elem.FieldByName(col.fieldName).Interface()
+							defaultVal, err := getValueAsType(col.gotype, col.DefaultValue)
+							if err != nil {
+								fmt.Println("failed to parse col.DefaultValue:", err)
+							}
+
 							s2.WriteString(
-								fmt.Sprintf("case when %t or %s = %s then %s else %s end",
-									val == nil, t.dbmap.Dialect.BindVar(x), getZeroValueStringForSQL(val), col.DefaultValue, t.dbmap.Dialect.BindVar(x)))
+								fmt.Sprintf("case when %s is null or %s = %s then %v else %s end",
+									t.dbmap.Dialect.BindVarWithType(x, col.gotype),
+									t.dbmap.Dialect.BindVarWithType(x+1, col.gotype),
+									getZeroValueStringForSQL(col.gotype),
+									defaultVal,
+									t.dbmap.Dialect.BindVarWithType(x+2, col.gotype)))
+
+							if col == t.version {
+								plan.versField = col.fieldName
+								plan.argFields = append(plan.argFields, versFieldConst, versFieldConst, versFieldConst)
+							} else {
+								plan.argFields = append(plan.argFields, col.fieldName, col.fieldName, col.fieldName)
+							}
+							x += 3
 						}
-						if col == t.version {
-							plan.versField = col.fieldName
-							plan.argFields = append(plan.argFields, versFieldConst)
-						} else {
-							plan.argFields = append(plan.argFields, col.fieldName)
-						}
-						x++
 					}
 					first = false
 				}
@@ -164,16 +182,39 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
-func getZeroValueStringForSQL(i interface{}) (s string) {
-	switch i.(type) {
-	case bool:
+func getZeroValueStringForSQL(t reflect.Type) (s string) {
+	switch t.Kind() {
+	case reflect.Bool:
 		s = "false"
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		s = "0"
-	case float32, float64:
+	case reflect.Float32, reflect.Float64:
 		s = "0.0"
 	default:
 		s = "''"
+	}
+	return
+}
+
+func getValueAsType(t reflect.Type, value string) (s string, err error) {
+	value = strings.Trim(value, "'")
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		var n int
+		n, err = strconv.Atoi(value)
+		if err != nil {
+			return "", err
+		}
+		s = fmt.Sprintf("%v", n)
+	case reflect.Float32, reflect.Float64:
+		var f float64
+		f, err = strconv.ParseFloat(value, 64)
+		if err != nil {
+			return "", err
+		}
+		s = fmt.Sprintf("%v", f)
+	default:
+		s = fmt.Sprintf("'%v'", value)
 	}
 	return
 }

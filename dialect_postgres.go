@@ -102,6 +102,24 @@ func (d PostgresDialect) BindVar(i int) string {
 	return fmt.Sprintf("$%d", i+1)
 }
 
+// BindVarWithType of PostgreSQL returns "$(i+1::t)"
+func (d PostgresDialect) BindVarWithType(i int, t reflect.Type) string {
+	var s string
+	switch t.Kind() {
+	case reflect.Bool:
+		s = "::bool"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		s = "::int"
+	case reflect.Float32, reflect.Float64:
+		s = "::float"
+	case reflect.String:
+		s = "::text"
+	default:
+		s = ""
+	}
+	return fmt.Sprintf("$%d%s", i+1, s)
+}
+
 func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target interface{}, params ...interface{}) error {
 	rows, err := exec.Query(insertSql, params...)
 	if err != nil {

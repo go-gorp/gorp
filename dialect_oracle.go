@@ -91,6 +91,11 @@ func (d OracleDialect) BindVar(i int) string {
 	return fmt.Sprintf(":%d", i+1)
 }
 
+// BindVarWithType of Oracle returns "$(i+1)"
+func (d OracleDialect) BindVarWithType(i int, t reflect.Type) string {
+	return fmt.Sprintf(":%d", i+1)
+}
+
 // After executing the insert uses the ColMap IdQuery to get the generated id
 func (d OracleDialect) InsertQueryToTarget(exec SqlExecutor, insertSql, idSql string, target interface{}, params ...interface{}) error {
 	_, err := exec.Exec(insertSql, params...)

@@ -140,6 +140,11 @@ func (d MySQLDialect) BindVar(i int) string {
 	return "?"
 }
 
+// BindVarWithType of MySQL returns "?"
+func (d MySQLDialect) BindVarWithType(i int, t reflect.Type) string {
+	return "?"
+}
+
 func (d MySQLDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
 	return standardInsertAutoIncr(exec, insertSql, params...)
 }
