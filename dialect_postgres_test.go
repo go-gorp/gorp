@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-gorp/gorp/v3"
 	"github.com/poy/onpar"
 	"github.com/poy/onpar/expect"
 	"github.com/poy/onpar/matchers"
-	"github.com/go-gorp/gorp"
 )
 
 func TestPostgresDialect(t *testing.T) {
