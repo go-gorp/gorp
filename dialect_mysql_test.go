@@ -63,7 +63,7 @@ var _ = Describe("MySQLDialect", func() {
 		Entry("Time", time.Time{}, 0, false, "datetime"),
 		Entry("default-size string", "", 0, false, "longtext"),
 		Entry("sized string", "", 50, false, "varchar(50)"),
-		Entry("large string", "", 1024, false, "text(1024)"),
+		Entry("large string", "", 1024, false, "text"),
 	)
 
 	Describe("AutoIncrStr", func() {
