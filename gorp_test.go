@@ -2314,7 +2314,9 @@ func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
 func TestSingleColumnKeyDbReturnsZeroRowsUpdatedOnPKChange(t *testing.T) {
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
-	dbmap.AddTableWithName(SingleColumnTable{}, "single_column_table").SetKeys(false, "SomeId")
+	table := dbmap.AddTableWithName(SingleColumnTable{}, "single_column_table")
+	table.ColMap("SomeId").SetMaxSize(255)
+	table.SetKeys(false, "SomeId")
 	err := dbmap.DropTablesIfExists()
 	if err != nil {
 		t.Error("Drop tables failed")
