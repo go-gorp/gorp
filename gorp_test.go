@@ -2532,7 +2532,7 @@ func initDbMap() *gorp.DbMap {
 	tableDyn1.SetKeys(true, "Id").AddIndex("TenantInst1Index", "Btree", []string{"Name"}).SetUnique(true)
 	tableDyn2 := dbmap.AddTableDynamic(&dynTableInst2, "")
 	tableDyn2.ColMap("Name").SetMaxSize(255)
-	tableDyn2.SetKeys(true, "Id").AddIndex("TenantInst1Index", "Btree", []string{"Name"}).SetUnique(true)
+	tableDyn2.SetKeys(true, "Id").AddIndex("TenantInst2Index", "Btree", []string{"Name"}).SetUnique(true)
 	dbmap.AddTableWithName(WithEmbeddedAutoincr{}, "embedded_autoincr_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithTime{}, "time_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(WithNullTime{}, "nulltime_test").SetKeys(false, "Id")
