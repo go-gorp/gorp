@@ -48,9 +48,10 @@ var (
 	debug bool
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	flag.BoolVar(&debug, "trace", true, "Turn on or off database tracing (DbMap.TraceOn)")
 	flag.Parse()
+	os.Exit(m.Run())
 }
 
 type testable interface {
