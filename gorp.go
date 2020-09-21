@@ -203,12 +203,21 @@ func extractExecutorAndContext(e SqlExecutor) (executor, context.Context) {
 // as input to a named query.  If so, it rewrites the query to use
 // dialect-dependent bindvars and instantiates the corresponding slice of
 // parameters by extracting data from the map / struct.
-// If not, returns the input values unchanged.
+// If not or if the first arg is a time.Time or implements
+// driver.Valuer, returns the input values unchanged.
 func maybeExpandNamedQuery(m *DbMap, query string, args []interface{}) (string, []interface{}) {
-	var (
-		arg    = args[0]
-		argval = reflect.ValueOf(arg)
-	)
+	arg := args[0]
+
+	switch arg.(type) {
+	case time.Time:
+		// time.Time is driver.Value
+		return query, args
+	case driver.Valuer:
+		// driver.Valuer will be converted to driver.Value.
+		return query, args
+	}
+
+	argval := reflect.ValueOf(arg)
 	if argval.Kind() == reflect.Ptr {
 		argval = argval.Elem()
 	}
@@ -219,14 +228,6 @@ func maybeExpandNamedQuery(m *DbMap, query string, args []interface{}) (string, 
 		})
 	}
 	if argval.Kind() != reflect.Struct {
-		return query, args
-	}
-	if _, ok := arg.(time.Time); ok {
-		// time.Time is driver.Value
-		return query, args
-	}
-	if _, ok := arg.(driver.Valuer); ok {
-		// driver.Valuer will be converted to driver.Value.
 		return query, args
 	}
 
