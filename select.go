@@ -110,7 +110,7 @@ func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args .
 
 		list, err := hookedselect(m, e, holder, query, args...)
 		if err != nil {
-			if !NonFatalError(err) { // FIXME: double negative, rename NonFatalError to FatalError
+			if FatalError(err) {
 				return err
 			}
 			nonFatalErr = err
@@ -178,7 +178,7 @@ func hookedselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 
 	list, err := rawselect(m, exec, i, query, args...)
 	if err != nil {
-		if !NonFatalError(err) {
+		if FatalError(err) {
 			return nil, err
 		}
 		nonFatalErr = err
@@ -271,7 +271,7 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	if intoStruct {
 		colToFieldIndex, err = columnToFieldIndex(m, t, tableName, cols)
 		if err != nil {
-			if !NonFatalError(err) {
+			if FatalError(err) {
 				return nil, err
 			}
 			nonFatalErr = err

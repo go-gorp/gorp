@@ -2232,7 +2232,7 @@ func TestSelectTooManyCols(t *testing.T) {
 	var p3 FNameOnly
 	err := dbmap.SelectOne(&p3, "select * from person_test where "+columnName(dbmap, Person{}, "Id")+"=:Id", params)
 	if err != nil {
-		if !gorp.NonFatalError(err) {
+		if gorp.FatalError(err) {
 			t.Error(err)
 		}
 	} else {
@@ -2246,7 +2246,7 @@ func TestSelectTooManyCols(t *testing.T) {
 	var pSlice []FNameOnly
 	_, err = dbmap.Select(&pSlice, "select * from person_test order by "+columnName(dbmap, Person{}, "FName")+" asc")
 	if err != nil {
-		if !gorp.NonFatalError(err) {
+		if gorp.FatalError(err) {
 			t.Error(err)
 		}
 	} else {
