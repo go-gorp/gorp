@@ -26,11 +26,6 @@ before_script:
 - mysql -u root -e "GRANT ALL ON gorptest.* TO gorptest@localhost IDENTIFIED BY 'gorptest'"
 - psql -c "CREATE DATABASE gorptest;" -U postgres
 - psql -c "CREATE USER "gorptest" WITH SUPERUSER PASSWORD 'gorptest';" -U postgres
-- go get github.com/lib/pq
-- go get github.com/mattn/go-sqlite3
-- go get github.com/ziutek/mymysql/godrv
-- go get github.com/go-sql-driver/mysql
-- go get golang.org/x/tools/cmd/cover
-- go get github.com/mattn/goveralls
+- go mod download
 
 script: ./test_all.sh
