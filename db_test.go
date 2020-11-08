@@ -7,6 +7,8 @@
 package gorp_test
 
 import (
+	"database/sql/driver"
+	"strings"
 	"testing"
 )
 
@@ -21,6 +23,21 @@ type customType2 []int64
 func (c customType2) ToInt64Slice() []int64 {
 	return []int64(c)
 }
+
+type valuerSlice []string
+
+func (vs valuerSlice) Value() (driver.Value, error) {
+	return strings.Join(vs, ","), nil
+}
+
+func (vs *valuerSlice) Scan(val interface{}) error {
+	*vs = strings.Split(string(val.([]byte)), ",")
+	return nil
+}
+
+var _ driver.Valuer = valuerSlice([]string{})
+
+type customID int64
 
 func TestDbMap_Select_expandSliceArgs(t *testing.T) {
 	tests := []struct {
@@ -83,23 +100,51 @@ AND field12 IN (:FieldIntList)
 			},
 			wantLen: 3,
 		},
+		{
+			description: "handle customID types",
+			query: `
+SELECT 1 FROM crazy_table
+WHERE field16 IN (:FieldCustomIDList)
+`,
+			args: []interface{}{
+				map[string]interface{}{
+					"FieldCustomIDList": []customID{3, 4, 5},
+				},
+			},
+			wantLen: 2,
+		},
+		{
+			description: "handle types which are sql.Valuer",
+			query: `
+SELECT 1 FROM crazy_table
+WHERE field15 = :FieldCustomValuer
+`,
+			args: []interface{}{
+				map[string]interface{}{
+					"FieldCustomValuer": valuerSlice([]string{"aaa", "bbb"}),
+				},
+			},
+			wantLen: 1,
+		},
 	}
 
 	type dataFormat struct {
-		Field1  int     `db:"field1"`
-		Field2  string  `db:"field2"`
-		Field3  uint    `db:"field3"`
-		Field4  uint8   `db:"field4"`
-		Field5  uint16  `db:"field5"`
-		Field6  uint32  `db:"field6"`
-		Field7  uint64  `db:"field7"`
-		Field8  int     `db:"field8"`
-		Field9  int8    `db:"field9"`
-		Field10 int16   `db:"field10"`
-		Field11 int32   `db:"field11"`
-		Field12 int64   `db:"field12"`
-		Field13 float32 `db:"field13"`
-		Field14 float64 `db:"field14"`
+		Field1  int         `db:"field1"`
+		Field2  string      `db:"field2"`
+		Field3  uint        `db:"field3"`
+		Field4  uint8       `db:"field4"`
+		Field5  uint16      `db:"field5"`
+		Field6  uint32      `db:"field6"`
+		Field7  uint64      `db:"field7"`
+		Field8  int         `db:"field8"`
+		Field9  int8        `db:"field9"`
+		Field10 int16       `db:"field10"`
+		Field11 int32       `db:"field11"`
+		Field12 int64       `db:"field12"`
+		Field13 float32     `db:"field13"`
+		Field14 float64     `db:"field14"`
+		Field15 valuerSlice `db:"field15"`
+		Field16 customID    `db:"field16"`
 	}
 
 	dbmap := newDbMap()
@@ -160,6 +205,17 @@ AND field12 IN (:FieldIntList)
 			Field12: 3,
 			Field13: 3,
 			Field14: 3,
+		},
+		&dataFormat{
+			Field1:  126,
+			Field2:  "h",
+			Field15: []string{"aaa", "bbb"},
+			Field16: customID(4),
+		},
+		&dataFormat{
+			Field1:  127,
+			Field2:  "o",
+			Field16: customID(5),
 		},
 	)
 
