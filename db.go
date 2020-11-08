@@ -887,6 +887,8 @@ type numberer interface {
 }
 
 func expandSliceArgs(query *string, args ...interface{}) {
+	valuerType := reflect.TypeOf((*driver.Valuer)(nil)).Elem()
+
 	for _, arg := range args {
 		mapper, ok := arg.(map[string]interface{})
 		if !ok {
@@ -905,16 +907,14 @@ func expandSliceArgs(query *string, args ...interface{}) {
 				value = v.ToInt64Slice()
 			}
 
-			if _, ok := value.(driver.Valuer); ok {
-				continue
-			}
 			t := reflect.TypeOf(value)
-			if t.Kind() != reflect.Slice {
+			if t.Kind() != reflect.Slice || t.Implements(valuerType) {
+				// Do not expand if the value is not a slice or implements driver.Valuer,
 				continue
 			}
-
 			elm := t.Elem()
-			valuerType := reflect.TypeOf((*driver.Valuer)(nil)).Elem()
+			// If the element of slice implements driver.Valuer or is a primitive value,
+			// expand the slice
 			isValue := elm.Implements(valuerType)
 			if !isValue {
 				switch elm.Kind() {
