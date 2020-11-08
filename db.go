@@ -905,74 +905,36 @@ func expandSliceArgs(query *string, args ...interface{}) {
 				value = v.ToInt64Slice()
 			}
 
-			switch v := value.(type) {
-			case []string:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []uint:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []uint8:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []uint16:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []uint32:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []uint64:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []int:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []int8:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []int16:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []int32:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []int64:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []float32:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			case []float64:
-				for id, replace := range v {
-					mapper[fmt.Sprintf("%s%d", key, id)] = replace
-					replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
-				}
-			default:
+			if _, ok := value.(driver.Valuer); ok {
 				continue
+			}
+			t := reflect.TypeOf(value)
+			if t.Kind() != reflect.Slice {
+				continue
+			}
+
+			elm := t.Elem()
+			valuerType := reflect.TypeOf((*driver.Valuer)(nil)).Elem()
+			isValue := elm.Implements(valuerType)
+			if !isValue {
+				switch elm.Kind() {
+				case reflect.String,
+					reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+					reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+					reflect.Float32, reflect.Float64:
+					isValue = true
+				}
+			}
+			if !isValue {
+				continue
+			}
+
+			val := reflect.ValueOf(value)
+			l := val.Len()
+			for id := 0; id < l; id++ {
+				v := val.Index(id)
+				mapper[fmt.Sprintf("%s%d", key, id)] = v.Interface()
+				replacements = append(replacements, fmt.Sprintf(":%s%d", key, id))
 			}
 
 			if len(replacements) == 0 {
