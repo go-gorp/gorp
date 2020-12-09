@@ -663,11 +663,16 @@ func query(e SqlExecutor, query string, args ...interface{}) (*sql.Rows, error) 
 	return executor.Query(query, args...)
 }
 
-func begin(m *DbMap, opt *sql.TxOptions) (*sql.Tx, error) {
+func begin(m *DbMap, opts ...BeginOpt) (*sql.Tx, error) {
+	opt := beginOptions{}
+	for _, o := range opts {
+		opt = o(opt)
+	}
+
 	ctx := m.ctx
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	return m.Db.BeginTx(ctx, opt)
+	return m.Db.BeginTx(ctx, opt.txOptions)
 }
