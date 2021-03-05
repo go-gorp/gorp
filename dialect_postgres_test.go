@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-gorp/gorp"
 	"github.com/poy/onpar"
 	"github.com/poy/onpar/expect"
 	"github.com/poy/onpar/matchers"
-	"github.com/go-gorp/gorp"
 )
 
 func TestPostgresDialect(t *testing.T) {
@@ -106,6 +106,13 @@ func TestPostgresDialect(t *testing.T) {
 	o.Spec("BindVar", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
 		expect(dialect.BindVar(0)).To(matchers.Equal("$1"))
 		expect(dialect.BindVar(4)).To(matchers.Equal("$5"))
+	})
+
+	o.Spec("BindVarWithType", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
+		expect(dialect.BindVarWithType(0, reflect.TypeOf(0))).To(matchers.Equal("$1::int"))
+		expect(dialect.BindVarWithType(1, reflect.TypeOf(false))).To(matchers.Equal("$2::bool"))
+		expect(dialect.BindVarWithType(2, reflect.TypeOf(1.23))).To(matchers.Equal("$3::float"))
+		expect(dialect.BindVarWithType(3, reflect.TypeOf("gopher"))).To(matchers.Equal("$4::text"))
 	})
 
 	o.Group("QuoteField", func() {

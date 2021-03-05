@@ -101,6 +101,11 @@ func (d SqlServerDialect) BindVar(i int) string {
 	return "?"
 }
 
+// BindVarWithType of SQL Server returns "?"
+func (d SqlServerDialect) BindVarWithType(i int, t reflect.Type) string {
+	return "?"
+}
+
 func (d SqlServerDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
 	return standardInsertAutoIncr(exec, insertSql, params...)
 }

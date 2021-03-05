@@ -50,6 +50,14 @@ type Dialect interface {
 	//
 	BindVar(i int) string
 
+	// bind variable string to use when forming SQL statements
+	// in many dbs it is "?", but Postgres appears to use $1::int when using int value.
+	//
+	// i is a zero based index of the bind variable in this statement
+	// t is the type of the variable
+	//
+	BindVarWithType(i int, t reflect.Type) string
+
 	// Handles quoting of a field name to ensure that it doesn't raise any
 	// SQL parsing exceptions by using a reserved word as a field name.
 	QuoteField(field string) string

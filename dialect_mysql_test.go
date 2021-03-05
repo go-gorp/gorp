@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-gorp/gorp"
 	"github.com/poy/onpar"
 	"github.com/poy/onpar/expect"
 	"github.com/poy/onpar/matchers"
-	"github.com/go-gorp/gorp"
 )
 
 func TestMySQLDialect(t *testing.T) {
@@ -127,6 +127,10 @@ func TestMySQLDialect(t *testing.T) {
 
 	o.Spec("BindVar", func(expect expect.Expectation, dialect gorp.MySQLDialect) {
 		expect(dialect.BindVar(0)).To(matchers.Equal("?"))
+	})
+
+	o.Spec("BindVarWithType", func(expect expect.Expectation, dialect gorp.MySQLDialect) {
+		expect(dialect.BindVarWithType(0, reflect.TypeOf(0))).To(matchers.Equal("?"))
 	})
 
 	o.Spec("QuoteField", func(expect expect.Expectation, dialect gorp.MySQLDialect) {

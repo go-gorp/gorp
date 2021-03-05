@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -137,7 +139,26 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 							}
 							x++
 						} else {
-							s2.WriteString(col.DefaultValue)
+							defaultVal, err := getValueAsType(col.gotype, col.DefaultValue)
+							if err != nil {
+								fmt.Println("failed to parse col.DefaultValue:", err)
+							}
+
+							s2.WriteString(
+								fmt.Sprintf("case when %s is null or %s = %s then %v else %s end",
+									t.dbmap.Dialect.BindVarWithType(x, col.gotype),
+									t.dbmap.Dialect.BindVarWithType(x+1, col.gotype),
+									getZeroValueStringForSQL(col.gotype),
+									defaultVal,
+									t.dbmap.Dialect.BindVarWithType(x+2, col.gotype)))
+
+							if col == t.version {
+								plan.versField = col.fieldName
+								plan.argFields = append(plan.argFields, versFieldConst, versFieldConst, versFieldConst)
+							} else {
+								plan.argFields = append(plan.argFields, col.fieldName, col.fieldName, col.fieldName)
+							}
+							x += 3
 						}
 					}
 					first = false
@@ -159,6 +180,43 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 	})
 
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
+}
+
+func getZeroValueStringForSQL(t reflect.Type) (s string) {
+	switch t.Kind() {
+	case reflect.Bool:
+		s = "false"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		s = "0"
+	case reflect.Float32, reflect.Float64:
+		s = "0.0"
+	default:
+		s = "''"
+	}
+	return
+}
+
+func getValueAsType(t reflect.Type, value string) (s string, err error) {
+	value = strings.Trim(value, "'")
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		var n int
+		n, err = strconv.Atoi(value)
+		if err != nil {
+			return "", err
+		}
+		s = fmt.Sprintf("%v", n)
+	case reflect.Float32, reflect.Float64:
+		var f float64
+		f, err = strconv.ParseFloat(value, 64)
+		if err != nil {
+			return "", err
+		}
+		s = fmt.Sprintf("%v", f)
+	default:
+		s = fmt.Sprintf("'%v'", value)
+	}
+	return
 }
 
 func (t *TableMap) bindUpdate(elem reflect.Value, colFilter ColumnFilter) (bindInstance, error) {

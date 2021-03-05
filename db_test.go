@@ -7,6 +7,7 @@
 package gorp_test
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -180,4 +181,93 @@ AND field12 IN (:FieldIntList)
 			}
 		})
 	}
+}
+
+type comment struct {
+	ID      int64  `db:"id,primarykey,autoincrement"`
+	Name    string `db:"name,notnull,default:'NoName',size:200"`
+	Text    string `db:"text,notnull,size:400"`
+	Number  int    `db:"number,notnull,default:774"`
+	Private bool   `db:"private,notnull"`
+}
+
+func TestDbMap_DefaultTag_oneByOne(t *testing.T) {
+	tests := []struct {
+		name        string
+		comment     *comment
+		wantComment comment
+	}{
+		{"Use default",
+			&comment{Text: "Hey!", Private: false},
+			comment{ID: 1, Name: "NoName", Text: "Hey!", Number: 774, Private: false}},
+		{"Specify all property",
+			&comment{Name: "bob", Text: "Hello!", Number: 5, Private: true},
+			comment{ID: 1, Name: "bob", Text: "Hello!", Number: 5, Private: true}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dbmap := newDbMap()
+			dbmap.AddTableWithName(comment{}, "comments").SetKeys(true, "id")
+
+			err := dbmap.CreateTables()
+			if err != nil {
+				t.Errorf("failed to create tables:%v", err)
+			}
+			defer dropAndClose(dbmap)
+
+			err = dbmap.Insert(tt.comment)
+			if err != nil {
+				t.Errorf("failed to insert:%v", err)
+			}
+			var gotComment comment
+			err = dbmap.SelectOne(&gotComment, "SELECT * FROM comments ORDER BY id desc LIMIT 1")
+			if err != nil {
+				t.Errorf("failed to select:%v", err)
+			}
+			if !reflect.DeepEqual(gotComment, tt.wantComment) {
+				t.Errorf("gotComment = %+v, want %+v", gotComment, tt.wantComment)
+			}
+		})
+	}
+}
+
+func TestDbMap_DefaultTag_allAtOnce(t *testing.T) {
+	comments := []comment{
+		comment{Text: "Hey!", Private: false},
+		comment{Name: "bob", Text: "Hello!", Number: 5, Private: true},
+	}
+	wantComments := []comment{
+		comment{ID: 1, Name: "NoName", Text: "Hey!", Number: 774, Private: false},
+		comment{ID: 2, Name: "bob", Text: "Hello!", Number: 5, Private: true},
+	}
+
+	t.Run("Insert at once", func(t *testing.T) {
+		dbmap := newDbMap()
+		dbmap.AddTableWithName(comment{}, "comments").SetKeys(true, "id")
+
+		err := dbmap.CreateTables()
+		if err != nil {
+			t.Errorf("failed to create tables:%v", err)
+		}
+		defer dropAndClose(dbmap)
+
+		for i := range comments {
+			err = dbmap.Insert(&comments[i])
+			if err != nil {
+				t.Errorf("failed to insert:%v", err)
+			}
+		}
+
+		var gotComments []comment
+		_, err = dbmap.Select(&gotComments, "SELECT * FROM comments ORDER BY id")
+		if err != nil {
+			t.Errorf("failed to select:%v", err)
+		}
+		for i := range gotComments {
+			if !reflect.DeepEqual(gotComments[i], wantComments[i]) {
+				t.Errorf("gotComment = %+v, want %+v", gotComments[i], wantComments[i])
+			}
+		}
+	})
 }
