@@ -116,7 +116,7 @@ func (d MySQLDialect) CreateTableSuffix() string {
 		panic(msg)
 	}
 
-	return fmt.Sprintf(" engine=%s charset=%s", d.Engine, d.Encoding)
+	return fmt.Sprintf(" engine=%s DEFAULT charset=%s", d.Engine, d.Encoding)
 }
 
 func (d MySQLDialect) CreateIndexSuffix() string {
