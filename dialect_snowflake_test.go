@@ -85,7 +85,7 @@ func TestSnowflakeDialect(t *testing.T) {
   })
 
   o.Spec("CreateIndexSuffix", func(expect expect.Expectation, dialect gorp.SnowflakeDialect) {
-    expect(dialect.CreateIndexSuffix()).To(matchers.Equal("using"))
+    expect(dialect.CreateIndexSuffix()).To(matchers.Equal(""))
   })
 
   o.Spec("DropIndexSuffix", func(expect expect.Expectation, dialect gorp.SnowflakeDialect) {
