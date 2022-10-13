@@ -47,7 +47,7 @@ func (d SnowflakeDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bo
     return "real"
   case reflect.Slice:
     if val.Elem().Kind() == reflect.Uint8 {
-      return "bytea"
+      return "binary"
     }
   }
 
@@ -80,7 +80,7 @@ func (d SnowflakeDialect) AutoIncrBindValue() string {
 }
 
 func (d SnowflakeDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
-  return " returning " + d.QuoteField(col.ColumnName)
+  return ""
 }
 
 // Returns suffix
@@ -89,7 +89,7 @@ func (d SnowflakeDialect) CreateTableSuffix() string {
 }
 
 func (d SnowflakeDialect) CreateIndexSuffix() string {
-  return "using"
+  return ""
 }
 
 func (d SnowflakeDialect) DropIndexSuffix() string {

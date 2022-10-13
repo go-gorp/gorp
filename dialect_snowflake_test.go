@@ -77,10 +77,7 @@ func TestSnowflakeDialect(t *testing.T) {
   })
 
   o.Spec("AutoIncrInsertSuffix", func(expect expect.Expectation, dialect gorp.SnowflakeDialect) {
-    cm := gorp.ColumnMap{
-      ColumnName: "foo",
-    }
-    expect(dialect.AutoIncrInsertSuffix(&cm)).To(matchers.Equal(` returning "foo"`))
+    expect(dialect.AutoIncrInsertSuffix(nil)).To(matchers.Equal(""))
   })
 
   o.Spec("CreateTableSuffix", func(expect expect.Expectation, dialect gorp.SnowflakeDialect) {
