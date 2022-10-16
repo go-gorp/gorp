@@ -28,7 +28,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-	_ "github.com/ziutek/mymysql/godrv"
 )
 
 var (
@@ -2084,11 +2083,10 @@ func parseTimeOrPanic(format, date string) time.Time {
 	return t1
 }
 
-// TODO: re-enable next two tests when this is merged:
-// https://github.com/ziutek/mymysql/pull/77
-//
-// This test currently fails w/MySQL b/c tz info is lost
-func testWithTime(t *testing.T) {
+func TestWithTime(t *testing.T) {
+	if _, driver := dialectAndDriver(); driver == "mysql" {
+		t.Skip("mysql drivers don't support time.Time, skipping...")
+	}
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
 
@@ -2104,8 +2102,10 @@ func testWithTime(t *testing.T) {
 	}
 }
 
-// See: https://github.com/go-gorp/gorp/issues/86
-func testEmbeddedTime(t *testing.T) {
+func TestEmbeddedTime(t *testing.T) {
+	if _, driver := dialectAndDriver(); driver == "mysql" {
+		t.Skip("mysql drivers don't support time.Time, skipping...")
+	}
 	dbmap := newDbMap()
 	dbmap.AddTable(EmbeddedTime{}).SetKeys(false, "Id")
 	defer dropAndClose(dbmap)
@@ -2720,9 +2720,10 @@ func connect(driver string) *sql.DB {
 
 func dialectAndDriver() (gorp.Dialect, string) {
 	switch os.Getenv("GORP_TEST_DIALECT") {
-	case "mysql":
-		return gorp.MySQLDialect{"InnoDB", "UTF8"}, "mymysql"
-	case "gomysql":
+	case "mysql", "gomysql":
+		// NOTE: the 'mysql' driver used to use github.com/ziutek/mymysql, but that project
+		// seems mostly unmaintained recently.  We've dropped it from tests, at least for
+		// now.
 		return gorp.MySQLDialect{"InnoDB", "UTF8"}, "mysql"
 	case "postgres":
 		return gorp.PostgresDialect{}, "postgres"
