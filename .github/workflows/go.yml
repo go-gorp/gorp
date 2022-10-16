@@ -1,0 +1,57 @@
+name: Go
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    container: golang:1.18
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_DB: gorptest
+          POSTGRES_USER: gorptest
+          POSTGRES_PASSWORD: gorptest
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_DATABASE: gorptest
+          MYSQL_USER: gorptest
+          MYSQL_PASSWORD: gorptest
+          MYSQL_RANDOM_ROOT_PASSWORD: true
+        options: >-
+          --health-cmd "mysqladmin ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Integration Tests
+        run: ./test_all.sh
+
+  quick-tests:
+    runs-on: ubuntu-latest
+    container: golang:1.18
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Go Build
+      run: go build -v ./...
+
+    - name: Unit Tests
+      run: go test -v ./...
