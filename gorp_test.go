@@ -2006,6 +2006,9 @@ func TestSqlExecutorInterfaceSelects(t *testing.T) {
 }
 
 func TestNullTime(t *testing.T) {
+	if _, driver := dialectAndDriver(); driver == "mysql" {
+		t.Skip("mysql drivers don't support time.Time, skipping...")
+	}
 	dbmap := initDbMap()
 	defer dropAndClose(dbmap)
 
