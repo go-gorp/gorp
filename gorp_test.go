@@ -2031,7 +2031,7 @@ func TestNullTime(t *testing.T) {
 	}
 
 	// if time is not null
-	ts, err := time.Parse(time.Stamp, "Jan 2 15:04:05")
+	ts, err := time.Parse(time.RFC3339, "2001-01-02T15:04:05-07:00")
 	if err != nil {
 		t.Errorf("failed to parse time %s: %s", time.Stamp, err.Error())
 	}
