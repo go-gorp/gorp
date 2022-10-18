@@ -88,7 +88,7 @@ AND field12 IN (:FieldIntList)
 		Field14 float64 `db:"field14"`
 	}
 
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.ExpandSliceArgs = true
 	dbmap.AddTableWithName(dataFormat{}, "crazy_table")
 
@@ -254,7 +254,7 @@ AND field12 IN (:FieldIntList)
 		Field14 float64 `db:"field14"`
 	}
 
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.ExpandSliceArgs = true
 	dbmap.AddTableWithName(dataFormat{}, "crazy_table")
 
