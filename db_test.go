@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
+//go:build integration
 // +build integration
 
 package gorp_test
@@ -102,7 +103,7 @@ AND field12 IN (:FieldIntList)
 		Field14 float64 `db:"field14"`
 	}
 
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.ExpandSliceArgs = true
 	dbmap.AddTableWithName(dataFormat{}, "crazy_table")
 

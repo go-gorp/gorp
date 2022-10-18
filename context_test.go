@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
+//go:build integration
 // +build integration
 
 package gorp_test
@@ -25,7 +26,7 @@ type SleepDialect interface {
 }
 
 func TestWithNotCanceledContext(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -48,7 +49,7 @@ func TestWithCanceledContext(t *testing.T) {
 		t.Skipf("Sleep is not supported in all dialects. Not known to be supported in %s.", driver)
 	}
 
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)

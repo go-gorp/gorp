@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
+//go:build integration
 // +build integration
 
 package gorp_test
@@ -675,7 +676,7 @@ func dynamicTablesTestDelete(t *testing.T,
 }
 
 func TestCreateTablesIfNotExists(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	err := dbmap.CreateTablesIfNotExists()
@@ -685,7 +686,7 @@ func TestCreateTablesIfNotExists(t *testing.T) {
 }
 
 func TestTruncateTables(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 	err := dbmap.CreateTablesIfNotExists()
 	if err != nil {
@@ -715,7 +716,7 @@ func TestTruncateTables(t *testing.T) {
 }
 
 func TestCustomDateType(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.TypeConverter = testTypeConverter{}
 	dbmap.AddTable(WithCustomDate{}).SetKeys(true, "Id")
 	err := dbmap.CreateTables()
@@ -751,7 +752,7 @@ func TestCustomDateType(t *testing.T) {
 }
 
 func TestUIntPrimaryKey(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.AddTable(PersonUInt64{}).SetKeys(true, "Id")
 	dbmap.AddTable(PersonUInt32{}).SetKeys(true, "Id")
 	dbmap.AddTable(PersonUInt16{}).SetKeys(true, "Id")
@@ -780,7 +781,7 @@ func TestUIntPrimaryKey(t *testing.T) {
 }
 
 func TestSetUniqueTogether(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.AddTable(UniqueColumns{}).SetUniqueTogether("FirstName", "LastName").SetUniqueTogether("City", "ZipCode")
 	err := dbmap.CreateTablesIfNotExists()
 	if err != nil {
@@ -827,7 +828,7 @@ func TestSetUniqueTogether(t *testing.T) {
 }
 
 func TestSetUniqueTogetherIdempotent(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	table := dbmap.AddTable(UniqueColumns{}).SetUniqueTogether("FirstName", "LastName")
 	table.SetUniqueTogether("FirstName", "LastName")
 	err := dbmap.CreateTablesIfNotExists()
@@ -857,7 +858,7 @@ func TestSetUniqueTogetherIdempotent(t *testing.T) {
 }
 
 func TestPersistentUser(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.Exec("drop table if exists PersistentUser")
 	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
@@ -969,7 +970,7 @@ func TestPersistentUser(t *testing.T) {
 }
 
 func TestNamedQueryMap(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.Exec("drop table if exists PersistentUser")
 	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
@@ -1066,7 +1067,7 @@ select * from `+tableName(dbmap, PersistentUser{})+`
 }
 
 func TestNamedQueryStruct(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.Exec("drop table if exists PersistentUser")
 	table := dbmap.AddTable(PersistentUser{}).SetKeys(false, "Key")
 	table.ColMap("Key").Rename("mykey")
@@ -1118,7 +1119,7 @@ delete from `+tableName(dbmap, PersistentUser{})+`
 
 // Ensure that the slices containing SQL results are non-nil when the result set is empty.
 func TestReturnsNonNilSlice(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 	noResultsSQL := "select * from invoice_test where " + columnName(dbmap, Invoice{}, "Id") + "=99999"
 	var r1 []*Invoice
@@ -1134,7 +1135,7 @@ func TestReturnsNonNilSlice(t *testing.T) {
 }
 
 func TestOverrideVersionCol(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	t1 := dbmap.AddTable(InvoicePersonView{}).SetKeys(false, "InvoiceId", "PersonId")
 	err := dbmap.CreateTables()
 	if err != nil {
@@ -1154,7 +1155,7 @@ func TestOverrideVersionCol(t *testing.T) {
 }
 
 func TestOptimisticLocking(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	p1 := &Person{0, 0, 0, "Bob", "Smith", 0}
@@ -1199,7 +1200,7 @@ func TestOptimisticLocking(t *testing.T) {
 
 // what happens if a legacy table has a null value?
 func TestDoubleAddTable(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	t1 := dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
 	t2 := dbmap.AddTable(TableWithNull{})
 	if t1 != t2 {
@@ -1209,7 +1210,7 @@ func TestDoubleAddTable(t *testing.T) {
 
 // what happens if a legacy table has a null value?
 func TestNullValues(t *testing.T) {
-	dbmap := initDbMapNulls()
+	dbmap := initDBMapNulls(t)
 	defer dropAndClose(dbmap)
 
 	// insert a row directly
@@ -1248,7 +1249,7 @@ func TestNullValues(t *testing.T) {
 }
 
 func TestScannerValuer(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.AddTableWithName(PersonValuerScanner{}, "person_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(InvoiceWithValuer{}, "invoice_test").SetKeys(true, "Id")
 	err := dbmap.CreateTables()
@@ -1288,7 +1289,7 @@ func TestScannerValuer(t *testing.T) {
 }
 
 func TestColumnProps(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	t1 := dbmap.AddTable(Invoice{}).SetKeys(true, "Id")
 	t1.ColMap("Created").Rename("date_created")
 	t1.ColMap("Updated").SetTransient(true)
@@ -1326,7 +1327,7 @@ func TestColumnProps(t *testing.T) {
 }
 
 func TestRawSelect(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	p1 := &Person{0, 0, 0, "bob", "smith", 0}
@@ -1349,7 +1350,7 @@ func TestRawSelect(t *testing.T) {
 }
 
 func TestHooks(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	p1 := &Person{0, 0, 0, "bob", "smith", 0}
@@ -1396,7 +1397,7 @@ func TestHooks(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	inv1 := &Invoice{0, 100, 200, "t1", 0, true}
@@ -1432,7 +1433,7 @@ func TestTransactionExecNamed(t *testing.T) {
 	if os.Getenv("GORP_TEST_DIALECT") == "postgres" {
 		return
 	}
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 	trans, err := dbmap.Begin()
 	if err != nil {
@@ -1490,7 +1491,7 @@ func TestTransactionExecNamedPostgres(t *testing.T) {
 	if os.Getenv("GORP_TEST_DIALECT") != "postgres" {
 		return
 	}
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 	trans, err := dbmap.Begin()
 	if err != nil {
@@ -1536,7 +1537,7 @@ func TestTransactionExecNamedPostgres(t *testing.T) {
 }
 
 func TestSavepoint(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	inv1 := &Invoice{0, 100, 200, "unpaid", 0, false}
@@ -1584,7 +1585,7 @@ func TestSavepoint(t *testing.T) {
 }
 
 func TestMultiple(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	inv1 := &Invoice{0, 100, 200, "a", 0, false}
@@ -1602,7 +1603,7 @@ func TestMultiple(t *testing.T) {
 }
 
 func TestCrud(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	inv := &Invoice{0, 100, 200, "first order", 0, true}
@@ -1677,7 +1678,7 @@ func testCrudInternal(t *testing.T, dbmap *gorp.DbMap, val testable) {
 }
 
 func TestWithIgnoredColumn(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	ic := &WithIgnoredColumn{-1, 0, 1}
@@ -1698,7 +1699,7 @@ func TestWithIgnoredColumn(t *testing.T) {
 }
 
 func TestColumnFilter(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	inv1 := &Invoice{0, 100, 200, "a", 0, false}
@@ -1721,7 +1722,7 @@ func TestColumnFilter(t *testing.T) {
 }
 
 func TestTypeConversionExample(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	p := Person{FName: "Bob", LName: "Smith"}
@@ -1751,7 +1752,7 @@ func TestTypeConversionExample(t *testing.T) {
 }
 
 func TestWithEmbeddedStruct(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	es := &WithEmbeddedStruct{-1, Names{FirstName: "Alice", LastName: "Smith"}}
@@ -1778,7 +1779,7 @@ func TestWithEmbeddedStruct(t *testing.T) {
 
 /*
 func TestWithEmbeddedStructConflictingEmbeddedMemberNames(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	es := &WithEmbeddedStructConflictingEmbeddedMemberNames{-1, Names{FirstName: "Alice", LastName: "Smith"}, NamesConflict{FirstName: "Andrew", Surname: "Wiggin"}}
@@ -1804,7 +1805,7 @@ func TestWithEmbeddedStructConflictingEmbeddedMemberNames(t *testing.T) {
 }
 
 func TestWithEmbeddedStructSameMemberName(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	es := &WithEmbeddedStructSameMemberName{-1, SameName{SameName: "Alice"}}
@@ -1831,7 +1832,7 @@ func TestWithEmbeddedStructSameMemberName(t *testing.T) {
 //*/
 
 func TestWithEmbeddedStructBeforeAutoincr(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	esba := &WithEmbeddedStructBeforeAutoincrField{Names: Names{FirstName: "Alice", LastName: "Smith"}}
@@ -1843,7 +1844,7 @@ func TestWithEmbeddedStructBeforeAutoincr(t *testing.T) {
 }
 
 func TestWithEmbeddedAutoincr(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	esa := &WithEmbeddedAutoincr{
@@ -1858,7 +1859,7 @@ func TestWithEmbeddedAutoincr(t *testing.T) {
 }
 
 func TestSelectVal(t *testing.T) {
-	dbmap := initDbMapNulls()
+	dbmap := initDBMapNulls(t)
 	defer dropAndClose(dbmap)
 
 	bindVar := dbmap.Dialect.BindVar(0)
@@ -1952,7 +1953,7 @@ func TestSelectVal(t *testing.T) {
 }
 
 func TestVersionMultipleRows(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	persons := []*Person{
@@ -1971,7 +1972,7 @@ func TestVersionMultipleRows(t *testing.T) {
 }
 
 func TestWithStringPk(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.AddTableWithName(WithStringPk{}, "string_pk_test").SetKeys(true, "Id")
 	_, err := dbmap.Exec("create table string_pk_test (Id varchar(255), Name varchar(255));")
 	if err != nil {
@@ -2006,7 +2007,7 @@ func TestSqlExecutorInterfaceSelects(t *testing.T) {
 }
 
 func TestNullTime(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	// if time is null
@@ -2030,7 +2031,7 @@ func TestNullTime(t *testing.T) {
 	}
 
 	// if time is not null
-	ts, err := time.Parse(time.Stamp, "Jan 2 15:04:05")
+	ts, err := time.Parse(time.RFC3339, "2001-01-02T15:04:05-07:00")
 	if err != nil {
 		t.Errorf("failed to parse time %s: %s", time.Stamp, err.Error())
 	}
@@ -2087,7 +2088,7 @@ func TestWithTime(t *testing.T) {
 	if _, driver := dialectAndDriver(); driver == "mysql" {
 		t.Skip("mysql drivers don't support time.Time, skipping...")
 	}
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	t1 := parseTimeOrPanic("2006-01-02 15:04:05 -0700 MST",
@@ -2106,7 +2107,7 @@ func TestEmbeddedTime(t *testing.T) {
 	if _, driver := dialectAndDriver(); driver == "mysql" {
 		t.Skip("mysql drivers don't support time.Time, skipping...")
 	}
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.AddTable(EmbeddedTime{}).SetKeys(false, "Id")
 	defer dropAndClose(dbmap)
 	err := dbmap.CreateTables()
@@ -2127,7 +2128,7 @@ func TestEmbeddedTime(t *testing.T) {
 }
 
 func TestWithTimeSelect(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	halfhourago := time.Now().UTC().Add(-30 * time.Minute)
@@ -2151,7 +2152,7 @@ func TestWithTimeSelect(t *testing.T) {
 }
 
 func TestInvoicePersonView(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	// Create some rows
@@ -2183,7 +2184,7 @@ func TestInvoicePersonView(t *testing.T) {
 }
 
 func TestQuoteTableNames(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	quotedTableName := dbmap.Dialect.QuoteField("person_test")
@@ -2212,7 +2213,7 @@ func TestQuoteTableNames(t *testing.T) {
 }
 
 func TestSelectTooManyCols(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	p1 := &Person{0, 0, 0, "bob", "smith", 0}
@@ -2262,7 +2263,7 @@ func TestSelectTooManyCols(t *testing.T) {
 }
 
 func TestSelectSingleVal(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	p1 := &Person{0, 0, 0, "bob", "smith", 0}
@@ -2348,7 +2349,7 @@ func TestSelectSingleVal(t *testing.T) {
 }
 
 func TestSelectAlias(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	p1 := &IdCreatedExternal{IdCreated: IdCreated{Id: 1, Created: 3}, External: 2}
@@ -2411,7 +2412,7 @@ func TestMysqlPanicIfDialectNotInitialized(t *testing.T) {
 }
 
 func TestSingleColumnKeyDbReturnsZeroRowsUpdatedOnPKChange(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 	dbmap.AddTableWithName(SingleColumnTable{}, "single_column_table").SetKeys(false, "SomeId")
 	err := dbmap.DropTablesIfExists()
@@ -2442,7 +2443,7 @@ func TestSingleColumnKeyDbReturnsZeroRowsUpdatedOnPKChange(t *testing.T) {
 }
 
 func TestPrepare(t *testing.T) {
-	dbmap := initDbMap()
+	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
 	inv1 := &Invoice{0, 100, 200, "prepare-foo", 0, false}
@@ -2512,7 +2513,7 @@ type NilPointer struct {
 }
 
 func TestCallOfValueMethodOnNilPointer(t *testing.T) {
-	dbmap := newDbMap()
+	dbmap := newDBMap(t)
 	dbmap.AddTable(NilPointer{}).SetKeys(false, "ID")
 	defer dropAndClose(dbmap)
 	err := dbmap.CreateTables()
@@ -2526,7 +2527,7 @@ func TestCallOfValueMethodOnNilPointer(t *testing.T) {
 
 func BenchmarkNativeCrud(b *testing.B) {
 	b.StopTimer()
-	dbmap := initDbMapBench()
+	dbmap := initDBMapBench(b)
 	defer dropAndClose(dbmap)
 	columnId := columnName(dbmap, Invoice{}, "Id")
 	columnCreated := columnName(dbmap, Invoice{}, "Created")
@@ -2591,7 +2592,7 @@ func BenchmarkNativeCrud(b *testing.B) {
 
 func BenchmarkGorpCrud(b *testing.B) {
 	b.StopTimer()
-	dbmap := initDbMapBench()
+	dbmap := initDBMapBench(b)
 	defer dropAndClose(dbmap)
 	b.StartTimer()
 
@@ -2629,8 +2630,8 @@ func BenchmarkGorpCrud(b *testing.B) {
 	}
 }
 
-func initDbMapBench() *gorp.DbMap {
-	dbmap := newDbMap()
+func initDBMapBench(b *testing.B) *gorp.DbMap {
+	dbmap := newDBMap(b)
 	dbmap.Db.Exec("drop table if exists invoice_test")
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	err := dbmap.CreateTables()
@@ -2640,8 +2641,8 @@ func initDbMapBench() *gorp.DbMap {
 	return dbmap
 }
 
-func initDbMap() *gorp.DbMap {
-	dbmap := newDbMap()
+func initDBMap(t *testing.T) *gorp.DbMap {
+	dbmap := newDBMap(t)
 	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
 	dbmap.AddTableWithName(InvoiceTag{}, "invoice_tag_test") //key is set via primarykey attribute
 	dbmap.AddTableWithName(AliasTransientField{}, "alias_trans_field_test").SetKeys(true, "id")
@@ -2681,8 +2682,8 @@ func initDbMap() *gorp.DbMap {
 	return dbmap
 }
 
-func initDbMapNulls() *gorp.DbMap {
-	dbmap := newDbMap()
+func initDBMapNulls(t *testing.T) *gorp.DbMap {
+	dbmap := newDBMap(t)
 	dbmap.AddTable(TableWithNull{}).SetKeys(false, "Id")
 	err := dbmap.CreateTables()
 	if err != nil {
@@ -2691,11 +2692,23 @@ func initDbMapNulls() *gorp.DbMap {
 	return dbmap
 }
 
-func newDbMap() *gorp.DbMap {
+type Logger interface {
+	Logf(format string, args ...any)
+}
+
+type TestLogger struct {
+	l Logger
+}
+
+func (l TestLogger) Printf(format string, args ...any) {
+	l.l.Logf(format, args...)
+}
+
+func newDBMap(l Logger) *gorp.DbMap {
 	dialect, driver := dialectAndDriver()
 	dbmap := &gorp.DbMap{Db: connect(driver), Dialect: dialect}
 	if debug {
-		dbmap.TraceOn("", log.New(os.Stdout, "gorptest: ", log.Lmicroseconds))
+		dbmap.TraceOn("", TestLogger{l: l})
 	}
 	return dbmap
 }
