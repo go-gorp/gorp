@@ -2,6 +2,13 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
+// Package gorp provides a simple way to marshal Go structs to and from
+// SQL databases.  It uses the database/sql package, and should work with any
+// compliant database/sql driver.
+//
+// Source code and project home:
+// https://github.com/go-gorp/gorp
+
 package gorp
 
 import (
@@ -11,14 +18,13 @@ import (
 	"time"
 )
 
-type PostgresDialect struct {
-	suffix          string
-	LowercaseFields bool
+type CockroachdbDialect struct {
+	suffix string
 }
 
-func (d PostgresDialect) QuerySuffix() string { return ";" }
+func (d CockroachdbDialect) QuerySuffix() string { return ";" }
 
-func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+func (d CockroachdbDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
 	case reflect.Ptr:
 		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
@@ -64,45 +70,45 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 }
 
 // Returns empty string
-func (d PostgresDialect) AutoIncrStr() string {
+func (d CockroachdbDialect) AutoIncrStr() string {
 	return ""
 }
 
-func (d PostgresDialect) AutoIncrBindValue() string {
+func (d CockroachdbDialect) AutoIncrBindValue() string {
 	return "default"
 }
 
-func (d PostgresDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
+func (d CockroachdbDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
 	return " returning " + d.QuoteField(col.ColumnName)
 }
 
 // Returns suffix
-func (d PostgresDialect) CreateTableSuffix() string {
+func (d CockroachdbDialect) CreateTableSuffix() string {
 	return d.suffix
 }
 
-func (d PostgresDialect) CreateIndexSuffix() string {
+func (d CockroachdbDialect) CreateIndexSuffix() string {
 	return "using"
 }
 
-func (d PostgresDialect) DropIndexSuffix() string {
+func (d CockroachdbDialect) DropIndexSuffix() string {
 	return ""
 }
 
-func (d PostgresDialect) TruncateClause() string {
+func (d CockroachdbDialect) TruncateClause() string {
 	return "truncate"
 }
 
-func (d PostgresDialect) SleepClause(s time.Duration) string {
+func (d CockroachdbDialect) SleepClause(s time.Duration) string {
 	return fmt.Sprintf("pg_sleep(%f)", s.Seconds())
 }
 
 // Returns "$(i+1)"
-func (d PostgresDialect) BindVar(i int) string {
+func (d CockroachdbDialect) BindVar(i int) string {
 	return fmt.Sprintf("$%d", i+1)
 }
 
-func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target interface{}, params ...interface{}) error {
+func (d CockroachdbDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target interface{}, params ...interface{}) error {
 	rows, err := exec.Query(insertSql, params...)
 	if err != nil {
 		return err
@@ -121,14 +127,11 @@ func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql stri
 	return rows.Err()
 }
 
-func (d PostgresDialect) QuoteField(f string) string {
-	if d.LowercaseFields {
-		return `"` + strings.ToLower(f) + `"`
-	}
+func (d CockroachdbDialect) QuoteField(f string) string {
 	return `"` + f + `"`
 }
 
-func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string {
+func (d CockroachdbDialect) QuotedTableForQuery(schema string, table string) string {
 	if strings.TrimSpace(schema) == "" {
 		return d.QuoteField(table)
 	}
@@ -136,18 +139,18 @@ func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string
 	return schema + "." + d.QuoteField(table)
 }
 
-func (d PostgresDialect) IfSchemaNotExists(command, schema string) string {
+func (d CockroachdbDialect) IfSchemaNotExists(command, schema string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
 
-func (d PostgresDialect) IfTableExists(command, schema, table string) string {
+func (d CockroachdbDialect) IfTableExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if exists", command)
 }
 
-func (d PostgresDialect) IfTableNotExists(command, schema, table string) string {
+func (d CockroachdbDialect) IfTableNotExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
 
-func (d PostgresDialect) CreateSchemaCommand() string {
-	return "create schema"
+func (d CockroachdbDialect) CreateSchemaCommand() string {
+	return "create database"
 }

@@ -167,3 +167,7 @@ func (d MySQLDialect) IfTableExists(command, schema, table string) string {
 func (d MySQLDialect) IfTableNotExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
+
+func (d MySQLDialect) CreateSchemaCommand() string {
+	return "create schema"
+}
