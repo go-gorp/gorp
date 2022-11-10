@@ -733,13 +733,32 @@ func (m *DbMap) SelectOne(holder interface{}, query string, args ...interface{})
 	return SelectOne(m, m, holder, query, args...)
 }
 
+type beginOptions struct {
+	txOptions *sql.TxOptions
+}
+
+type BeginOpt func(beginOptions) beginOptions
+
+func TxOptions(opts *sql.TxOptions) BeginOpt {
+	return func(o beginOptions) beginOptions {
+		o.txOptions = opts
+		return o
+	}
+}
+
 // Begin starts a gorp Transaction
 func (m *DbMap) Begin() (*Transaction, error) {
+	return m.BeginOption(nil)
+}
+
+// BeginOption starts a gorp Transaction with sql.TxOptions
+func (m *DbMap) BeginOption(opts ...BeginOpt) (*Transaction, error) {
 	if m.logger != nil {
 		now := time.Now()
 		defer m.trace(now, "begin;")
 	}
-	tx, err := begin(m)
+
+	tx, err := begin(m, opts...)
 	if err != nil {
 		return nil, err
 	}
