@@ -93,6 +93,13 @@ type DbMap struct {
 	tablesDynamic map[string]*TableMap // tables that use same go-struct and different db table names
 	logger        GorpLogger
 	logPrefix     string
+
+	Cache Cache
+}
+
+type Cache interface {
+	Load(key interface{}) (value interface{}, ok bool)
+	Store(key, value interface{})
 }
 
 func (m *DbMap) dynamicTableAdd(tableName string, tbl *TableMap) {

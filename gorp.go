@@ -256,7 +256,32 @@ func expandNamedQuery(m *DbMap, query string, keyGetter func(key string) reflect
 	}), args
 }
 
+type fieldCacheKey struct {
+	t    reflect.Type
+	name string
+	cols string
+}
+
+type fieldCacheEntry struct {
+	mapping [][]int
+	err     error
+}
+
 func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([][]int, error) {
+	var ck fieldCacheKey
+	var err error
+	if m.Cache != nil {
+		ck.t = t
+		ck.name = name
+		ck.cols = strings.Join(cols, ",")
+
+		rv, ok := m.Cache.Load(ck)
+		if ok {
+			entry := rv.(*fieldCacheEntry)
+			return entry.mapping, entry.err
+		}
+	}
+
 	colToFieldIndex := make([][]int, len(cols))
 
 	// check if type t is a mapped table - if so we'll
@@ -298,13 +323,22 @@ func columnToFieldIndex(m *DbMap, t reflect.Type, name string, cols []string) ([
 			missingColNames = append(missingColNames, colName)
 		}
 	}
+
 	if len(missingColNames) > 0 {
-		return colToFieldIndex, &NoFieldInTypeError{
+		err = &NoFieldInTypeError{
 			TypeName:        t.Name(),
 			MissingColNames: missingColNames,
 		}
 	}
-	return colToFieldIndex, nil
+
+	if m.Cache != nil {
+		entry := &fieldCacheEntry{
+			mapping: colToFieldIndex,
+			err:     err,
+		}
+		m.Cache.Store(ck, entry)
+	}
+	return colToFieldIndex, err
 }
 
 func fieldByName(val reflect.Value, fieldName string) *reflect.Value {
