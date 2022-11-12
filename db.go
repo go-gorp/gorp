@@ -173,7 +173,7 @@ func (m *DbMap) createIndexImpl(dialect reflect.Type,
 	if dname := dialect.Name(); dname == "MySQLDialect" && index.IndexType != "" {
 		s.WriteString(fmt.Sprintf(" %s %s", m.Dialect.CreateIndexSuffix(), index.IndexType))
 	}
-	s.WriteString(";")
+	s.WriteString(m.Dialect.QuerySuffix())
 	_, err := m.Exec(s.String())
 	return err
 }
@@ -190,7 +190,7 @@ func (t *TableMap) DropIndex(name string) error {
 			if dname := dialect.Name(); dname == "MySQLDialect" {
 				s.WriteString(fmt.Sprintf(" %s %s", t.dbmap.Dialect.DropIndexSuffix(), t.TableName))
 			}
-			s.WriteString(";")
+			s.WriteString(t.dbmap.Dialect.QuerySuffix())
 			_, e := t.dbmap.Exec(s.String())
 			if e != nil {
 				err = e
@@ -524,7 +524,7 @@ func (m *DbMap) dropTableImpl(table *TableMap, ifExists bool) (err error) {
 	if ifExists {
 		tableDrop = m.Dialect.IfTableExists(tableDrop, table.SchemaName, table.TableName)
 	}
-	_, err = m.Exec(fmt.Sprintf("%s %s;", tableDrop, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
+	_, err = m.Exec(fmt.Sprintf("%s %s%s", tableDrop, m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName), m.Dialect.QuerySuffix()))
 	return err
 }
 
@@ -536,14 +536,16 @@ func (m *DbMap) TruncateTables() error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
-		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
+		println(m.Dialect.QuerySuffix())
+		_, e := m.Exec(fmt.Sprintf("%s %s%s", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName), m.Dialect.QuerySuffix()))
 		if e != nil {
 			err = e
 		}
 	}
 
 	for _, table := range m.dynamicTableMap() {
-		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
+		println(m.Dialect.QuerySuffix())
+		_, e := m.Exec(fmt.Sprintf("%s %s%s", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName), m.Dialect.QuerySuffix()))
 		if e != nil {
 			err = e
 		}
@@ -737,7 +739,7 @@ func (m *DbMap) SelectOne(holder interface{}, query string, args ...interface{})
 func (m *DbMap) Begin() (*Transaction, error) {
 	if m.logger != nil {
 		now := time.Now()
-		defer m.trace(now, "begin;")
+		defer m.trace(now, "begin"+m.Dialect.QuerySuffix())
 	}
 	tx, err := begin(m)
 	if err != nil {
