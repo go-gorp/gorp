@@ -15,10 +15,11 @@ import (
 // of that transaction.  Transactions should be terminated with
 // a call to Commit() or Rollback()
 type Transaction struct {
-	ctx    context.Context
-	dbmap  *DbMap
-	tx     *sql.Tx
-	closed bool
+	ctx             context.Context
+	TimeOutInterval time.Duration
+	dbmap           *DbMap
+	tx              *sql.Tx
+	closed          bool
 }
 
 func (t *Transaction) WithContext(ctx context.Context) SqlExecutor {
