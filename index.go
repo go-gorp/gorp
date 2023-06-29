@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package gorp
+package borp
 
 // IndexMap represents a mapping between a Go struct field and a single
 // index in a table.

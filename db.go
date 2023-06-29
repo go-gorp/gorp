@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package gorp
+package borp
 
 import (
 	"bytes"
@@ -24,9 +24,8 @@ import (
 //
 // Example:
 //
-//     dialect := gorp.MySQLDialect{"InnoDB", "UTF8"}
-//     dbmap := &gorp.DbMap{Db: db, Dialect: dialect}
-//
+//	dialect := borp.MySQLDialect{"InnoDB", "UTF8"}
+//	dbmap := &borp.DbMap{Db: db, Dialect: dialect}
 type DbMap struct {
 	ctx context.Context
 
@@ -202,7 +201,7 @@ func (t *TableMap) DropIndex(name string) error {
 	return err
 }
 
-// AddTable registers the given interface type with gorp. The table name
+// AddTable registers the given interface type with borp. The table name
 // will be given the name of the TypeOf(i).  You must call this function,
 // or AddTableWithName, for any struct type you wish to persist with
 // the given DbMap.
@@ -248,7 +247,7 @@ func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name str
 	return tmap
 }
 
-// AddTableDynamic registers the given interface type with gorp.
+// AddTableDynamic registers the given interface type with borp.
 // The table name will be dynamically determined at runtime by
 // using the GetTableName method on DynamicTable interface
 func (m *DbMap) AddTableDynamic(inp DynamicTable, schema string) *TableMap {
@@ -670,7 +669,7 @@ func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return maybeExpandNamedQueryAndExec(m, query, args...)
 }
 
-// SelectInt is a convenience wrapper around the gorp.SelectInt function
+// SelectInt is a convenience wrapper around the borp.SelectInt function
 func (m *DbMap) SelectInt(query string, args ...interface{}) (int64, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
@@ -679,7 +678,7 @@ func (m *DbMap) SelectInt(query string, args ...interface{}) (int64, error) {
 	return SelectInt(m, query, args...)
 }
 
-// SelectNullInt is a convenience wrapper around the gorp.SelectNullInt function
+// SelectNullInt is a convenience wrapper around the borp.SelectNullInt function
 func (m *DbMap) SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
@@ -688,7 +687,7 @@ func (m *DbMap) SelectNullInt(query string, args ...interface{}) (sql.NullInt64,
 	return SelectNullInt(m, query, args...)
 }
 
-// SelectFloat is a convenience wrapper around the gorp.SelectFloat function
+// SelectFloat is a convenience wrapper around the borp.SelectFloat function
 func (m *DbMap) SelectFloat(query string, args ...interface{}) (float64, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
@@ -697,7 +696,7 @@ func (m *DbMap) SelectFloat(query string, args ...interface{}) (float64, error) 
 	return SelectFloat(m, query, args...)
 }
 
-// SelectNullFloat is a convenience wrapper around the gorp.SelectNullFloat function
+// SelectNullFloat is a convenience wrapper around the borp.SelectNullFloat function
 func (m *DbMap) SelectNullFloat(query string, args ...interface{}) (sql.NullFloat64, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
@@ -706,7 +705,7 @@ func (m *DbMap) SelectNullFloat(query string, args ...interface{}) (sql.NullFloa
 	return SelectNullFloat(m, query, args...)
 }
 
-// SelectStr is a convenience wrapper around the gorp.SelectStr function
+// SelectStr is a convenience wrapper around the borp.SelectStr function
 func (m *DbMap) SelectStr(query string, args ...interface{}) (string, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
@@ -715,7 +714,7 @@ func (m *DbMap) SelectStr(query string, args ...interface{}) (string, error) {
 	return SelectStr(m, query, args...)
 }
 
-// SelectNullStr is a convenience wrapper around the gorp.SelectNullStr function
+// SelectNullStr is a convenience wrapper around the borp.SelectNullStr function
 func (m *DbMap) SelectNullStr(query string, args ...interface{}) (sql.NullString, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
@@ -724,7 +723,7 @@ func (m *DbMap) SelectNullStr(query string, args ...interface{}) (sql.NullString
 	return SelectNullStr(m, query, args...)
 }
 
-// SelectOne is a convenience wrapper around the gorp.SelectOne function
+// SelectOne is a convenience wrapper around the borp.SelectOne function
 func (m *DbMap) SelectOne(holder interface{}, query string, args ...interface{}) error {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package gorp
+package borp
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 )
 
 // Implementation of Dialect for Microsoft SQL Server databases.
-// Use gorp.SqlServerDialect{"2005"} for legacy datatypes.
+// Use borp.SqlServerDialect{"2005"} for legacy datatypes.
 // Tested with driver: github.com/denisenkom/go-mssqldb
 
 type SqlServerDialect struct {

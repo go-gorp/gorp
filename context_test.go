@@ -5,7 +5,7 @@
 //go:build integration
 // +build integration
 
-package gorp_test
+package borp_test
 
 import (
 	"context"

@@ -1,36 +1,25 @@
-name: Go
+name: Test
 
 on:
   push:
     branches:
       - main
-      - v3
   pull_request:
     branches:
-      - main
-      - v3
+      - '**'
+
+permissions:
+  contents: read
 
 jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
-    container: golang:1.18
+    container: golang:1.20
 
     services:
-      postgres:
-        image: postgres
-        env:
-          POSTGRES_DB: gorptest
-          POSTGRES_USER: gorptest
-          POSTGRES_PASSWORD: gorptest
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-
       mysql:
-        image: mysql:5.7
+        image: mariadb:10.5
         env:
           MYSQL_DATABASE: gorptest
           MYSQL_USER: gorptest
@@ -44,15 +33,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
 
       - name: Integration Tests
         run: ./test_all.sh
 
   quick-tests:
     runs-on: ubuntu-latest
-    container: golang:1.18
+    container: golang:1.20
     steps:
     - uses: actions/checkout@v3
+      with:
+        persist-credentials: false
+
 
     - name: Go Build
       run: go build -v ./...
