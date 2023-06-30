@@ -66,11 +66,6 @@ func TestWithCanceledContext(t *testing.T) {
 	}
 
 	switch driver {
-	case "postgres":
-		// pq doesn't return standard deadline exceeded error
-		if err.Error() != "pq: canceling statement due to user request" {
-			t.Errorf("expected context.DeadlineExceeded, got %v", err)
-		}
 	default:
 		if err != context.DeadlineExceeded {
 			t.Errorf("expected context.DeadlineExceeded, got %v", err)

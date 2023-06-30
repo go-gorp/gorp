@@ -43,8 +43,8 @@ type Dialect interface {
 	// string to truncate tables
 	TruncateClause() string
 
-	// bind variable string to use when forming SQL statements
-	// in many dbs it is "?", but Postgres appears to use $1
+	// Bind variable string to use when forming SQL statements
+	// in many dbs it is "?".
 	//
 	// i is a zero based index of the bind variable in this statement
 	//
