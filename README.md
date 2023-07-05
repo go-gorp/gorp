@@ -378,8 +378,9 @@ s, err := dbmap.SelectStr("select name from foo where blah=?", blahVal)
 
 #### Named bind parameters
 
-You may use a map or struct to bind parameters by name.  This is currently
-only supported in SELECT queries.
+You may use a map or struct to bind parameters by name.  This is supported in
+the Exec and Select* functions on DbMap and Transaction. It is not supported by
+Prepare, Query, or QueryRow.
 
 ```go
 _, err := dbm.Select(&dest, "select * from Foo where name = :name and age = :age", map[string]interface{}{

@@ -39,53 +39,7 @@ type DbMap struct {
 
 	// ExpandSlices when enabled will convert slice arguments in mappers into flat
 	// values. It will modify the query, adding more placeholders, and the mapper,
-	// adding each item of the slice as a new unique entry in the mapper. For
-	// example, given the scenario bellow:
-	//
-	//     dbmap.Select(&output, "SELECT 1 FROM example WHERE id IN (:IDs)", map[string]interface{}{
-	//       "IDs": []int64{1, 2, 3},
-	//     })
-	//
-	// The executed query would be:
-	//
-	//     SELECT 1 FROM example WHERE id IN (:IDs0,:IDs1,:IDs2)
-	//
-	// With the mapper:
-	//
-	//     map[string]interface{}{
-	//       "IDs":  []int64{1, 2, 3},
-	//       "IDs0": int64(1),
-	//       "IDs1": int64(2),
-	//       "IDs2": int64(3),
-	//     }
-	//
-	// It is also flexible for custom slice types. The value just need to
-	// implement stringer or numberer interfaces.
-	//
-	//     type CustomValue string
-	//
-	//     const (
-	//       CustomValueHey CustomValue = "hey"
-	//       CustomValueOh  CustomValue = "oh"
-	//     )
-	//
-	//     type CustomValues []CustomValue
-	//
-	//     func (c CustomValues) ToStringSlice() []string {
-	//       values := make([]string, len(c))
-	//       for i := range c {
-	//         values[i] = string(c[i])
-	//       }
-	//       return values
-	//     }
-	//
-	//     func query() {
-	//       // ...
-	//       result, err := dbmap.Select(&output, "SELECT 1 FROM example WHERE value IN (:Values)", map[string]interface{}{
-	//         "Values": CustomValues([]CustomValue{CustomValueHey}),
-	//       })
-	//       // ...
-	//     }
+	// adding each item of the slice as a new unique entry in the mapper.
 	ExpandSliceArgs bool
 
 	tables        []*TableMap
