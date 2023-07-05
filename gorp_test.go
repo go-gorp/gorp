@@ -26,7 +26,6 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/letsencrypt/borp"
-	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -35,8 +34,6 @@ var (
 	_ = []borp.Dialect{
 		borp.SqliteDialect{},
 		borp.MySQLDialect{},
-		borp.SqlServerDialect{},
-		borp.OracleDialect{},
 	}
 
 	debug bool
@@ -799,7 +796,7 @@ func TestSetUniqueTogether(t *testing.T) {
 	if err == nil {
 		t.Error(err)
 	}
-	// "unique" for Postgres/SQLite, "Duplicate entry" for MySQL
+	// "unique" for SQLite, "Duplicate entry" for MySQL
 	errLower := strings.ToLower(err.Error())
 	if !strings.Contains(errLower, "unique") && !strings.Contains(errLower, "duplicate entry") {
 		t.Error(err)
@@ -811,7 +808,7 @@ func TestSetUniqueTogether(t *testing.T) {
 	if err == nil {
 		t.Error(err)
 	}
-	// "unique" for Postgres/SQLite, "Duplicate entry" for MySQL
+	// "unique" for SQLite, "Duplicate entry" for MySQL
 	errLower = strings.ToLower(err.Error())
 	if !strings.Contains(errLower, "unique") && !strings.Contains(errLower, "duplicate entry") {
 		t.Error(err)
@@ -1428,9 +1425,6 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestTransactionExecNamed(t *testing.T) {
-	if os.Getenv("GORP_TEST_DIALECT") == "postgres" {
-		return
-	}
 	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 	trans, err := dbmap.Begin()
@@ -1479,55 +1473,6 @@ func TestTransactionExecNamed(t *testing.T) {
 		panic(err)
 	}
 	checkMemo("paid")
-	err = trans.Commit()
-	if err != nil {
-		panic(err)
-	}
-}
-
-func TestTransactionExecNamedPostgres(t *testing.T) {
-	if os.Getenv("GORP_TEST_DIALECT") != "postgres" {
-		return
-	}
-	dbmap := initDBMap(t)
-	defer dropAndClose(dbmap)
-	trans, err := dbmap.Begin()
-	if err != nil {
-		panic(err)
-	}
-	// exec should support named params
-	args := map[string]interface{}{
-		"created":  100,
-		"updated":  200,
-		"memo":     "zzTest",
-		"personID": 0,
-		"isPaid":   false,
-	}
-	_, err = trans.Exec(`INSERT INTO invoice_test ("Created", "Updated", "Memo", "PersonId", "IsPaid") Values(:created, :updated, :memo, :personID, :isPaid)`, args)
-	if err != nil {
-		panic(err)
-	}
-	var checkMemo = func(want string) {
-		args := map[string]interface{}{
-			"memo": want,
-		}
-		memo, err := trans.SelectStr(`select "Memo" from invoice_test where "Memo" = :memo`, args)
-		if err != nil {
-			panic(err)
-		}
-		if memo != want {
-			t.Errorf("%q != %q", want, memo)
-		}
-	}
-	checkMemo("zzTest")
-
-	// exec should still work with ? params
-	_, err = trans.Exec(`INSERT INTO invoice_test ("Created", "Updated", "Memo", "PersonId", "IsPaid") Values($1, $2, $3, $4, $5)`, 10, 15, "yyTest", 0, true)
-
-	if err != nil {
-		panic(err)
-	}
-	checkMemo("yyTest")
 	err = trans.Commit()
 	if err != nil {
 		panic(err)
@@ -2534,18 +2479,10 @@ func BenchmarkNativeCrud(b *testing.B) {
 	columnPersonId := columnName(dbmap, Invoice{}, "PersonId")
 	b.StartTimer()
 
-	var insert, sel, update, delete string
-	if os.Getenv("GORP_TEST_DIALECT") != "postgres" {
-		insert = "insert into invoice_test (" + columnCreated + ", " + columnUpdated + ", " + columnMemo + ", " + columnPersonId + ") values (?, ?, ?, ?)"
-		sel = "select " + columnId + ", " + columnCreated + ", " + columnUpdated + ", " + columnMemo + ", " + columnPersonId + " from invoice_test where " + columnId + "=?"
-		update = "update invoice_test set " + columnCreated + "=?, " + columnUpdated + "=?, " + columnMemo + "=?, " + columnPersonId + "=? where " + columnId + "=?"
-		delete = "delete from invoice_test where " + columnId + "=?"
-	} else {
-		insert = "insert into invoice_test (" + columnCreated + ", " + columnUpdated + ", " + columnMemo + ", " + columnPersonId + ") values ($1, $2, $3, $4)"
-		sel = "select " + columnId + ", " + columnCreated + ", " + columnUpdated + ", " + columnMemo + ", " + columnPersonId + " from invoice_test where " + columnId + "=$1"
-		update = "update invoice_test set " + columnCreated + "=$1, " + columnUpdated + "=$2, " + columnMemo + "=$3, " + columnPersonId + "=$4 where " + columnId + "=$5"
-		delete = "delete from invoice_test where " + columnId + "=$1"
-	}
+	insert := "insert into invoice_test (" + columnCreated + ", " + columnUpdated + ", " + columnMemo + ", " + columnPersonId + ") values (?, ?, ?, ?)"
+	sel := "select " + columnId + ", " + columnCreated + ", " + columnUpdated + ", " + columnMemo + ", " + columnPersonId + " from invoice_test where " + columnId + "=?"
+	update := "update invoice_test set " + columnCreated + "=?, " + columnUpdated + "=?, " + columnMemo + "=?, " + columnPersonId + "=? where " + columnId + "=?"
+	delete := "delete from invoice_test where " + columnId + "=?"
 
 	inv := &Invoice{0, 100, 200, "my memo", 0, false}
 

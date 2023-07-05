@@ -444,9 +444,8 @@ func (i *Invoice) PreUpdate(s borp.SqlExecutor) error {
 //
 func (p *Person) PreDelete(s borp.SqlExecutor) error {
     query := "delete from invoice_test where PersonId=?"
-    
+
     _, err := s.Exec(query, p.Id)
-    
     if err != nil {
         return err
     }
@@ -530,10 +529,6 @@ if ok {
 Indexes are frequently critical for performance. Here is how to add
 them to your tables.
 
-NB: SqlServer and Oracle need testing and possible adjustment to the
-CreateIndexSuffix() and DropIndexSuffix() methods to make AddIndex()
-work for them.
-
 In the example below we put an index both on the Id field, and on the
 AcctId field.
 
@@ -565,7 +560,7 @@ MariaDB [test]> show create table Account;
   `AcctId` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`Id`),
   UNIQUE KEY `AcctIdIndex` (`AcctId`) USING BTREE   <<<--- yes! index added.
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
 +---------+--------------------------+
 
 ```
@@ -587,16 +582,6 @@ are provided for:
 
 Each of these three databases pass the test suite.  See `borp_test.go`
 for example DSNs for these three databases.
-
-Support is also provided for:
-
-* Oracle (contributed by @klaidliadon)
-* SQL Server (contributed by @qrawl) - use driver:
-  github.com/denisenkom/go-mssqldb
-
-Note that these databases are not covered by CI and I (@coopernurse)
-have no good way to test them locally.  So please try them and send
-patches as needed, but expect a bit more unpredicability.
 
 ## Sqlite3 Extensions
 
@@ -644,7 +629,7 @@ To avoid any potential issues with timezone/DST, consider:
 
 ## Running the tests
 
-The included tests may be run against MySQL, Postgresql, or sqlite3.
+The included tests may be run against MySQL or sqlite3.
 You must set two environment variables so the test code knows which
 driver to use, and how to connect to your database.
 
@@ -661,7 +646,7 @@ go test -bench="Bench" -benchtime 10
 ```
 
 Valid `GORP_TEST_DIALECT` values are: "mysql"(for mymysql),
-"gomysql"(for go-sql-driver), "postgres", "sqlite" See the
+"gomysql"(for go-sql-driver), or "sqlite" See the
 `test_all.sh` script for examples of all 3 databases.  This is the
 script I run locally to test the library.
 
