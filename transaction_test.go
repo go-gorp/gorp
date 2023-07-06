@@ -2,11 +2,15 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
+//go:build integration
 // +build integration
 
 package borp_test
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestTransaction_Select_expandSliceArgs(t *testing.T) {
 	tests := []struct {
@@ -92,13 +96,14 @@ AND field12 IN (:FieldIntList)
 	dbmap.ExpandSliceArgs = true
 	dbmap.AddTableWithName(dataFormat{}, "crazy_table")
 
-	err := dbmap.CreateTables()
+	err := dbmap.CreateTables(context.Background())
 	if err != nil {
 		panic(err)
 	}
 	defer dropAndClose(dbmap)
 
 	err = dbmap.Insert(
+		context.Background(),
 		&dataFormat{
 			Field1:  123,
 			Field2:  "h",
@@ -155,14 +160,14 @@ AND field12 IN (:FieldIntList)
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			tx, err := dbmap.Begin()
+			tx, err := dbmap.BeginTx(context.Background())
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer tx.Rollback()
 
 			var dummy []int
-			_, err = tx.Select(&dummy, tt.query, tt.args...)
+			_, err = tx.Select(context.Background(), &dummy, tt.query, tt.args...)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -258,13 +263,14 @@ AND field12 IN (:FieldIntList)
 	dbmap.ExpandSliceArgs = true
 	dbmap.AddTableWithName(dataFormat{}, "crazy_table")
 
-	err := dbmap.CreateTables()
+	err := dbmap.CreateTables(context.Background())
 	if err != nil {
 		panic(err)
 	}
 	defer dropAndClose(dbmap)
 
 	err = dbmap.Insert(
+		context.Background(),
 		&dataFormat{
 			Field1:  123,
 			Field2:  "h",
@@ -321,13 +327,13 @@ AND field12 IN (:FieldIntList)
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			tx, err := dbmap.Begin()
+			tx, err := dbmap.BeginTx(context.Background())
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer tx.Rollback()
 
-			_, err = tx.Exec(tt.query, tt.args...)
+			_, err = tx.ExecContext(context.Background(), tt.query, tt.args...)
 			if err != nil {
 				t.Fatal(err)
 			}

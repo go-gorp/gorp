@@ -32,9 +32,7 @@ func TestWithNotCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	withCtx := dbmap.WithContext(ctx)
-
-	_, err := withCtx.Exec("SELECT 1")
+	_, err := dbmap.ExecContext(ctx, "SELECT 1")
 	assert.Nil(t, err)
 }
 
@@ -55,11 +53,9 @@ func TestWithCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	withCtx := dbmap.WithContext(ctx)
-
 	startTime := time.Now()
 
-	_, err := withCtx.Exec("SELECT " + sleepDialect.SleepClause(1*time.Second))
+	_, err := dbmap.ExecContext(ctx, "SELECT "+sleepDialect.SleepClause(1*time.Second))
 
 	if d := time.Since(startTime); d > 500*time.Millisecond {
 		t.Errorf("too long execution time: %s", d)
