@@ -86,10 +86,9 @@ func SelectNullStr(e SqlExecutor, query string, args ...interface{}) (sql.NullSt
 // SelectOne executes the given query (which should be a SELECT statement)
 // and binds the result to holder, which must be a pointer.
 //
-// If no row is found, an error (sql.ErrNoRows specifically) will be returned
+// If no row is found, an error (sql.ErrNoRows specifically) will be returned.
 //
 // If more than one row is found, an error will be returned.
-//
 func SelectOne(m *DbMap, e SqlExecutor, holder interface{}, query string, args ...interface{}) error {
 	t := reflect.TypeOf(holder)
 	if t.Kind() == reflect.Ptr {
@@ -268,7 +267,9 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	var colToFieldIndex [][]int
-	if intoStruct {
+	_, isSmartHolder := reflect.New(t).Interface().(smartHolder)
+
+	if !isSmartHolder && intoStruct {
 		colToFieldIndex, err = columnToFieldIndex(m, t, tableName, cols)
 		if err != nil {
 			if !NonFatalError(err) {
@@ -305,28 +306,48 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 
 		custScan := make([]CustomScanner, 0)
 
-		for x := range cols {
-			f := v.Elem()
-			if intoStruct {
-				index := colToFieldIndex[x]
-				if index == nil {
-					// this field is not present in the struct, so create a dummy
-					// value for rows.Scan to scan into
-					var dummy dummyField
-					dest[x] = &dummy
-					continue
-				}
-				f = f.FieldByIndex(index)
+		// if we have a smart holder avoid all the reflection search and use the
+		// holder to provide the attribute pointers.
+		if smartHolder, isSmartHolder := v.Interface().(smartHolder); isSmartHolder {
+			dest, err = smartHolder.DBColumns(cols)
+			if err != nil {
+				return nil, err
 			}
-			target := f.Addr().Interface()
+
 			if conv != nil {
-				scanner, ok := conv.FromDb(target)
-				if ok {
-					target = scanner.Holder
-					custScan = append(custScan, scanner)
+				for i, target := range dest {
+					if scanner, ok := conv.FromDb(target); ok {
+						target = scanner.Holder
+						custScan = append(custScan, scanner)
+						dest[i] = target
+					}
 				}
 			}
-			dest[x] = target
+
+		} else {
+			for x := range cols {
+				f := v.Elem()
+				if intoStruct {
+					index := colToFieldIndex[x]
+					if index == nil {
+						// this field is not present in the struct, so create a dummy
+						// value for rows.Scan to scan into
+						var dummy dummyField
+						dest[x] = &dummy
+						continue
+					}
+					f = f.FieldByIndex(index)
+				}
+				target := f.Addr().Interface()
+				if conv != nil {
+					scanner, ok := conv.FromDb(target)
+					if ok {
+						target = scanner.Holder
+						custScan = append(custScan, scanner)
+					}
+				}
+				dest[x] = target
+			}
 		}
 
 		err = rows.Scan(dest...)
@@ -356,4 +377,8 @@ func rawselect(m *DbMap, exec SqlExecutor, i interface{}, query string,
 	}
 
 	return list, nonFatalErr
+}
+
+type smartHolder interface {
+	DBColumns(columnNames []string) ([]interface{}, error)
 }
