@@ -56,12 +56,228 @@ type testable interface {
 }
 
 type Invoice struct {
+	DummyFields
+
 	Id       int64
 	Created  int64
 	Updated  int64
 	Memo     string
 	PersonId int64
 	IsPaid   bool
+}
+
+type SmartInvoice struct {
+	DummyFields
+
+	Id       int64
+	Created  int64
+	Updated  int64
+	Memo     string
+	PersonId int64
+	IsPaid   bool
+}
+
+// DummyFields adds loads of non-used fields into the struct to test the
+// performance of the reflection.
+type DummyFields struct {
+	DummyField01  *int64    `db:"-"`
+	DummyField02  *int64    `db:"-"`
+	DummyField03  *int64    `db:"-"`
+	DummyField04  *int64    `db:"-"`
+	DummyField05  *int64    `db:"-"`
+	DummyField06  *string   `db:"-"`
+	DummyField07  *int64    `db:"-"`
+	DummyField08  *int64    `db:"-"`
+	DummyField09  *int64    `db:"-"`
+	DummyField10  *int64    `db:"-"`
+	DummyField11  *int64    `db:"-"`
+	DummyField12  *int64    `db:"-"`
+	DummyField13  *int64    `db:"-"`
+	DummyField14  *int64    `db:"-"`
+	DummyField15  *int64    `db:"-"`
+	DummyField16  *int64    `db:"-"`
+	DummyField17  *int64    `db:"-"`
+	DummyField18  *int64    `db:"-"`
+	DummyField19  *int64    `db:"-"`
+	DummyField20  *int64    `db:"-"`
+	DummyField21  *int64    `db:"-"`
+	DummyField22  *int64    `db:"-"`
+	DummyField23  *int64    `db:"-"`
+	DummyField24  *string   `db:"-"`
+	DummyField25  *int64    `db:"-"`
+	DummyField26  *int64    `db:"-"`
+	DummyField27  *int64    `db:"-"`
+	DummyField28  *string   `db:"-"`
+	DummyField29  *int64    `db:"-"`
+	DummyField30  *int64    `db:"-"`
+	DummyField31  *int64    `db:"-"`
+	DummyField32  *int64    `db:"-"`
+	DummyField33  *int64    `db:"-"`
+	DummyField34  *int64    `db:"-"`
+	DummyField35  *string   `db:"-"`
+	DummyField36  *int64    `db:"-"`
+	DummyField37  *string   `db:"-"`
+	DummyField38  *string   `db:"-"`
+	DummyField39  *string   `db:"-"`
+	DummyField40  *string   `db:"-"`
+	DummyField41  *string   `db:"-"`
+	DummyField42  *string   `db:"-"`
+	DummyField43  *int64    `db:"-"`
+	DummyField44  *int64    `db:"-"`
+	DummyField45  *int64    `db:"-"`
+	DummyField46  *int64    `db:"-"`
+	DummyField47  *string   `db:"-"`
+	DummyField48  *string   `db:"-"`
+	DummyField49  *string   `db:"-"`
+	DummyField50  *string   `db:"-"`
+	DummyField51  *int64    `db:"-"`
+	DummyField52  *int64    `db:"-"`
+	DummyField53  *string   `db:"-"`
+	DummyField54  *int64    `db:"-"`
+	DummyField55  *int64    `db:"-"`
+	DummyField56  *string   `db:"-"`
+	DummyField57  *int64    `db:"-"`
+	DummyField58  *string   `db:"-"`
+	DummyField59  *int64    `db:"-"`
+	DummyField60  *int64    `db:"-"`
+	DummyField61  *int64    `db:"-"`
+	DummyField62  *int64    `db:"-"`
+	DummyField63  *int64    `db:"-"`
+	DummyField64  *int64    `db:"-"`
+	DummyField65  *int64    `db:"-"`
+	DummyField66  *int64    `db:"-"`
+	DummyField67  *int64    `db:"-"`
+	DummyField68  *int64    `db:"-"`
+	DummyField69  *int64    `db:"-"`
+	DummyField70  *[]int64  `db:"-"`
+	DummyField71  *[]int64  `db:"-"`
+	DummyField72  *[]int64  `db:"-"`
+	DummyField73  *[]int64  `db:"-"`
+	DummyField74  *[]int64  `db:"-"`
+	DummyField75  *[]int64  `db:"-"`
+	DummyField76  *[]int64  `db:"-"`
+	DummyField77  *[]int64  `db:"-"`
+	DummyField78  *[]int64  `db:"-"`
+	DummyField79  *[]int64  `db:"-"`
+	DummyField80  *[]int64  `db:"-"`
+	DummyField81  *[]int64  `db:"-"`
+	DummyField82  *[]int64  `db:"-"`
+	DummyField83  *[]int64  `db:"-"`
+	DummyField84  *[]int64  `db:"-"`
+	DummyField85  *[]int64  `db:"-"`
+	DummyField86  *[]int64  `db:"-"`
+	DummyField87  *[]int64  `db:"-"`
+	DummyField88  *[]int64  `db:"-"`
+	DummyField89  *[]int64  `db:"-"`
+	DummyField90  *[]string `db:"-"`
+	DummyField91  *[]int64  `db:"-"`
+	DummyField92  *[]int64  `db:"-"`
+	DummyField93  *[]int64  `db:"-"`
+	DummyField94  *[]string `db:"-"`
+	DummyField95  *[]string `db:"-"`
+	DummyField96  *[]string `db:"-"`
+	DummyField97  *[]int64  `db:"-"`
+	DummyField98  *[]int64  `db:"-"`
+	DummyField99  *[]int64  `db:"-"`
+	DummyField100 *[]int64  `db:"-"`
+	DummyField101 *[]int64  `db:"-"`
+	DummyField102 *[]int64  `db:"-"`
+	DummyField103 *[]string `db:"-"`
+	DummyField104 *[]int64  `db:"-"`
+	DummyField105 *[]int64  `db:"-"`
+	DummyField106 *[]string `db:"-"`
+	DummyField107 *[]int64  `db:"-"`
+	DummyField108 *[]int64  `db:"-"`
+	DummyField109 *[]string `db:"-"`
+	DummyField110 *[]int64  `db:"-"`
+	DummyField111 *[]int64  `db:"-"`
+	DummyField112 *[]int64  `db:"-"`
+	DummyField113 *[]int64  `db:"-"`
+	DummyField114 *[]int64  `db:"-"`
+	DummyField115 *[]int64  `db:"-"`
+	DummyField116 *[]int64  `db:"-"`
+	DummyField117 *[]string `db:"-"`
+	DummyField118 *[]string `db:"-"`
+	DummyField119 *[]int64  `db:"-"`
+	DummyField120 *[]int64  `db:"-"`
+	DummyField121 *[]string `db:"-"`
+	DummyField122 *[]int64  `db:"-"`
+	DummyField123 *[]int64  `db:"-"`
+	DummyField124 *[]int64  `db:"-"`
+	DummyField125 *[]int64  `db:"-"`
+	DummyField126 *[]int64  `db:"-"`
+	DummyField127 *[]string `db:"-"`
+	DummyField128 *[]string `db:"-"`
+	DummyField129 *[]string `db:"-"`
+	DummyField130 *[]int64  `db:"-"`
+	DummyField131 *[]int64  `db:"-"`
+	DummyField132 *[]int64  `db:"-"`
+	DummyField133 *[]int64  `db:"-"`
+	DummyField134 *[]int64  `db:"-"`
+	DummyField135 *[]int64  `db:"-"`
+	DummyField136 *[]int64  `db:"-"`
+	DummyField137 *[]int64  `db:"-"`
+	DummyField138 *[]int64  `db:"-"`
+	DummyField139 *[]int64  `db:"-"`
+	DummyField140 *[]int64  `db:"-"`
+	DummyField141 *[]int64  `db:"-"`
+	DummyField142 *[]int64  `db:"-"`
+	DummyField143 *[]int64  `db:"-"`
+	DummyField144 *[]int64  `db:"-"`
+	DummyField145 *[]int64  `db:"-"`
+	DummyField146 *[]int64  `db:"-"`
+	DummyField147 *[]int64  `db:"-"`
+	DummyField148 *[]int64  `db:"-"`
+	DummyField149 *[]int64  `db:"-"`
+	DummyField150 *[]int64  `db:"-"`
+	DummyField151 *[]int64  `db:"-"`
+	DummyField152 *[]int64  `db:"-"`
+	DummyField153 *[]int64  `db:"-"`
+	DummyField154 *[]int64  `db:"-"`
+	DummyField155 *[]int64  `db:"-"`
+	DummyField156 *[]int64  `db:"-"`
+	DummyField157 *[]int64  `db:"-"`
+	DummyField158 *[]int64  `db:"-"`
+	DummyField159 *[]int64  `db:"-"`
+	DummyField160 *[]int64  `db:"-"`
+	DummyField161 *[]int64  `db:"-"`
+	DummyField162 *[]int64  `db:"-"`
+	DummyField163 *[]int64  `db:"-"`
+	DummyField164 *[]int64  `db:"-"`
+	DummyField165 *[]int64  `db:"-"`
+	DummyField166 *[]int64  `db:"-"`
+	DummyField167 *[]int64  `db:"-"`
+	DummyField168 *[]int64  `db:"-"`
+	DummyField169 *[]int64  `db:"-"`
+	DummyField170 *[]int64  `db:"-"`
+	DummyField171 *[]int64  `db:"-"`
+	DummyField172 *[]int64  `db:"-"`
+	DummyField173 *[]int64  `db:"-"`
+	DummyField174 *[]int64  `db:"-"`
+	DummyField175 *[]int64  `db:"-"`
+}
+
+func (s *SmartInvoice) DBColumns(columnNames []string) ([]interface{}, error) {
+	var columns []interface{}
+	for _, columnName := range columnNames {
+		switch strings.ToLower(columnName) {
+		case "id":
+			columns = append(columns, &s.Id)
+		case "created":
+			columns = append(columns, &s.Created)
+		case "updated":
+			columns = append(columns, &s.Updated)
+		case "memo":
+			columns = append(columns, &s.Memo)
+		case "personid":
+			columns = append(columns, &s.PersonId)
+		case "ispaid":
+			columns = append(columns, &s.IsPaid)
+		default:
+			return nil, fmt.Errorf("unknown column name %q", columnName)
+		}
+	}
+	return columns, nil
 }
 
 type InvoiceWithValuer struct {
@@ -696,7 +912,7 @@ func TestTruncateTables(t *testing.T) {
 	// Insert some data
 	p1 := &Person{0, 0, 0, "Bob", "Smith", 0}
 	dbmap.Insert(p1)
-	inv := &Invoice{0, 0, 1, "my invoice", 0, true}
+	inv := &Invoice{Id: 0, Created: 0, Updated: 1, Memo: "my invoice", PersonId: 0, IsPaid: true}
 	dbmap.Insert(inv)
 
 	err = dbmap.TruncateTables()
@@ -1303,7 +1519,7 @@ func TestColumnProps(t *testing.T) {
 	defer dropAndClose(dbmap)
 
 	// test transient
-	inv := &Invoice{0, 0, 1, "my invoice", 0, true}
+	inv := &Invoice{Id: 0, Created: 0, Updated: 1, Memo: "my invoice", PersonId: 0, IsPaid: true}
 	_insert(dbmap, inv)
 	obj := _get(dbmap, Invoice{}, inv.Id)
 	inv = obj.(*Invoice)
@@ -1319,7 +1535,7 @@ func TestColumnProps(t *testing.T) {
 	}
 
 	// test unique - same person id
-	inv = &Invoice{0, 0, 1, "my invoice2", 0, false}
+	inv = &Invoice{Id: 0, Created: 0, Updated: 1, Memo: "my invoice2", PersonId: 0, IsPaid: false}
 	err = dbmap.Insert(inv)
 	if err == nil {
 		t.Errorf("same PersonId inserted, but Insert did not fail.")
@@ -1333,7 +1549,7 @@ func TestRawSelect(t *testing.T) {
 	p1 := &Person{0, 0, 0, "bob", "smith", 0}
 	_insert(dbmap, p1)
 
-	inv1 := &Invoice{0, 0, 0, "xmas order", p1.Id, true}
+	inv1 := &Invoice{Id: 0, Created: 0, Updated: 0, Memo: "xmas order", PersonId: p1.Id, IsPaid: true}
 	_insert(dbmap, inv1)
 
 	expected := &InvoicePersonView{inv1.Id, p1.Id, inv1.Memo, p1.FName, 0}
@@ -1400,8 +1616,8 @@ func TestTransaction(t *testing.T) {
 	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
-	inv1 := &Invoice{0, 100, 200, "t1", 0, true}
-	inv2 := &Invoice{0, 100, 200, "t2", 0, false}
+	inv1 := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "t1", PersonId: 0, IsPaid: true}
+	inv2 := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "t2", PersonId: 0, IsPaid: false}
 
 	trans, err := dbmap.Begin()
 	if err != nil {
@@ -1540,7 +1756,7 @@ func TestSavepoint(t *testing.T) {
 	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
-	inv1 := &Invoice{0, 100, 200, "unpaid", 0, false}
+	inv1 := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "unpaid", PersonId: 0, IsPaid: false}
 
 	trans, err := dbmap.Begin()
 	if err != nil {
@@ -1588,8 +1804,8 @@ func TestMultiple(t *testing.T) {
 	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
-	inv1 := &Invoice{0, 100, 200, "a", 0, false}
-	inv2 := &Invoice{0, 100, 200, "b", 0, true}
+	inv1 := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "a", PersonId: 0, IsPaid: false}
+	inv2 := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "b", PersonId: 0, IsPaid: true}
 	_insert(dbmap, inv1, inv2)
 
 	inv1.Memo = "c"
@@ -1606,7 +1822,7 @@ func TestCrud(t *testing.T) {
 	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
-	inv := &Invoice{0, 100, 200, "first order", 0, true}
+	inv := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "first order", PersonId: 0, IsPaid: true}
 	testCrudInternal(t, dbmap, inv)
 
 	invtag := &InvoiceTag{0, 300, 400, "some order", 33, false}
@@ -1702,7 +1918,7 @@ func TestColumnFilter(t *testing.T) {
 	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
-	inv1 := &Invoice{0, 100, 200, "a", 0, false}
+	inv1 := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "a", PersonId: 0, IsPaid: false}
 	_insert(dbmap, inv1)
 
 	inv1.Memo = "c"
@@ -2160,7 +2376,7 @@ func TestInvoicePersonView(t *testing.T) {
 	dbmap.Insert(p1)
 
 	// notice how we can wire up p1.Id to the invoice easily
-	inv1 := &Invoice{0, 0, 0, "xmas order", p1.Id, false}
+	inv1 := &Invoice{Id: 0, Created: 0, Updated: 0, Memo: "xmas order", PersonId: p1.Id, IsPaid: false}
 	dbmap.Insert(inv1)
 
 	// Run your query
@@ -2446,8 +2662,8 @@ func TestPrepare(t *testing.T) {
 	dbmap := initDBMap(t)
 	defer dropAndClose(dbmap)
 
-	inv1 := &Invoice{0, 100, 200, "prepare-foo", 0, false}
-	inv2 := &Invoice{0, 100, 200, "prepare-bar", 0, false}
+	inv1 := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "prepare-foo", PersonId: 0, IsPaid: false}
+	inv2 := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "prepare-bar", PersonId: 0, IsPaid: false}
 	_insert(dbmap, inv1, inv2)
 
 	bindVar0 := dbmap.Dialect.BindVar(0)
@@ -2549,7 +2765,7 @@ func BenchmarkNativeCrud(b *testing.B) {
 		delete = "delete from invoice_test where " + columnId + "=$1"
 	}
 
-	inv := &Invoice{0, 100, 200, "my memo", 0, false}
+	inv := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "my memo", PersonId: 0, IsPaid: false}
 
 	for i := 0; i < b.N; i++ {
 		res, err := dbmap.Db.Exec(insert, inv.Created, inv.Updated,
@@ -2596,7 +2812,7 @@ func BenchmarkGorpCrud(b *testing.B) {
 	defer dropAndClose(dbmap)
 	b.StartTimer()
 
-	inv := &Invoice{0, 100, 200, "my memo", 0, true}
+	inv := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "my memo", PersonId: 0, IsPaid: true}
 	for i := 0; i < b.N; i++ {
 		err := dbmap.Insert(inv)
 		if err != nil {
@@ -2627,6 +2843,56 @@ func BenchmarkGorpCrud(b *testing.B) {
 			panic(err)
 		}
 
+	}
+}
+
+func BenchmarkClassicHolder(b *testing.B) {
+	dbmap := newDBMap(b)
+	dbmap.Db.Exec("drop table if exists invoice_test")
+	dbmap.AddTableWithName(Invoice{}, "invoice_test").SetKeys(true, "Id")
+
+	if err := dbmap.CreateTables(); err != nil {
+		panic(err)
+	}
+	defer dropAndClose(dbmap)
+
+	inv := &Invoice{Id: 0, Created: 100, Updated: 200, Memo: "my memo", PersonId: 0, IsPaid: true}
+	if err := dbmap.Insert(inv); err != nil {
+		panic(err)
+	}
+
+	var err error
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err = dbmap.SelectOne(&inv, `select * from invoice_test limit 1`)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkSmartHolder(b *testing.B) {
+	dbmap := newDBMap(b)
+	dbmap.Db.Exec("drop table if exists invoice_test")
+	dbmap.AddTableWithName(SmartInvoice{}, "invoice_test").SetKeys(true, "Id")
+
+	if err := dbmap.CreateTables(); err != nil {
+		panic(err)
+	}
+	defer dropAndClose(dbmap)
+
+	inv := &SmartInvoice{Id: 0, Created: 100, Updated: 200, Memo: "my memo", PersonId: 0, IsPaid: true}
+	if err := dbmap.Insert(inv); err != nil {
+		panic(err)
+	}
+
+	var err error
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err = dbmap.SelectOne(inv, `select * from invoice_test limit 1`)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
