@@ -29,6 +29,8 @@ import (
 //
 type DbMap struct {
 	ctx context.Context
+	// TimeOutInterval is used to set the timeout interval for transactions based on DbMap
+	TimeOutInterval time.Duration
 
 	// Db handle to use with this map
 	Db *sql.DB
