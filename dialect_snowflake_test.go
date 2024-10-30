@@ -50,7 +50,7 @@ func TestSnowflakeDialect(t *testing.T) {
       {"uint64", uint64(1), 0, false, "bigint"},
       {"float32", float32(1), 0, false, "real"},
       {"float64", float64(1), 0, false, "double precision"},
-      {"[]uint8", []uint8{1}, 0, false, "bytea"},
+      {"[]uint8", []uint8{1}, 0, false, "binary"},
       {"NullInt64", sql.NullInt64{}, 0, false, "bigint"},
       {"NullFloat64", sql.NullFloat64{}, 0, false, "double precision"},
       {"NullBool", sql.NullBool{}, 0, false, "boolean"},
