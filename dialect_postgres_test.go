@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
+//go:build !integration
 // +build !integration
 
 package gorp_test
@@ -19,14 +20,20 @@ import (
 )
 
 func TestPostgresDialect(t *testing.T) {
-	o := onpar.New()
-	defer o.Run(t)
+	type testContext struct {
+		expect  expect.Expectation
+		dialect gorp.PostgresDialect
+	}
 
-	o.BeforeEach(func(t *testing.T) (expect.Expectation, gorp.PostgresDialect) {
-		return expect.New(t), gorp.PostgresDialect{
-			LowercaseFields: false,
+	o := onpar.BeforeEach(onpar.New(t), func(t *testing.T) testContext {
+		return testContext{
+			expect: expect.New(t),
+			dialect: gorp.PostgresDialect{
+				LowercaseFields: false,
+			},
 		}
 	})
+	defer o.Run()
 
 	o.Group("ToSqlType", func() {
 		tests := []struct {
@@ -59,92 +66,92 @@ func TestPostgresDialect(t *testing.T) {
 			{"large string", "", 1024, false, "varchar(1024)"},
 		}
 		for _, t := range tests {
-			o.Spec(t.name, func(expect expect.Expectation, dialect gorp.PostgresDialect) {
+			o.Spec(t.name, func(tt testContext) {
 				typ := reflect.TypeOf(t.value)
-				sqlType := dialect.ToSqlType(typ, t.maxSize, t.autoIncr)
-				expect(sqlType).To(matchers.Equal(t.expected))
+				sqlType := tt.dialect.ToSqlType(typ, t.maxSize, t.autoIncr)
+				tt.expect(sqlType).To(matchers.Equal(t.expected))
 			})
 		}
 	})
 
-	o.Spec("AutoIncrStr", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.AutoIncrStr()).To(matchers.Equal(""))
+	o.Spec("AutoIncrStr", func(tt testContext) {
+		tt.expect(tt.dialect.AutoIncrStr()).To(matchers.Equal(""))
 	})
 
-	o.Spec("AutoIncrBindValue", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.AutoIncrBindValue()).To(matchers.Equal("default"))
+	o.Spec("AutoIncrBindValue", func(tt testContext) {
+		tt.expect(tt.dialect.AutoIncrBindValue()).To(matchers.Equal("default"))
 	})
 
-	o.Spec("AutoIncrInsertSuffix", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
+	o.Spec("AutoIncrInsertSuffix", func(tt testContext) {
 		cm := gorp.ColumnMap{
 			ColumnName: "foo",
 		}
-		expect(dialect.AutoIncrInsertSuffix(&cm)).To(matchers.Equal(` returning "foo"`))
+		tt.expect(tt.dialect.AutoIncrInsertSuffix(&cm)).To(matchers.Equal(` returning "foo"`))
 	})
 
-	o.Spec("CreateTableSuffix", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.CreateTableSuffix()).To(matchers.Equal(""))
+	o.Spec("CreateTableSuffix", func(tt testContext) {
+		tt.expect(tt.dialect.CreateTableSuffix()).To(matchers.Equal(""))
 	})
 
-	o.Spec("CreateIndexSuffix", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.CreateIndexSuffix()).To(matchers.Equal("using"))
+	o.Spec("CreateIndexSuffix", func(tt testContext) {
+		tt.expect(tt.dialect.CreateIndexSuffix()).To(matchers.Equal("using"))
 	})
 
-	o.Spec("DropIndexSuffix", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.DropIndexSuffix()).To(matchers.Equal(""))
+	o.Spec("DropIndexSuffix", func(tt testContext) {
+		tt.expect(tt.dialect.DropIndexSuffix()).To(matchers.Equal(""))
 	})
 
-	o.Spec("TruncateClause", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.TruncateClause()).To(matchers.Equal("truncate"))
+	o.Spec("TruncateClause", func(tt testContext) {
+		tt.expect(tt.dialect.TruncateClause()).To(matchers.Equal("truncate"))
 	})
 
-	o.Spec("SleepClause", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.SleepClause(1 * time.Second)).To(matchers.Equal("pg_sleep(1.000000)"))
-		expect(dialect.SleepClause(100 * time.Millisecond)).To(matchers.Equal("pg_sleep(0.100000)"))
+	o.Spec("SleepClause", func(tt testContext) {
+		tt.expect(tt.dialect.SleepClause(1 * time.Second)).To(matchers.Equal("pg_sleep(1.000000)"))
+		tt.expect(tt.dialect.SleepClause(100 * time.Millisecond)).To(matchers.Equal("pg_sleep(0.100000)"))
 	})
 
-	o.Spec("BindVar", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.BindVar(0)).To(matchers.Equal("$1"))
-		expect(dialect.BindVar(4)).To(matchers.Equal("$5"))
+	o.Spec("BindVar", func(tt testContext) {
+		tt.expect(tt.dialect.BindVar(0)).To(matchers.Equal("$1"))
+		tt.expect(tt.dialect.BindVar(4)).To(matchers.Equal("$5"))
 	})
 
 	o.Group("QuoteField", func() {
-		o.Spec("By default, case is preserved", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-			expect(dialect.QuoteField("Foo")).To(matchers.Equal(`"Foo"`))
-			expect(dialect.QuoteField("bar")).To(matchers.Equal(`"bar"`))
+		o.Spec("By default, case is preserved", func(tt testContext) {
+			tt.expect(tt.dialect.QuoteField("Foo")).To(matchers.Equal(`"Foo"`))
+			tt.expect(tt.dialect.QuoteField("bar")).To(matchers.Equal(`"bar"`))
 		})
 
 		o.Group("With LowercaseFields set to true", func() {
-			o.BeforeEach(func(expect expect.Expectation, dialect gorp.PostgresDialect) (expect.Expectation, gorp.PostgresDialect) {
-				dialect.LowercaseFields = true
-				return expect, dialect
+			o := onpar.BeforeEach(o, func(tt testContext) testContext {
+				tt.dialect.LowercaseFields = true
+				return tt
 			})
 
-			o.Spec("fields are lowercased", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-				expect(dialect.QuoteField("Foo")).To(matchers.Equal(`"foo"`))
+			o.Spec("fields are lowercased", func(tt testContext) {
+				tt.expect(tt.dialect.QuoteField("Foo")).To(matchers.Equal(`"foo"`))
 			})
 		})
 	})
 
 	o.Group("QuotedTableForQuery", func() {
-		o.Spec("using the default schema", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-			expect(dialect.QuotedTableForQuery("", "foo")).To(matchers.Equal(`"foo"`))
+		o.Spec("using the default schema", func(tt testContext) {
+			tt.expect(tt.dialect.QuotedTableForQuery("", "foo")).To(matchers.Equal(`"foo"`))
 		})
 
-		o.Spec("with a supplied schema", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-			expect(dialect.QuotedTableForQuery("foo", "bar")).To(matchers.Equal(`foo."bar"`))
+		o.Spec("with a supplied schema", func(tt testContext) {
+			tt.expect(tt.dialect.QuotedTableForQuery("foo", "bar")).To(matchers.Equal(`foo."bar"`))
 		})
 	})
 
-	o.Spec("IfSchemaNotExists", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.IfSchemaNotExists("foo", "bar")).To(matchers.Equal("foo if not exists"))
+	o.Spec("IfSchemaNotExists", func(tt testContext) {
+		tt.expect(tt.dialect.IfSchemaNotExists("foo", "bar")).To(matchers.Equal("foo if not exists"))
 	})
 
-	o.Spec("IfTableExists", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.IfTableExists("foo", "bar", "baz")).To(matchers.Equal("foo if exists"))
+	o.Spec("IfTableExists", func(tt testContext) {
+		tt.expect(tt.dialect.IfTableExists("foo", "bar", "baz")).To(matchers.Equal("foo if exists"))
 	})
 
-	o.Spec("IfTableNotExists", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
-		expect(dialect.IfTableNotExists("foo", "bar", "baz")).To(matchers.Equal("foo if not exists"))
+	o.Spec("IfTableNotExists", func(tt testContext) {
+		tt.expect(tt.dialect.IfTableNotExists("foo", "bar", "baz")).To(matchers.Equal("foo if not exists"))
 	})
 }
