@@ -258,13 +258,17 @@ type Person struct {
 //   table.ColMap("Id").Rename("product_id")
 //   table.ColMap("Price").Rename("unit_price")
 //   table.ColMap("IgnoreMe").SetTransient(true)
+//   table.ColMap("IgnoreWrite").Rename("ignore_write").SetTransient(true)
 //
 // You can optionally declare the field to be a primary key and/or autoincrement
+// The readonly fields are transient but available for mapping on reads (e.g. this 
+// field may be a computed property)
 //
 type Product struct {
-    Id         int64     `db:"product_id, primarykey, autoincrement"`
-    Price      int64     `db:"unit_price"`
-    IgnoreMe   string    `db:"-"`
+    Id           int64     `db:"product_id, primarykey, autoincrement"`
+    Price        int64     `db:"unit_price"`
+    IgnoreMe     string    `db:"-"`
+    IgnoreWrite  string    `db:"ignore_write, readonly"`
 }
 ```
 
