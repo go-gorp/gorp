@@ -117,6 +117,14 @@ func (m *DbMap) dynamicTableMap() map[string]*TableMap {
 	return m.tablesDynamic
 }
 
+// WithDbMapContext is like WithContext, but returns the DbMap instead of a generic SqlExecutor
+func (m *DbMap) WithDbMapContext(ctx context.Context) DbMap {
+	copy := &DbMap{}
+	*copy = *m
+	copy.ctx = ctx
+	return *copy
+}
+
 func (m *DbMap) WithContext(ctx context.Context) SqlExecutor {
 	copy := &DbMap{}
 	*copy = *m
